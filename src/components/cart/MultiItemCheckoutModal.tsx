@@ -847,53 +847,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     )}
                   </div>
                   
-                  {paymentMethod?.type === 'default' && (
-                    <div className="mb-4">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod({
-                            type: 'default',
-                            defaultToken: 'usdc'
-                          })}
-                          className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
-                            paymentMethod?.defaultToken === 'usdc'
-                              ? 'border-secondary bg-secondary/10 text-white'
-                              : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
-                          }`}
-                        >
-                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">$</span>
-                          </div>
-                          <span className="text-sm font-medium">Pay with USDC</span>
-                        </button>
-                        
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod({
-                            type: 'default',
-                            defaultToken: 'sol'
-                          })}
-                          className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
-                            paymentMethod?.defaultToken === 'sol'
-                              ? 'border-secondary bg-secondary/10 text-white'
-                              : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
-                          }`}
-                        >
-                          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">◎</span>
-                          </div>
-                          <span className="text-sm font-medium">Pay with SOL</span>
-                        </button>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-2 text-center">
-                        {paymentMethod?.defaultToken === 'usdc' 
-                          ? 'Pay directly with USDC (no swap needed)' 
-                          : 'Pay directly with SOL (no swap needed)'}
-                      </p>
-                    </div>
-                  )}
-                  
                   {/* Payment Method Selector */}
                   <PaymentMethodSelector
                     selectedMethod={paymentMethod}
@@ -913,6 +866,53 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   )}
                 </div>
                 
+                {paymentMethod?.type === 'default' && (
+                  <div className="mb-4">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod({
+                          type: 'default',
+                          defaultToken: 'usdc'
+                        })}
+                        className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                          paymentMethod?.defaultToken === 'usdc'
+                            ? 'border-secondary bg-secondary/10 text-white'
+                            : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        }`}
+                      >
+                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                          <span className="text-xs font-bold text-white">$</span>
+                        </div>
+                        <span className="text-sm font-medium">Pay with USDC</span>
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod({
+                          type: 'default',
+                          defaultToken: 'sol'
+                        })}
+                        className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                          paymentMethod?.defaultToken === 'sol'
+                            ? 'border-secondary bg-secondary/10 text-white'
+                            : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        }`}
+                      >
+                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                          <span className="text-xs font-bold text-white">◎</span>
+                        </div>
+                        <span className="text-sm font-medium">Pay with SOL</span>
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2 text-center">
+                      {paymentMethod?.defaultToken === 'usdc' 
+                        ? 'Pay directly with USDC (no swap needed)' 
+                        : 'Pay directly with SOL (no swap needed)'}
+                    </p>
+                  </div>
+                )}
+
                 {/* Price Summary */}
                 <div className="mt-4 border-t border-gray-800 pt-4">
                   <div className="space-y-2">
@@ -936,7 +936,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     
                     <div className="flex justify-between font-medium pt-2">
                       <span className="text-gray-300">Total</span>
-                      <span className="text-lg text-white">{formatPrice(finalPrice)}</span>
+                      <span className="text-lg text-white">{formatPrice(finalPrice, paymentMethod?.type == 'default' ? paymentMethod.defaultToken : 'USDC')}</span>
                     </div>
                   </div>
                 </div>

@@ -3,7 +3,7 @@
  * @param price Price in SOL
  * @returns Formatted price as string
  */
-export function formatPrice(price: number): string {
+export function formatPrice(price: number, paymentMethodType = 'USDC'): string {
   // Format as number with up to 4 decimal places
   const formattedValue = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
@@ -11,7 +11,7 @@ export function formatPrice(price: number): string {
   }).format(price);
   
   // Add SOL suffix
-  return `${formattedValue} SOL`;
+  return `${formattedValue} ${paymentMethodType.toUpperCase()}`;
 }
 
 /**
