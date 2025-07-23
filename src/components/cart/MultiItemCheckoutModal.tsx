@@ -894,7 +894,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   />
                 
                 {paymentMethod?.type === 'default' && (
-                  <div className="space-y-3 text-xs">
+                  <div className="space-y-3 mt-4 pt-4 text-xs">
                     <div className="flex justify-end">
                       <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700">
                         <button

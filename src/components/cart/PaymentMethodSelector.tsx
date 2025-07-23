@@ -382,7 +382,7 @@ export function PaymentMethodSelector({
   };
 
   return (
-    <div className="space-y-4 border-t border-gray-800">
+    <div className="space-y-4 border-t border-gray-800 mt-4 pt-4">
       <div className="relative">
         <label className="block text-sm font-medium text-gray-200 mb-2">
           Payment Method
@@ -536,7 +536,7 @@ export function PaymentMethodSelector({
                 className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
+                  {/* <h5 className="text-xs font-medium text-gray-300">Price Quote</h5> */}
                   {priceQuote.loading && (
                     <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
                   )}
@@ -568,7 +568,7 @@ export function PaymentMethodSelector({
                           {priceQuote.tokenAmount} {priceQuote.tokenSymbol}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center">
+                      {/* <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">USD Value:</span>
                         <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
                       </div>
@@ -580,7 +580,7 @@ export function PaymentMethodSelector({
                       </div>
                       <div className="text-xs text-blue-400 mt-2">
                         Powered by Jupiter Exchange
-                      </div>
+                      </div> */}
                     </div>
                   )}
                 </div>
@@ -614,7 +614,7 @@ export function PaymentMethodSelector({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-2">
+            {/* <label className="block text-xs font-medium text-gray-300 mb-2">
               USDC Contract Address
             </label>
             <div className="space-y-2">
@@ -651,7 +651,7 @@ export function PaymentMethodSelector({
                     <ExternalLink className="h-3 w-3 text-gray-400" />
                   </button>
                 </div>
-              </div>
+              </div> */}
               
               <Button
                 type="button"
@@ -660,7 +660,7 @@ export function PaymentMethodSelector({
                 size="sm"
                 className="w-full"
               >
-                Configure {selectedChain.name} USDC Payment
+                Get {selectedChain.name} Quote
               </Button>
             </div>
           </div>
