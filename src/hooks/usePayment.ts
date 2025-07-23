@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useWallet } from '../contexts/WalletContext';
-import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { PublicKey, Transaction, TransactionInstruction, VersionedTransaction } from '@solana/web3.js';
 import { createSolanaPayment } from '../services/payments';
 import { monitorTransaction } from '../utils/transaction-monitor';
 import { updateTransactionStatus } from '../services/orders';
@@ -338,9 +338,11 @@ export function usePayment() {
         priorityFee
       );
 
+      console.log('✅ Swap transaction received:', swapTransactionBase64);
+
       // Deserialize transaction
       const swapTransactionBuf = Buffer.from(swapTransactionBase64, 'base64');
-      const transaction = Transaction.from(swapTransactionBuf);
+      const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
 
       // Type guard to ensure window.solana exists
       if (!window.solana) {
