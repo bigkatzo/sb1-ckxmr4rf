@@ -443,31 +443,6 @@ export function PaymentMethodSelector({
             <h4 className="text-sm font-medium text-white">Select SPL Token</h4>
           </div>
           
-          <div>
-            <div className="grid grid-cols-1 gap-2">
-              {POPULAR_TOKENS.map((token) => (
-                <button
-                  key={token.address}
-                  type="button"
-                  onClick={() => handlePopularTokenSelect(token)}
-                  className={`flex items-center gap-3 p-3 rounded-md border transition-colors ${
-                    selectedMethod.tokenAddress === token.address
-                      ? 'border-secondary bg-secondary/10'
-                      : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
-                    <span className="text-sm font-bold text-white">{token.symbol[0]}</span>
-                  </div>
-                  <div className="text-left flex-1">
-                    <div className="text-sm font-medium text-white">{token.symbol}</div>
-                    <div className="text-xs text-gray-400">{token.name}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
         {/* Token Selection Grid */}
           <div>
             <div className="grid grid-cols-2 gap-2">
@@ -594,7 +569,7 @@ export function PaymentMethodSelector({
                 <div className="flex items-center gap-2">
                   {!priceQuote.loading && !priceQuote.error && (
                     <span className="text-sm font-medium text-white">
-                      {priceQuote.tokenAmount} {priceQuote.tokenSymbol}
+                      {priceQuote.tokenAmount} {tokenInfo?.symbol || priceQuote.tokenSymbol}
                     </span>
                   )}
                   <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
@@ -615,10 +590,10 @@ export function PaymentMethodSelector({
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">You'll pay:</span>
                         <span className="text-sm font-medium text-white">
-                          {priceQuote.tokenAmount} {priceQuote.tokenSymbol}
+                          {priceQuote.tokenAmount} {tokenInfo?.symbol || priceQuote.tokenSymbol}
                         </span>
                       </div>
-                      {/* <div className="flex justify-between items-center">
+                      <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">USD Value:</span>
                         <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
                       </div>
@@ -627,13 +602,13 @@ export function PaymentMethodSelector({
                         <span className="text-xs text-gray-400">
                           1 {priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
                         </span>
-                      </div> */}
-                      {/* <div className="flex justify-between items-center">
+                      </div>
+                      <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">Swapping to:</span>
                         <span className="text-xs text-gray-400">
                           {defaultToken.toUpperCase()}
                         </span>
-                      </div> */}
+                      </div>
                       {priceQuote.tokenSymbol !== defaultToken.toUpperCase() && (
                         <div className="text-xs text-blue-400 mt-2">
                           Will be swapped to {defaultToken.toUpperCase()} via Jupiter
