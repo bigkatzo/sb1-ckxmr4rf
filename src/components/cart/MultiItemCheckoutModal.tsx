@@ -450,6 +450,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     let cartId = batchOrderData.batchOrderId ?? '';
     const totalAmount = batchOrderData.totalPaymentAmount ?? 0;
     const receiverWallet = batchOrderData.receiverWallet ?? 'anonymous';
+    const buyerAddress = walletAddress || 'anonymous';
     const tokenToProcess = paymentMethod?.defaultToken;
 
     console.log('Processing Solana payment:', { totalAmount, cartId, receiverWallet, tokenToProcess });
@@ -461,7 +462,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       success = paymentSuccess;
       signature = txSignature;
     } else {
-      const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(totalAmount, cartId, receiverWallet);
+      const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(totalAmount, buyerAddress, receiverWallet);
       success = paymentSuccess;
       signature = txSignature;
     }
@@ -545,7 +546,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             chainName: paymentMethod?.chainName,
             couponCode: appliedCoupon?.code,
             couponDiscount: appliedCoupon?.discountAmount,
-            originalPrice: totalPrice,
+            totalPrice,
           }
         })
       });
