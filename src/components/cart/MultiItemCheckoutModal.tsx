@@ -19,6 +19,7 @@ import { Button } from '../ui/Button';
 import { OrderSuccessView } from '../OrderSuccessView';
 import { PaymentMethodSelector, PaymentMethod, PriceQuote } from './PaymentMethodSelector';
 import { updateOrderTransactionSignature } from '../../services/orders.ts';
+import { usePayment } from '../../hooks/usePayment.ts';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -28,6 +29,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   const { items, clearCart, verifyAllItems } = useCart();
   const { isConnected, walletAddress } = useWallet();
   const { setVisible } = useWalletModal();
+  const { processPayment } = usePayment();
   
   // Form state
   const [shipping, setShipping] = useState<{
@@ -411,8 +413,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     }
   };
   
-  const handleCryptoComplete = async (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => {
-    console.log('Crypto payment successful:', txSignature, orderId, batchOrderId);
+  const handleDefaultCryptoComplete = async (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => {
+    console.log('Crypto payment successful:', txSignature, batchOrderId);
     
     if (!status.success) {
       setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
@@ -442,6 +444,45 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     // Start transaction confirmation
     setOrderProgress({ step: 'confirming_transaction' });
     await handleVerifyBatchTransactions(txSignature, batchOrderId, receiverWallet);
+  };
+
+  const processSolanaPayment = async () => {
+    let cartId = orderData.batchOrderId || '';
+    const totalAmount = orderData.price || 0;
+    const receiverWallet = orderData.receiverWallet || 'anonymous';
+    const tokenToProcess = paymentMethod?.defaultToken;
+
+    let success;
+    let signature: string | undefined;
+    if(tokenToProcess === 'sol') {
+      const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, cartId, receiverWallet);
+      success = paymentSuccess;
+      signature = txSignature;
+    } else {
+      const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, cartId, receiverWallet);
+      success = paymentSuccess;
+      signature = txSignature;
+    }
+    
+    if(!success || !signature) {
+      await handleDefaultCryptoComplete(
+        {
+          success: false
+        },
+        signature || '',
+        cartId,
+      );
+      return;
+    }
+    
+    await handleDefaultCryptoComplete(
+      {
+        success: true
+      },
+      signature,
+      cartId,
+      receiverWallet
+    );
   };
   
   // Update the handleStripeSuccess function to receive and use batchOrderId
@@ -499,11 +540,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             tokenName: paymentMethod?.tokenName,
             chainId: paymentMethod?.chainId,
             chainName: paymentMethod?.chainName,
-            // tokenAddress: paymentMethod?.tokenAddress,
-            // tokenSymbol: paymentMethod?.tokenSymbol,
-            // tokenName: paymentMethod?.tokenName,
-            // chainId: paymentMethod?.chainId,
-            // chainName: paymentMethod?.chainName,
             couponCode: appliedCoupon?.code,
             couponDiscount: appliedCoupon?.discountAmount,
             originalPrice: totalPrice,
@@ -545,14 +581,14 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         setShowStripeModal(true);
       } else if (paymentMethod?.type === 'spl-tokens') {
         // Handle token payments directly in the checkout flow
-        // You can implement the token payment logic here
-        toast.info('Token payment flow will be implemented here');
         toast.info('Token payment flow will be implemented');
       } else if (paymentMethod?.type === 'cross-chain') {
         // Handle cross-chain payments - you can implement your DeBridge flow here
         toast.info('Cross-chain payment flow will be implemented');
       } else {
-        toast.info('Cross-chain payment flow will be implemented');
+        // default...
+        await processSolanaPayment();
+        toast.info('Normal payment flow will be implemented');
       }
     } catch (error) {
       throw new Error(`Failed to create batch transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -858,46 +894,49 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   />
                 
                 {paymentMethod?.type === 'default' && (
-                  <div className="space-y-1 text-xs">
-                    <div className="flex items-center justify-center bg-gray-800 rounded-full p-1 w-fit mx-auto border border-gray-700">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod({ type: 'default', defaultToken: 'usdc' })}
-                        className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
-                          paymentMethod?.defaultToken === 'usdc'
-                            ? 'bg-secondary text-white'
-                            : 'text-gray-400 hover:text-white'
-                        }`}
-                      >
-                        <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
-                          <span className="text-[10px] font-bold text-white">$</span>
-                        </div>
-                        USDC
-                      </button>
+                  <div className="space-y-3 text-xs">
+                    <div className="flex justify-end">
+                      <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod({ type: 'default', defaultToken: 'usdc' })}
+                          className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
+                            paymentMethod?.defaultToken === 'usdc'
+                              ? 'bg-secondary text-white'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-white">$</span>
+                          </div>
+                          USDC
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod({ type: 'default', defaultToken: 'sol' })}
-                        className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
-                          paymentMethod?.defaultToken === 'sol'
-                            ? 'bg-secondary text-white'
-                            : 'text-gray-400 hover:text-white'
-                        }`}
-                      >
-                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                          <span className="text-[10px] font-bold text-white">◎</span>
-                        </div>
-                        SOL
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod({ type: 'default', defaultToken: 'sol' })}
+                          className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
+                            paymentMethod?.defaultToken === 'sol'
+                              ? 'bg-secondary text-white'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-white">◎</span>
+                          </div>
+                          SOL
+                        </button>
+                      </div>
                     </div>
 
-                    <p className="text-[10px] text-gray-400 text-center">
+                    <p className="text-[10px] text-gray-400 text-right">
                       {paymentMethod?.defaultToken === 'usdc'
                         ? 'Pay with USDC (no swap)'
                         : 'Pay with SOL (no swap)'}
                     </p>
                   </div>
-                )}
+)}
+
 
                 {paymentMethod?.type === 'spl-tokens' || paymentMethod?.type === 'default' && !isConnected && (
                     <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">

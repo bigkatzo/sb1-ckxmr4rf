@@ -382,7 +382,7 @@ export function PaymentMethodSelector({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 border-t border-gray-800">
       <div className="relative">
         <label className="block text-sm font-medium text-gray-200 mb-2">
           Payment Method
