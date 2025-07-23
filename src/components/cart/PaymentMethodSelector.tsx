@@ -95,7 +95,7 @@ export function PaymentMethodSelector({
   const paymentOptions = [
     {
       type: 'default' as const,
-      label: 'Pay with USDC / SOL',
+      label: 'Default',
       description: 'Quick payment with USDC or SOL',
       icon: Coins,
       available: isConnected

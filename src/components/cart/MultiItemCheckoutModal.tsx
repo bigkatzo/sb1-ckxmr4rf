@@ -856,18 +856,9 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     usdAmount={finalPrice}
                     onGetPriceQuote={handleGetPriceQuote}
                   />
-                  
-                  {paymentMethod?.type === 'spl-tokens' && !isConnected && (
-                    <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                      <p className="text-amber-400 text-sm">
-                        Please connect your wallet to continue with token payment
-                      </p>
-                    </div>
-                  )}
-                </div>
                 
                 {paymentMethod?.type === 'default' && (
-                  <div className="mb-4">
+                  <div className="space-y-4">
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -884,7 +875,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                         <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
                           <span className="text-xs font-bold text-white">$</span>
                         </div>
-                        <span className="text-sm font-medium">Pay with USDC</span>
+                        <span className="text-sm font-medium">USDC</span>
                       </button>
                       
                       <button
@@ -902,7 +893,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                         <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
                           <span className="text-xs font-bold text-white">◎</span>
                         </div>
-                        <span className="text-sm font-medium">Pay with SOL</span>
+                        <span className="text-sm font-medium">SOL</span>
                       </button>
                     </div>
                     <p className="text-xs text-gray-400 mt-2 text-center">
@@ -912,6 +903,16 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     </p>
                   </div>
                 )}
+
+
+                {paymentMethod?.type === 'spl-tokens' || paymentMethod?.type === 'default' && !isConnected && (
+                    <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                      <p className="text-amber-400 text-sm">
+                        Please connect your wallet to continue with token payment
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Price Summary */}
                 <div className="mt-4 border-t border-gray-800 pt-4">
