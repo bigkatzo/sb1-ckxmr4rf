@@ -107,7 +107,7 @@ async function verifySolanaTransactionDetails(signature, expectedDetails) {
       };
     }
 
-    log.info('expectedDetails', expectedDetails);
+    log('info', `expectedDetails', ${expectedDetails}`);
 
     const result = await verifyTransaction(SOLANA_CONNECTION, signature);
 
