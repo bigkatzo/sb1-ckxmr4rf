@@ -347,7 +347,7 @@ export function usePayment() {
         throw new Error('Solana wallet not available');
       }
 
-      console.log('🔄 Signing and sending swap transaction...');
+      console.log('🔄 Signing and sending swap transaction...', swapTransactionBuf);
       
       // Sign and send transaction
       const { signature } = await window.solana.signAndSendTransaction(transaction);

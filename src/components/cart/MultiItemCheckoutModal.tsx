@@ -585,6 +585,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         setShowStripeModal(true);
       } else if (paymentMethod?.type === 'spl-tokens') {
         toast.info('Token payment flow will be implemented');
+        await processSolanaSwapTokenPayment(
+          paymentMethod.tokenAddress || '',
+          undefined,
+          batchOrderData.totalPaymentAmount,
+          batchOrderData.receiverWallet
+        );
       } else if (paymentMethod?.type === 'cross-chain') {
         toast.info('Cross-chain payment flow will be implemented');
       } else {
