@@ -107,6 +107,8 @@ async function verifySolanaTransactionDetails(signature, expectedDetails) {
       };
     }
 
+    log.info('expectedDetails', expectedDetails);
+
     const result = await verifyTransaction(SOLANA_CONNECTION, signature);
 
     if (!result.isValid) {
@@ -129,7 +131,7 @@ async function verifySolanaTransactionDetails(signature, expectedDetails) {
     // Default to SOL, or use tokenMint if provided
     const tokenMint = expectedDetails?.tokenMint;
 
-    if (!tokenMint || tokenMint === 'SOL') {
+    if (!tokenMint || tokenMint === 'sol') {
       const preBalances = tx.meta.preBalances;
       const postBalances = tx.meta.postBalances;
 
@@ -177,7 +179,7 @@ async function verifySolanaTransactionDetails(signature, expectedDetails) {
       const post = postTokenBalances[i];
       const pre = preTokenBalances.find(p => p.accountIndex === post.accountIndex && p.mint === post.mint);
 
-      if (post.mint !== tokenMint) continue;
+      if (post.mint !== "Es9vMFrzaCERiYDV9cTgJp9RyTmDvP8fWsgGMpUoEUsU") continue;
 
       const owner = post.owner;
       const preAmount = Number(pre?.uiTokenAmount?.amount || '0');

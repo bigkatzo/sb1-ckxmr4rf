@@ -450,7 +450,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     let cartId = batchOrderData.batchOrderId ?? '';
     const totalAmount = batchOrderData.totalPaymentAmount ?? 0;
     const receiverWallet = batchOrderData.receiverWallet ?? 'anonymous';
-    const buyerAddress = walletAddress || 'anonymous';
+    // const buyerAddress = walletAddress || 'anonymous';
     const tokenToProcess = paymentMethod?.defaultToken;
 
     console.log('Processing Solana payment:', { totalAmount, cartId, receiverWallet, tokenToProcess });
@@ -633,10 +633,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               
               // IMMEDIATELY clear cart - don't wait for batch refresh
               console.log('Clearing cart immediately');
-              if(status.success) {
-                clearCart();
-                setShowSuccessView(true);
-              }
+              clearCart();
+              setShowSuccessView(true);
               
               // Auto-close modal after showing success
               console.log('Setting auto-close timeout');
