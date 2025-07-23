@@ -596,7 +596,7 @@ exports.handler = async (event, context) => {
 
       log('info', 'Processing blockchain payment');
       // if direct
-      if(paymentMetadata.paymentMethod === 'usdc' || 'sol') {
+      if(paymentMetadata.paymentMethod === 'usdc' || paymentMetadata.paymethod === 'sol') {
         verificationResult = await verifySolanaTransactionDetails(signature, details);
       } else {
         // just verify for now
