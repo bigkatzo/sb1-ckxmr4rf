@@ -457,12 +457,23 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
 
     let success;
     let signature: string | undefined;
-    if(tokenToProcess === 'sol') {
-      const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, cartId, receiverWallet);
-      success = paymentSuccess;
-      signature = txSignature;
-    } else {
-      const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(totalAmount, cartId, receiverWallet);
+    if(paymentMethod?.type === 'default') {
+      if(tokenToProcess === 'sol') {
+        const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, cartId, receiverWallet);
+        success = paymentSuccess;
+        signature = txSignature;
+      } else {
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(totalAmount, cartId, receiverWallet);
+        success = paymentSuccess;
+        signature = txSignature;
+      }
+    } else if(paymentMethod?.type === 'spl-tokens') {
+      const { success: paymentSuccess, signature: txSignature } = await processSolanaSwapTokenPayment(
+        paymentMethod.tokenAddress || '',
+        undefined,
+        totalAmount,
+        receiverWallet
+      );
       success = paymentSuccess;
       signature = txSignature;
     }
@@ -585,12 +596,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         setShowStripeModal(true);
       } else if (paymentMethod?.type === 'spl-tokens') {
         toast.info('Token payment flow will be implemented');
-        await processSolanaSwapTokenPayment(
-          paymentMethod.tokenAddress || '',
-          undefined,
-          batchOrderData.totalPaymentAmount,
-          batchOrderData.receiverWallet
-        );
+        await processSolanaPayment(batchOrderData);
       } else if (paymentMethod?.type === 'cross-chain') {
         toast.info('Cross-chain payment flow will be implemented');
       } else {
