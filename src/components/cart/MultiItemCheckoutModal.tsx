@@ -619,7 +619,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               console.log('Setting error state:', status.error);
               setOrderProgress({ step: 'error', error: status.error });
               return;
-            } 
+            }
             
             if (status.paymentConfirmed) {
               console.log('Payment confirmed, setting success state');
@@ -633,8 +633,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
               
               // IMMEDIATELY clear cart - don't wait for batch refresh
               console.log('Clearing cart immediately');
-              clearCart();
-              setShowSuccessView(true);
+              if(status.success) {
+                clearCart();
+                setShowSuccessView(true);
+              }
               
               // Auto-close modal after showing success
               console.log('Setting auto-close timeout');
