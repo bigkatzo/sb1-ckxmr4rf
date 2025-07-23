@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { ChevronDown, CreditCard, Wallet, Coins, Link, Check, Copy, ExternalLink } from 'lucide-react';
+import { ChevronDown, CreditCard, Wallet, Coins, Link, Check, Copy, ExternalLink, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { toast } from 'react-toastify';
 
 export interface PaymentMethod {
-  type: 'stripe' | 'solana' | 'other-chains';
+  type: 'stripe' | 'tokens' | 'other-chains';
+  defaultToken?: 'usdc' | 'sol';
   tokenAddress?: string;
   chainId?: string;
   tokenSymbol?: string;
@@ -93,6 +94,8 @@ export function PaymentMethodSelector({
   const [priceQuote, setPriceQuote] = useState<PriceQuote | null>(null);
   const [loadingTokenInfo, setLoadingTokenInfo] = useState(false);
   const [tokenInfo, setTokenInfo] = useState<{ name: string; symbol: string } | null>(null);
+  const [showPriceDetails, setShowPriceDetails] = useState(false);
+  const [defaultToken, setDefaultToken] = useState<'usdc' | 'sol'>('usdc');
 
   const paymentOptions = [
     {
@@ -103,7 +106,7 @@ export function PaymentMethodSelector({
       available: true
     },
     {
-      type: 'solana' as const,
+      type: 'tokens' as const,
       label: 'Pay with Tokens',
       description: 'SOL, USDC, or any SPL token',
       icon: Wallet,
@@ -152,15 +155,21 @@ export function PaymentMethodSelector({
 
   // Jupiter API price quote function
   const getJupiterPriceQuote = async (tokenAddress: string): Promise<PriceQuote> => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 800));
     
     try {
-      // Jupiter Quote API - swap from input token to USDC
-      const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-      const inputAmount = Math.floor(usdAmount * 1000000); // Convert to smallest unit
+      // Determine output token based on default selection
+      const outputMint = defaultToken === 'usdc' 
+        ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' // USDC
+        : 'So11111111111111111111111111111111111111112'; // SOL
       
+      // Convert USD amount to output token amount (6 decimals for USDC, 9 for SOL)
+      const outputDecimals = defaultToken === 'usdc' ? 6 : 9;
+      const outputAmount = Math.floor(usdAmount * Math.pow(10, outputDecimals));
+      
+      // Get quote for swapping FROM the input token TO get the exact output amount needed
       const quoteResponse = await fetch(
-        `https://quote-api.jup.ag/v6/quote?inputMint=${tokenAddress}&outputMint=${usdcMint}&amount=${inputAmount}&slippageBps=50`
+        `https://quote-api.jup.ag/v6/quote?inputMint=${tokenAddress}&outputMint=${outputMint}&amount=${outputAmount}&swapMode=ExactOut&slippageBps=50`
       );
       
       if (!quoteResponse.ok) {
@@ -169,9 +178,12 @@ export function PaymentMethodSelector({
       
       const quoteData = await quoteResponse.json();
       
-      // Calculate token amount needed
-      const tokenAmount = (parseFloat(quoteData.inAmount) / Math.pow(10, 6)).toFixed(6);
-      const rate = usdAmount / parseFloat(tokenAmount);
+      // Get the input token decimals (assume 6 for most tokens, 9 for SOL)
+      const inputDecimals = tokenAddress === 'So11111111111111111111111111111111111111112' ? 9 : 6;
+      
+      // Calculate exact token amount needed to get the USD equivalent
+      const tokenAmount = (parseFloat(quoteData.inAmount) / Math.pow(10, inputDecimals)).toFixed(6);
+      const rate = parseFloat(tokenAmount) > 0 ? usdAmount / parseFloat(tokenAmount) : 0;
       
       return {
         tokenAmount,
@@ -182,7 +194,8 @@ export function PaymentMethodSelector({
         loading: false
       };
     } catch (error) {
-      // Fallback to dummy data if Jupiter API fails
+      console.error('Jupiter API error:', error);
+      // Fallback to mock rates if Jupiter API fails
       const mockRates: { [key: string]: number } = {
         'So11111111111111111111111111111111111111112': 180.00, // SOL
         'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 1.00, // USDC
@@ -301,8 +314,12 @@ export function PaymentMethodSelector({
     setPriceQuote(null);
     setTokenInfo(null);
     setCustomTokenAddress('');
+    setShowPriceDetails(false);
     
-    const paymentMethod: PaymentMethod = { type: method.type };
+    const paymentMethod: PaymentMethod = { 
+      type: method.type,
+      defaultToken: method.type === 'tokens' ? defaultToken : undefined
+    };
     onMethodChange(paymentMethod);
   };
 
@@ -311,7 +328,8 @@ export function PaymentMethodSelector({
     setTokenInfo({ name: token.name, symbol: token.symbol });
     
     onMethodChange({
-      type: 'solana',
+      type: 'tokens',
+      defaultToken,
       tokenAddress: token.address,
       tokenSymbol: token.symbol,
       tokenName: token.name
@@ -335,7 +353,8 @@ export function PaymentMethodSelector({
     // Wait a bit for token info to load
     setTimeout(async () => {
       onMethodChange({
-        type: 'solana',
+        type: 'tokens',
+        defaultToken,
         tokenAddress: customTokenAddress,
         tokenSymbol: tokenInfo?.symbol || 'TOKEN',
         tokenName: tokenInfo?.name || 'Custom Token'
@@ -353,6 +372,7 @@ export function PaymentMethodSelector({
     
     onMethodChange({
       type: 'other-chains',
+      defaultToken: 'usdc', // Always USDC for cross-chain
       tokenAddress: usdcAddress,
       chainId: selectedChain.id,
       chainName: selectedChain.name,
@@ -381,8 +401,11 @@ export function PaymentMethodSelector({
     switch (selectedMethod.type) {
       case 'stripe':
         return 'Credit Card';
-      case 'solana':
-        return `${selectedMethod.tokenName || selectedMethod.tokenSymbol || 'Token'} Payment`;
+      case 'tokens':
+        if (selectedMethod.tokenAddress) {
+          return `${selectedMethod.tokenName || selectedMethod.tokenSymbol || 'Token'} Payment`;
+        }
+        return `Pay with ${defaultToken.toUpperCase()}`;
       case 'other-chains':
         return `${selectedMethod.chainName} USDC Payment`;
       default:
@@ -446,13 +469,72 @@ export function PaymentMethodSelector({
       </div>
 
       {/* Token Payment Selection */}
-      {selectedMethod?.type === 'solana' && (
+      {selectedMethod?.type === 'tokens' && (
         <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
-          <h4 className="text-sm font-medium text-white">Select Token</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-white">Token Payment</h4>
+          </div>
+          
+          {/* Default Token Selector */}
+          <div>
+            <label className="block text-xs font-medium text-gray-300 mb-2">Default Payment Token</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDefaultToken('usdc');
+                  if (!selectedMethod.tokenAddress) {
+                    onMethodChange({
+                      ...selectedMethod,
+                      defaultToken: 'usdc'
+                    });
+                  }
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-md border transition-colors ${
+                  defaultToken === 'usdc'
+                    ? 'border-secondary bg-secondary/10 text-white'
+                    : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
+                }`}
+              >
+                <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                  <span className="text-xs font-bold text-white">$</span>
+                </div>
+                <span className="text-sm font-medium">USDC</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  setDefaultToken('sol');
+                  if (!selectedMethod.tokenAddress) {
+                    onMethodChange({
+                      ...selectedMethod,
+                      defaultToken: 'sol'
+                    });
+                  }
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-md border transition-colors ${
+                  defaultToken === 'sol'
+                    ? 'border-secondary bg-secondary/10 text-white'
+                    : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
+                }`}
+              >
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                  <span className="text-xs font-bold text-white">◎</span>
+                </div>
+                <span className="text-sm font-medium">SOL</span>
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              {defaultToken === 'usdc' 
+                ? 'Pay directly with USDC (no swap needed)' 
+                : 'Pay directly with SOL (no swap needed)'}
+            </p>
+          </div>
           
           {/* Popular Tokens */}
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-2">Popular Tokens</label>
+            <label className="block text-xs font-medium text-gray-300 mb-2">Or Use Other Tokens</label>
             <div className="grid grid-cols-2 gap-2">
               {POPULAR_TOKENS.map((token) => (
                 <button
@@ -543,37 +625,66 @@ export function PaymentMethodSelector({
           
           {/* Price Quote Display */}
           {priceQuote && (selectedMethod.tokenAddress || customTokenAddress) && (
-            <div className="bg-gray-700/50 rounded-lg p-3 space-y-2">
-              <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
-              
-              {priceQuote.loading ? (
+            <div className="bg-gray-700/50 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowPriceDetails(!showPriceDetails)}
+                className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
+              >
                 <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                  <span className="text-sm text-gray-400">Fetching price via Jupiter...</span>
+                  <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
+                  {priceQuote.loading && (
+                    <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
+                  )}
                 </div>
-              ) : priceQuote.error ? (
-                <div className="text-sm text-red-400">{priceQuote.error}</div>
-              ) : (
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">You'll pay:</span>
+                <div className="flex items-center gap-2">
+                  {!priceQuote.loading && !priceQuote.error && (
                     <span className="text-sm font-medium text-white">
                       {priceQuote.tokenAmount} {priceQuote.tokenSymbol}
                     </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">USD Value:</span>
-                    <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">Exchange Rate:</span>
-                    <span className="text-xs text-gray-400">
-                      1 {priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
-                    </span>
-                  </div>
-                  {priceQuote.tokenSymbol !== 'USDC' && (
-                    <div className="text-xs text-blue-400 mt-2">
-                      Will be swapped to USDC via Jupiter
+                  )}
+                  <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
+                </div>
+              </button>
+              
+              {showPriceDetails && (
+                <div className="px-3 pb-3 space-y-2 border-t border-gray-600/50">
+                  {priceQuote.loading ? (
+                    <div className="flex items-center gap-2 py-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                      <span className="text-sm text-gray-400">Fetching price via Jupiter...</span>
+                    </div>
+                  ) : priceQuote.error ? (
+                    <div className="text-sm text-red-400 py-2">{priceQuote.error}</div>
+                  ) : (
+                    <div className="space-y-1 pt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">You'll pay:</span>
+                        <span className="text-sm font-medium text-white">
+                          {priceQuote.tokenAmount} {priceQuote.tokenSymbol}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">USD Value:</span>
+                        <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">Exchange Rate:</span>
+                        <span className="text-xs text-gray-400">
+                          1 {priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">Swapping to:</span>
+                        <span className="text-xs text-gray-400">
+                          {defaultToken.toUpperCase()}
+                        </span>
+                      </div>
+                      {priceQuote.tokenSymbol !== defaultToken.toUpperCase() && (
+                        <div className="text-xs text-blue-400 mt-2">
+                          Will be swapped to {defaultToken.toUpperCase()} via Jupiter
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -673,43 +784,66 @@ export function PaymentMethodSelector({
 
           {/* Price Quote Display for Cross-Chain */}
           {priceQuote && selectedMethod?.type === 'other-chains' && (
-            <div className="bg-gray-700/50 rounded-lg p-3 space-y-2">
-              <h5 className="text-xs font-medium text-gray-300">
-                Cross-Chain Quote ({selectedChain.name})
-              </h5>
-              
-              {priceQuote.loading ? (
+            <div className="bg-gray-700/50 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowPriceDetails(!showPriceDetails)}
+                className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
+              >
                 <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                  <span className="text-sm text-gray-400">Fetching quote via DeBridge...</span>
+                  <h5 className="text-xs font-medium text-gray-300">
+                    Cross-Chain Quote ({selectedChain.name})
+                  </h5>
+                  {priceQuote.loading && (
+                    <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
+                  )}
                 </div>
-              ) : priceQuote.error ? (
-                <div className="text-sm text-red-400">{priceQuote.error}</div>
-              ) : (
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">You'll pay:</span>
+                <div className="flex items-center gap-2">
+                  {!priceQuote.loading && !priceQuote.error && (
                     <span className="text-sm font-medium text-white">
                       {priceQuote.tokenAmount} USDC
                     </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">USD Value:</span>
-                    <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
-                  </div>
-                  {priceQuote.bridgeFee && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-400">Bridge Fee:</span>
-                      <span className="text-xs text-yellow-400">{priceQuote.bridgeFee} USDC</span>
+                  )}
+                  <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
+                </div>
+              </button>
+              
+              {showPriceDetails && (
+                <div className="px-3 pb-3 space-y-2 border-t border-gray-600/50">
+                  {priceQuote.loading ? (
+                    <div className="flex items-center gap-2 py-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                      <span className="text-sm text-gray-400">Fetching quote via DeBridge...</span>
+                    </div>
+                  ) : priceQuote.error ? (
+                    <div className="text-sm text-red-400 py-2">{priceQuote.error}</div>
+                  ) : (
+                    <div className="space-y-1 pt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">You'll pay:</span>
+                        <span className="text-sm font-medium text-white">
+                          {priceQuote.tokenAmount} USDC
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">USD Value:</span>
+                        <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
+                      </div>
+                      {priceQuote.bridgeFee && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-400">Bridge Fee:</span>
+                          <span className="text-xs text-yellow-400">{priceQuote.bridgeFee} USDC</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">Network:</span>
+                        <span className="text-xs text-gray-400">{selectedChain.name}</span>
+                      </div>
+                      <div className="text-xs text-blue-400 mt-2">
+                        Powered by DeBridge • 5-15 minutes to complete
+                      </div>
                     </div>
                   )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">Network:</span>
-                    <span className="text-xs text-gray-400">{selectedChain.name}</span>
-                  </div>
-                  <div className="text-xs text-blue-400 mt-2">
-                    Powered by DeBridge • 5-15 minutes to complete
-                  </div>
                 </div>
               )}
             </div>
@@ -724,7 +858,7 @@ export function PaymentMethodSelector({
       )}
 
       {/* Connection Warning */}
-      {selectedMethod?.type === 'solana' && !isConnected && (
+      {selectedMethod?.type === 'tokens' && !isConnected && (
         <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-md p-3">
           <p className="text-xs text-yellow-400">
             Please connect your wallet to continue with token payment.
