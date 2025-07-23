@@ -195,6 +195,7 @@ exports.handler = async (event, context) => {
       hasShippingInfo: !!shippingInfo,
       walletAddress: walletAddress ? `${walletAddress.substring(0, 6)}...${walletAddress.substring(walletAddress.length - 4)}` : 'anonymous',
       paymentMethod: paymentMetadata?.paymentMethod || 'unknown',
+      paymentMetadata: JSON.stringify(paymentMetadata, null, 2)
     });
 
     if (!items || !Array.isArray(items) || items.length === 0) {

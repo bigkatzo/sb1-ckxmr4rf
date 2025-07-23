@@ -452,6 +452,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     const receiverWallet = orderData.receiverWallet || 'anonymous';
     const tokenToProcess = paymentMethod?.defaultToken;
 
+    console.log('Processing Solana payment:', { totalAmount, cartId, receiverWallet, tokenToProcess });
+
     let success;
     let signature: string | undefined;
     if(tokenToProcess === 'sol') {
@@ -519,6 +521,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
 
   const createBatchTransactions = async () => {
     try {
+      console.log('Creating batch transactions for items:', paymentMethod);
       const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
         method: 'POST',
         headers: {
@@ -533,7 +536,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           shippingInfo: formattedShippingInfo,
           walletAddress: walletAddress || 'anonymous',
           paymentMetadata: {
-            paymentMethod: paymentMethod?.type ?? 'stripe',
+            paymentMethod: paymentMethod?.type === 'default' ? paymentMethod?.defaultToken : paymentMethod?.type ?? 'stripe',
             defaultToken: paymentMethod?.defaultToken,
             tokenAddress: paymentMethod?.tokenAddress,
             tokenSymbol: paymentMethod?.tokenSymbol,
