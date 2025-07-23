@@ -222,7 +222,6 @@ export function usePayment() {
     return swapTransaction;
   };
 
-  // Helper function to check if token account exists and create if needed
   const ensureTokenAccount = async (
     tokenMint: PublicKey,
     owner: PublicKey,
@@ -231,13 +230,29 @@ export function usePayment() {
     const tokenAccount = await getAssociatedTokenAddress(tokenMint, owner);
     
     try {
-      await getAccount(SOLANA_CONNECTION, tokenAccount);
+      // Try to get account info from the connection
+      const accountInfo = await SOLANA_CONNECTION.getAccountInfo(tokenAccount);
+      
+      if (!accountInfo) {
+        // Account doesn't exist, create it
+        console.log("Token account does not exist, creating...");
+        const createAccountIx = createAssociatedTokenAccountInstruction(
+          owner,
+          tokenAccount,
+          owner,
+          tokenMint
+        );
+        instructions.push(createAccountIx);
+      } else {
+        console.log("Token account exists");
+      }
     } catch (error) {
-      // Account doesn't exist, create it
+      // If there's any error checking the account, assume it doesn't exist and create it
+      console.log("Error checking token account, creating...", error);
       const createAccountIx = createAssociatedTokenAccountInstruction(
-        owner, // payer
+        owner,
         tokenAccount,
-        owner, // owner
+        owner,
         tokenMint
       );
       instructions.push(createAccountIx);
@@ -245,6 +260,12 @@ export function usePayment() {
     
     return tokenAccount;
   };
+
+  // Also update the balance checking part in processTokenPayment:
+  // Replace this part of your processTokenPayment function:
+
+  // Check buyer has enough balance (updated version)
+  
 
   const processSolanaSwapTokenPayment = async (
     inputTokenMint: string,
@@ -388,11 +409,16 @@ export function usePayment() {
       const buyerTokenAccount = await ensureTokenAccount(tokenMint, buyerPubkey, instructions);
       const merchantTokenAccount = await ensureTokenAccount(tokenMint, merchantPubkey, instructions);
 
-      // Check buyer has enough balance
-      const buyerTokenAccountInfo = await getAccount(SOLANA_CONNECTION, buyerTokenAccount);
-      const amountInSmallestUnit = BigInt(Math.floor(amount * 10 ** USDC_DECIMALS));
+      let amountInSmallestUnit: bigint;
 
-      if (buyerTokenAccountInfo.amount < amountInSmallestUnit) {
+      try {
+        const buyerTokenAccountInfo = await getAccount(SOLANA_CONNECTION, buyerTokenAccount);
+        amountInSmallestUnit = BigInt(Math.floor(amount * 10 ** USDC_DECIMALS));
+
+        if (buyerTokenAccountInfo.amount < amountInSmallestUnit) {
+          throw new Error(`Insufficient ${tokenMint.equals(USDC_MINT) ? 'USDC' : 'token'} balance`);
+        }
+      } catch (error) {
         throw new Error(`Insufficient ${tokenMint.equals(USDC_MINT) ? 'USDC' : 'token'} balance`);
       }
 
