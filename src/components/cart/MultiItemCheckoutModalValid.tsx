@@ -509,6 +509,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             if (status.error) {
               console.log('Setting error state:', status.error);
               setOrderProgress({ step: 'error', error: status.error });
+              onClose();
               return;
             } 
             
@@ -678,7 +679,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           <StripePaymentModal
             onClose={() => setShowStripeModal(false)}
             onSuccess={handleStripeSuccess}
-            solAmount={(orderData.price || 0)}
+            amount={(orderData.price || 0)}
             productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
             batchOrderId={orderData.batchOrderId || ''}
             shippingInfo={formattedShippingInfo}
