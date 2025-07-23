@@ -153,9 +153,12 @@ export function usePayment() {
       outputMint,
       amount: amount.toString(),
       slippageBps: slippageBps.toString(),
+      swapMode: 'ExactOut',
       onlyDirectRoutes: 'false',
       asLegacyTransaction: 'false'
     });
+
+    console.log('🔄 Fetching Jupiter quote with params:', params.toString());
 
     const response = await fetch(`${JUPITER_API_URL}/quote?${params}`);
     
@@ -280,7 +283,7 @@ export function usePayment() {
 
       inputAmount = Math.floor(inputAmount * 10 ** USDC_DECIMALS); // Convert to smallest unit (e.g., 6 decimals for USDC)
 
-      console.log('🔄 Getting Jupiter swap quote...');
+      console.log('🔄 Getting Jupiter swap quote...', inputAmount);
       
       // Get swap quote from Jupiter
       const quote = await getJupiterQuote(
