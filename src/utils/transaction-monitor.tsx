@@ -262,8 +262,6 @@ export async function verifyFinalTransaction(
 ) {
    const toastId = toast.loading('Processing transaction...');
   
-  // Only proceed with server verification if transaction is finalized
-    console.log('[TRANSACTION_MONITOR] Transaction finalized on blockchain, proceeding to server verification');
     try {
       // No auth token needed for server-side operations
       console.log('[TRANSACTION_MONITOR] Building verification payload');
@@ -322,7 +320,7 @@ export async function verifyFinalTransaction(
             toast.update(toastId, {
               render: () => (
                 <div>
-                  Transaction confirmed! Verification will be processed automatically.
+                  Transaction processing, Server unable to verify! Verification will be autmatically done!.
                 </div>
               ),
               type: 'success',
@@ -335,7 +333,7 @@ export async function verifyFinalTransaction(
               success: true,
               error: null,
               signature,
-              paymentConfirmed: true
+              paymentConfirmed: false
             });
             
             return true;
@@ -424,11 +422,6 @@ export async function verifyFinalTransaction(
 
         // Define solscanUrl before we use it
         const solscanUrl = `https://solscan.io/tx/${signature}`;
-
-        // Check for batch order information in the response
-        // const batchOrderSuccess = verificationResult.ordersUpdated && 
-        //   (verificationResult.ordersUpdated.length > 0 || 
-        //   (typeof verificationResult.ordersUpdated === 'number' && verificationResult.ordersUpdated > 0));
           
         if (batchOrderId) {
           console.log('[TRANSACTION_MONITOR] Batch order successfully processed:', {
@@ -537,20 +530,20 @@ export async function verifyFinalTransaction(
       toast.update(toastId, {
         render: () => (
           <div>
-            Transaction confirmed! Verification will complete automatically.
+            Transaction failed to Verify! Contact team if you are debited.
           </div>
         ),
-        type: 'success',
+        type: 'error',
         isLoading: false,
-        autoClose: 8000
+        autoClose: 4000
       });
       
       onStatusUpdate({
         processing: false,
-        success: true,
+        success: false,
         error: null,
         signature,
-        paymentConfirmed: true
+        paymentConfirmed: false
       });
       
       return true;

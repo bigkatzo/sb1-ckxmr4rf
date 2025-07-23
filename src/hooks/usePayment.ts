@@ -11,7 +11,6 @@ import {
   getAssociatedTokenAddress,
   getAccount,
   createAssociatedTokenAccountInstruction,
-  TokenInstruction,
 } from "@solana/spl-token";
 import { SOLANA_CONNECTION } from '../config/solana';
 
