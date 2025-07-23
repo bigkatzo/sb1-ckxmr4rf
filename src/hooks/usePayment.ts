@@ -248,7 +248,7 @@ export function usePayment() {
 
   const processSolanaSwapTokenPayment = async (
     inputTokenMint: string,
-    outputTokenMint: string,
+    outputTokenMint: string = USDC_MINT.toString(),
     inputAmount: number,
     receiverWallet?: string,
     slippageBps: number = 300,
