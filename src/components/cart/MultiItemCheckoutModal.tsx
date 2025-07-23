@@ -101,7 +101,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   
   // Payment method state - updated to use new PaymentMethod type
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>({
-    type: 'tokens',
+    type: 'spl-tokens',
     defaultToken: 'usdc'
   });
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -543,13 +543,15 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       
       if( paymentMethod?.type === 'stripe') {
         setShowStripeModal(true);
-      } else if (paymentMethod?.type === 'tokens' || paymentMethod?.type === 'other-chains') {
+      } else if (paymentMethod?.type === 'spl-tokens') {
         // Handle token payments directly in the checkout flow
         // You can implement the token payment logic here
         toast.info('Token payment flow will be implemented here');
         toast.info('Token payment flow will be implemented');
-      } else if (paymentMethod?.type === 'other-chains') {
+      } else if (paymentMethod?.type === 'cross-chain') {
         // Handle cross-chain payments - you can implement your DeBridge flow here
+        toast.info('Cross-chain payment flow will be implemented');
+      } else {
         toast.info('Cross-chain payment flow will be implemented');
       }
     } catch (error) {
@@ -670,7 +672,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     }
     
     // Verify wallet connection for crypto payments
-    if (paymentMethod?.type === 'tokens' && !isConnected) {
+    if (paymentMethod?.type === 'spl-tokens' && !isConnected) {
       toast.info("Please connect your wallet to proceed with payment", {
         position: "bottom-center",
         autoClose: 3000
@@ -851,7 +853,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       <button
                         type="button"
                         onClick={() => setPaymentMethod({
-                          type: 'tokens',
+                          type: 'spl-tokens',
                           defaultToken: 'usdc'
                         })}
                         className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
@@ -869,7 +871,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       <button
                         type="button"
                         onClick={() => setPaymentMethod({
-                          type: 'tokens',
+                          type: 'spl-tokens',
                           defaultToken: 'sol'
                         })}
                         className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
@@ -901,7 +903,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     onGetPriceQuote={handleGetPriceQuote}
                   />
                   
-                  {paymentMethod?.type === 'tokens' && !isConnected && (
+                  {paymentMethod?.type === 'spl-tokens' && !isConnected && (
                     <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                       <p className="text-amber-400 text-sm">
                         Please connect your wallet to continue with token payment
@@ -1275,7 +1277,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     size="lg"
                     isLoading={processingPayment}
                     loadingText={processingPayment ? "Processing..." : ""}
-                    disabled={processingPayment || (paymentMethod?.type === 'tokens' && !isConnected) || !paymentMethod || 
+                    disabled={processingPayment || (paymentMethod?.type === 'spl-tokens' && !isConnected) || !paymentMethod || 
                       (['solana', 'usdc', 'other-tokens'].includes(paymentMethod?.type || '') && !isConnected) || 
                       !paymentMethod || 
                       (paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) && !isConnected) || 
@@ -1289,7 +1291,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       !!phoneError || !!zipError}
                     className="w-full"
                   >
-                    {!isConnected && paymentMethod?.type === 'tokens' ? (
+                    {!isConnected && paymentMethod?.type === 'spl-tokens' ? (
                       <>
                         <Check className="h-4 w-4 mr-2" />
                         <span>Connect Wallet</span>
