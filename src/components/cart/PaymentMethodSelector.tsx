@@ -468,67 +468,117 @@ export function PaymentMethodSelector({
             </div>
           </div>
 
-          {/* Custom Token Input */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => setShowCustomTokenInput(!showCustomTokenInput)}
-              className="text-sm text-secondary hover:text-secondary/80 transition-colors"
-            >
-              {showCustomTokenInput ? 'Hide' : 'Use'} Custom Token
-            </button>
-            
-            {showCustomTokenInput && (
-              <div className="space-y-2">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Paste token contract address"
-                    value={customTokenAddress}
-                    onChange={(e) => setCustomTokenAddress(e.target.value)}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 pr-10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                  />
-                  {customTokenAddress && (
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(customTokenAddress)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-600 rounded"
-                    >
-                      <Copy className="h-3 w-3 text-gray-400" />
-                    </button>
-                  )}
+        {/* Token Selection Grid */}
+          <div>
+            <div className="grid grid-cols-2 gap-2">
+              {POPULAR_TOKENS.slice(0, 3).map((token) => (
+                <button
+                  key={token.address}
+                  type="button"
+                  onClick={() => handlePopularTokenSelect(token)}
+                  className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
+                    selectedMethod.tokenAddress === token.address
+                      ? 'border-secondary bg-secondary/10'
+                      : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
+                  }`}
+                >
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
+                    <span className="text-xs font-bold text-white">{token.symbol[0]}</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-medium text-white">{token.symbol}</div>
+                    <div className="text-xs text-gray-400">{token.name}</div>
+                  </div>
+                </button>
+              ))}
+              
+              {/* Others Button */}
+              <button
+                type="button"
+                onClick={() => setShowCustomTokenInput(!showCustomTokenInput)}
+                className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
+                  showCustomTokenInput
+                    ? 'border-secondary bg-secondary/10'
+                    : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
+                }`}
+              >
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center">
+                  <span className="text-xs font-bold text-white">+</span>
                 </div>
-                
-                {loadingTokenInfo && customTokenAddress && (
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                    <span>Loading token info...</span>
-                  </div>
+                <div className="text-left">
+                  <div className="text-sm font-medium text-white">Others</div>
+                  <div className="text-xs text-gray-400">Custom token</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Custom Token Input - Only show when "Others" is clicked */}
+          {showCustomTokenInput && (
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-gray-300">Enter Custom Token</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Paste token contract address"
+                  value={customTokenAddress}
+                  onChange={(e) => setCustomTokenAddress(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 pr-10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                />
+                {customTokenAddress && (
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(customTokenAddress)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-600 rounded"
+                  >
+                    <Copy className="h-3 w-3 text-gray-400" />
+                  </button>
                 )}
-                
-                {tokenInfo && customTokenAddress && !loadingTokenInfo && (
-                  <div className="bg-gray-700/50 rounded-md p-2">
-                    <div className="text-sm text-white font-medium">{tokenInfo.name}</div>
-                    <div className="text-xs text-gray-400">{tokenInfo.symbol}</div>
-                  </div>
-                )}
-                
+              </div>
+              
+              {/* Token Info Display */}
+              {loadingTokenInfo && customTokenAddress && (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                  <span>Loading token info...</span>
+                </div>
+              )}
+              
+              {tokenInfo && customTokenAddress && !loadingTokenInfo && (
+                <div className="bg-gray-700/50 rounded-md p-2">
+                  <div className="text-sm text-white font-medium">{tokenInfo.name}</div>
+                  <div className="text-xs text-gray-400">{tokenInfo.symbol}</div>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
                 <Button
                   type="button"
                   onClick={handleCustomTokenSubmit}
                   variant="outline"
                   size="sm"
                   disabled={!customTokenAddress.trim() || loadingTokenInfo}
-                  className="w-full"
+                  className="flex-1"
                 >
-                  {loadingTokenInfo ? 'Loading...' : 'Use Token'}
+                  {loadingTokenInfo ? 'Loading...' : 'Use This Token'}
+                </Button>
+                
+                <Button
+                  type="button"
+                  onClick={() => fetchPriceQuote(customTokenAddress)}
+                  variant="ghost"
+                  size="sm"
+                  disabled={!customTokenAddress.trim() || priceQuote?.loading || loadingTokenInfo}
+                  className="flex-1"
+                >
+                  {priceQuote?.loading ? 'Getting Quote...' : 'Get Price Quote'}
                 </Button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
           
           {/* Price Quote Display */}
-          {priceQuote && selectedMethod.tokenAddress && (
+          {priceQuote && (selectedMethod.tokenAddress || customTokenAddress) && (
             <div className="bg-gray-700/50 rounded-lg overflow-hidden">
               <button
                 type="button"
@@ -536,7 +586,7 @@ export function PaymentMethodSelector({
                 className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  {/* <h5 className="text-xs font-medium text-gray-300">Price Quote</h5> */}
+                  <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
                   {priceQuote.loading && (
                     <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
                   )}
@@ -577,10 +627,18 @@ export function PaymentMethodSelector({
                         <span className="text-xs text-gray-400">
                           1 {priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
                         </span>
-                      </div>
-                      <div className="text-xs text-blue-400 mt-2">
-                        Powered by Jupiter Exchange
                       </div> */}
+                      {/* <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">Swapping to:</span>
+                        <span className="text-xs text-gray-400">
+                          {defaultToken.toUpperCase()}
+                        </span>
+                      </div> */}
+                      {priceQuote.tokenSymbol !== defaultToken.toUpperCase() && (
+                        <div className="text-xs text-blue-400 mt-2">
+                          Will be swapped to {defaultToken.toUpperCase()} via Jupiter
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -614,7 +672,7 @@ export function PaymentMethodSelector({
           </div>
 
           <div>
-            {/* <label className="block text-xs font-medium text-gray-300 mb-2">
+            <label className="block text-xs font-medium text-gray-300 mb-2">
               USDC Contract Address
             </label>
             <div className="space-y-2">
@@ -651,7 +709,7 @@ export function PaymentMethodSelector({
                     <ExternalLink className="h-3 w-3 text-gray-400" />
                   </button>
                 </div>
-              </div> */}
+              </div>
               
               <Button
                 type="button"
