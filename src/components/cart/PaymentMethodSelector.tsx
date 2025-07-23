@@ -436,101 +436,30 @@ export function PaymentMethodSelector({
         )}
       </div>
 
-      {/* Default Token Selector (USDC/SOL) */}
-      {selectedMethod?.type === 'default' && (
-        <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-white">Select Token</h4>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setDefaultToken('usdc');
-                onMethodChange({ ...selectedMethod, defaultToken: 'usdc' });
-              }}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                defaultToken === 'usdc'
-                  ? 'border-secondary bg-secondary/10'
-                  : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
-              }`}
-            >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                <span className="text-sm font-bold text-white">$</span>
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-white">USDC</div>
-                <div className="text-xs text-gray-400">USD Coin</div>
-              </div>
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => {
-                setDefaultToken('sol');
-                onMethodChange({ ...selectedMethod, defaultToken: 'sol' });
-              }}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                defaultToken === 'sol'
-                  ? 'border-secondary bg-secondary/10'
-                  : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
-              }`}
-            >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                <span className="text-sm font-bold text-white">◎</span>
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-white">SOL</div>
-                <div className="text-xs text-gray-400">Solana</div>
-              </div>
-            </button>
-          </div>
-
-          {/* Payment Summary */}
-          <div className="bg-gray-700/50 rounded-lg p-3 space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">Subtotal:</span>
-              <span className="text-sm text-white">${usdAmount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">Network Fee:</span>
-              <span className="text-sm text-gray-300">~$0.01</span>
-            </div>
-            <div className="border-t border-gray-600 pt-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-white">Total:</span>
-                <span className="text-sm font-medium text-white">${(usdAmount + 0.01).toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* SPL Token Payment Selection */}
       {selectedMethod?.type === 'spl-tokens' && (
         <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-white">Select SPL Token</h4>
-          </div>
+          <h4 className="text-sm font-medium text-white">Select Token</h4>
           
+          {/* Popular Tokens */}
           <div>
-            <div className="grid grid-cols-1 gap-2">
+            <label className="block text-xs font-medium text-gray-300 mb-2">Popular Tokens</label>
+            <div className="grid grid-cols-2 gap-2">
               {POPULAR_TOKENS.map((token) => (
                 <button
                   key={token.address}
                   type="button"
                   onClick={() => handlePopularTokenSelect(token)}
-                  className={`flex items-center gap-3 p-3 rounded-md border transition-colors ${
+                  className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
                     selectedMethod.tokenAddress === token.address
                       ? 'border-secondary bg-secondary/10'
                       : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
-                    <span className="text-sm font-bold text-white">{token.symbol[0]}</span>
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
+                    <span className="text-xs font-bold text-white">{token.symbol[0]}</span>
                   </div>
-                  <div className="text-left flex-1">
+                  <div className="text-left">
                     <div className="text-sm font-medium text-white">{token.symbol}</div>
                     <div className="text-xs text-gray-400">{token.name}</div>
                   </div>
@@ -539,119 +468,103 @@ export function PaymentMethodSelector({
             </div>
           </div>
 
-          {/* Custom Token Input */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => setShowCustomTokenInput(!showCustomTokenInput)}
-              className="text-sm text-secondary hover:text-secondary/80 transition-colors"
-            >
-              {showCustomTokenInput ? 'Hide' : 'Use'} Custom Token
-            </button>
-            
-            {showCustomTokenInput && (
-              <div className="space-y-2">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Paste token contract address"
-                    value={customTokenAddress}
-                    onChange={(e) => setCustomTokenAddress(e.target.value)}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 pr-10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                  />
-                  {customTokenAddress && (
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(customTokenAddress)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-600 rounded"
-                    >
-                      <Copy className="h-3 w-3 text-gray-400" />
-                    </button>
-                  )}
+          {/* Custom Token */}
+          <div>
+            <label className="block text-xs font-medium text-gray-300 mb-2">Or Enter Custom Token</label>
+            <div className="space-y-2">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Paste token contract address"
+                  value={customTokenAddress}
+                  onChange={(e) => setCustomTokenAddress(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 pr-10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+                />
+                {customTokenAddress && (
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(customTokenAddress)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-600 rounded"
+                  >
+                    <Copy className="h-3 w-3 text-gray-400" />
+                  </button>
+                )}
+              </div>
+              
+              {/* Token Info Display */}
+              {loadingTokenInfo && customTokenAddress && (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                  <span>Loading token info...</span>
                 </div>
-                
-                {loadingTokenInfo && customTokenAddress && (
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                    <span>Loading token info...</span>
-                  </div>
-                )}
-                
-                {tokenInfo && customTokenAddress && !loadingTokenInfo && (
-                  <div className="bg-gray-700/50 rounded-md p-2">
-                    <div className="text-sm text-white font-medium">{tokenInfo.name}</div>
-                    <div className="text-xs text-gray-400">{tokenInfo.symbol}</div>
-                  </div>
-                )}
-                
+              )}
+              
+              {tokenInfo && customTokenAddress && !loadingTokenInfo && (
+                <div className="bg-gray-700/50 rounded-md p-2">
+                  <div className="text-sm text-white font-medium">{tokenInfo.name}</div>
+                  <div className="text-xs text-gray-400">{tokenInfo.symbol}</div>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
                 <Button
                   type="button"
                   onClick={handleCustomTokenSubmit}
                   variant="outline"
                   size="sm"
                   disabled={!customTokenAddress.trim() || loadingTokenInfo}
-                  className="w-full"
+                  className="flex-1"
                 >
                   {loadingTokenInfo ? 'Loading...' : 'Use This Token'}
                 </Button>
+                
+                <Button
+                  type="button"
+                  onClick={() => fetchPriceQuote(customTokenAddress)}
+                  variant="ghost"
+                  size="sm"
+                  disabled={!customTokenAddress.trim() || priceQuote?.loading || loadingTokenInfo}
+                  className="flex-1"
+                >
+                  {priceQuote?.loading ? 'Getting Quote...' : 'Get Price Quote'}
+                </Button>
               </div>
-            )}
+            </div>
           </div>
           
           {/* Price Quote Display */}
-          {priceQuote && selectedMethod.tokenAddress && (
-            <div className="bg-gray-700/50 rounded-lg overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowPriceDetails(!showPriceDetails)}
-                className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
-              >
+          {priceQuote && (selectedMethod.tokenAddress || customTokenAddress) && (
+            <div className="bg-gray-700/50 rounded-lg p-3 space-y-2">
+              <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
+              
+              {priceQuote.loading ? (
                 <div className="flex items-center gap-2">
-                  <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
-                  {priceQuote.loading && (
-                    <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
-                  )}
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                  <span className="text-sm text-gray-400">Fetching price via Jupiter...</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  {!priceQuote.loading && !priceQuote.error && (
+              ) : priceQuote.error ? (
+                <div className="text-sm text-red-400">{priceQuote.error}</div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">You'll pay:</span>
                     <span className="text-sm font-medium text-white">
                       {priceQuote.tokenAmount} {priceQuote.tokenSymbol}
                     </span>
-                  )}
-                  <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
-                </div>
-              </button>
-              
-              {showPriceDetails && (
-                <div className="px-3 pb-3 space-y-2 border-t border-gray-600/50">
-                  {priceQuote.loading ? (
-                    <div className="flex items-center gap-2 py-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                      <span className="text-sm text-gray-400">Fetching price via Jupiter...</span>
-                    </div>
-                  ) : priceQuote.error ? (
-                    <div className="text-sm text-red-400 py-2">{priceQuote.error}</div>
-                  ) : (
-                    <div className="space-y-1 pt-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">You'll pay:</span>
-                        <span className="text-sm font-medium text-white">
-                          {priceQuote.tokenAmount} {priceQuote.tokenSymbol}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">USD Value:</span>
-                        <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">Exchange Rate:</span>
-                        <span className="text-xs text-gray-400">
-                          1 {priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
-                        </span>
-                      </div>
-                      <div className="text-xs text-blue-400 mt-2">
-                        Powered by Jupiter Exchange
-                      </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">USD Value:</span>
+                    <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Exchange Rate:</span>
+                    <span className="text-xs text-gray-400">
+                      1 {priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
+                    </span>
+                  </div>
+                  {priceQuote.tokenSymbol !== 'USDC' && (
+                    <div className="text-xs text-blue-400 mt-2">
+                      Will be swapped to USDC via Jupiter
                     </div>
                   )}
                 </div>

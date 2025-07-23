@@ -101,7 +101,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   
   // Payment method state - updated to use new PaymentMethod type
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>({
-    type: 'spl-tokens',
+    type: 'default',
     defaultToken: 'usdc'
   });
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -910,17 +910,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       </p>
                     </div>
                   )}
-                </div>
-
-                 {/* Enhanced Payment Method Selection */}
-                <div className="pt-4 border-t border-gray-800 mt-4">
-                  <PaymentMethodSelector
-                    selectedMethod={paymentMethod}
-                    onMethodChange={setPaymentMethod}
-                    isConnected={isConnected}
-                    usdAmount={1000}
-                    disabled={processingPayment}
-                  />
                 </div>
                 
                 {/* Price Summary */}
