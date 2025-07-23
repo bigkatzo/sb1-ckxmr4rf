@@ -49,74 +49,6 @@ export async function monitorTransaction(
     signature: signature.substring(0, 10) + '...',
   });
 
-  // Skip monitoring for non-Solana transactions (e.g. Stripe or free orders)
-  if (signature.startsWith('pi_') || signature.startsWith('free_')) {
-    console.log('[TRANSACTION_MONITOR] Non-Solana transaction detected, skipping monitoring:', signature);
-    
-    // For Stripe payments, attempt direct verification
-    if (signature.startsWith('pi_')) {
-      console.log('[TRANSACTION_MONITOR] Verifying Stripe payment:', signature);
-      try {
-        // Attempt to call the stripe-helper endpoint to verify the payment intent
-        const stripeVerifyResponse = await fetch('/.netlify/functions/stripe-helper', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'verify',
-            paymentIntentId: signature,
-          })
-        });
-        
-        if (!stripeVerifyResponse.ok) {
-          console.warn('[TRANSACTION_MONITOR] Stripe verification response not OK:', stripeVerifyResponse.status);
-        } else {
-          const verifyData = await stripeVerifyResponse.json();
-          console.log('[TRANSACTION_MONITOR] Stripe payment verification result:', verifyData);
-          
-          // If metadata didn't contain an orderId but we have one from params, repair it
-          // if (orderId && (!verifyData.data?.metadata?.orderIdStr || verifyData.data?.metadata?.orderIdStr !== orderId)) {
-          //   console.log('[TRANSACTION_MONITOR] Order ID mismatch in metadata, attempting repair');
-            
-          //   // Call the repair endpoint
-          //   try {
-          //     const repairResponse = await fetch('/.netlify/functions/stripe-helper', {
-          //       method: 'POST',
-          //       headers: { 'Content-Type': 'application/json' },
-          //       body: JSON.stringify({ 
-          //         action: 'repair', 
-          //         paymentIntentId: signature,
-          //         orderId,
-          //         batchOrderId
-          //       })
-          //     });
-              
-          //     if (repairResponse.ok) {
-          //       const repairResult = await repairResponse.json();
-          //       console.log('[TRANSACTION_MONITOR] Stripe payment repair successful:', repairResult);
-          //     } else {
-          //       console.warn('[TRANSACTION_MONITOR] Stripe payment repair failed:', repairResponse.status);
-          //     }
-          //   } catch (repairError) {
-          //     console.error('[TRANSACTION_MONITOR] Error repairing Stripe payment:', repairError);
-          //   }
-          // }
-        }
-      } catch (stripeVerifyError) {
-        console.error('[TRANSACTION_MONITOR] Error verifying Stripe payment:', stripeVerifyError);
-      }
-    }
-    
-    // Return success immediately for non-Solana transactions
-    onStatusUpdate({
-      processing: false,
-      success: true,
-      paymentConfirmed: true,
-      signature,
-      error: null
-    });
-    return true;
-  }
-
   // Prevent duplicate processing
   if (processedSignatures.has(signature)) {
     console.log('[TRANSACTION_MONITOR] Transaction already processed:', signature);
@@ -155,6 +87,25 @@ export async function monitorTransaction(
           err: status?.err
         }); 
 
+        if(status?.err) {
+          console.error(`[TRANSACTION_MONITOR] Transaction error detected:`, status.err);
+          const errorMessage = status.err ? JSON.stringify(status.err) : 'Transaction failed with an unknown error';
+          toast.update(toastId, {
+            render: errorMessage, 
+            type: 'error',
+            isLoading: false,
+            autoClose: 5000
+          });
+          onStatusUpdate({
+            processing: false,
+            success: false,
+            error: errorMessage,
+            signature,
+            paymentConfirmed: false
+          });
+          return false;
+        }
+
         if (status?.confirmationStatus === 'finalized') {
           // Define solscanUrl before we use it
           const solscanUrl = `https://solscan.io/tx/${signature}`;
@@ -190,8 +141,6 @@ export async function monitorTransaction(
               autoClose: 8000
             });
 
-          // Add redundant onStatusUpdate calls to ensure the callback gets triggered
-          // Use setTimeout with staggered delays for redundancy
           setTimeout(() => {
             try {
               console.log('[TRANSACTION_MONITOR] Sending first delayed success callback');

@@ -11,6 +11,7 @@ import {
   getAssociatedTokenAddress,
   getAccount,
   createAssociatedTokenAccountInstruction,
+  TokenInstruction,
 } from "@solana/spl-token";
 import { SOLANA_CONNECTION } from '../config/solana';
 
@@ -307,6 +308,21 @@ export function usePayment() {
           throw new Error('Transaction cancelled due to high price impact');
         }
       }
+
+      // check if user has enough balance
+      try {
+        const instructions: TransactionInstruction[] = []; 
+        const buyerTokenAccount = await ensureTokenAccount(new PublicKey(inputTokenMint), new PublicKey(walletAddress!), instructions);
+        const buyerTokenAccountInfo = await getAccount(SOLANA_CONNECTION, buyerTokenAccount);
+        const amountInSmallestUnit = BigInt(Math.floor(Number(quote.inAmount)));
+
+        if (buyerTokenAccountInfo.amount < amountInSmallestUnit) {
+          throw new Error(`Insufficient token balance`);
+        }
+      } catch (error) {
+        throw new Error(`Insufficient token balance`);
+      }
+
 
       // Get swap transaction from Jupiter
       console.log('🔄 Getting swap transaction...');
