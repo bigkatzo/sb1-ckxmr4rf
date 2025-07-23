@@ -446,10 +446,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     await handleVerifyBatchTransactions(txSignature, batchOrderId, receiverWallet);
   };
 
-  const processSolanaPayment = async () => {
-    let cartId = orderData.batchOrderId || '';
-    const totalAmount = orderData.price || 0;
-    const receiverWallet = orderData.receiverWallet || 'anonymous';
+  const processSolanaPayment = async (batchOrderData: any) => {
+    let cartId = batchOrderData.batchOrderId ?? '';
+    const totalAmount = batchOrderData.totalPaymentAmount ?? 0;
+    const receiverWallet = batchOrderData.receiverWallet ?? 'anonymous';
     const tokenToProcess = paymentMethod?.defaultToken;
 
     console.log('Processing Solana payment:', { totalAmount, cartId, receiverWallet, tokenToProcess });
@@ -587,8 +587,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       } else if (paymentMethod?.type === 'cross-chain') {
         toast.info('Cross-chain payment flow will be implemented');
       } else {
-        await processSolanaPayment();
-        toast.info('Normal payment flow will be implemented');
+        // toast.info('Normal payment flow will be implemented');
+        await processSolanaPayment(batchOrderData);
       }
     } catch (error) {
       throw new Error(`Failed to create batch transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
