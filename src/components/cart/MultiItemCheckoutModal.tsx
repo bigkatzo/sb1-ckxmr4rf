@@ -472,7 +472,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
         paymentMethod.tokenAddress || '',
         undefined,
         totalAmount,
-        receiverWallet
+        receiverWallet,
+        100,
+        undefined,
+        paymentMethod.tokenSymbol
       );
       success = paymentSuccess;
       signature = txSignature;
@@ -618,6 +621,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             if (status.error) {
               console.log('Setting error state:', status.error);
               setOrderProgress({ step: 'error', error: status.error });
+              onClose();
               return;
             }
             

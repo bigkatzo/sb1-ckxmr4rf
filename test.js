@@ -114,6 +114,7 @@ const testTransaction = async () => {
       tokenMint: 'usdc',
     };
     await verifySolanaTransactionDetails(signature, details);
+    await verifyJupiterSwapTransaction()
 }
 
 async function verifySolanaTransactionDetails(signature, expectedDetails) {
@@ -297,7 +298,7 @@ const verifyJupiterSwapTransaction = async (
   expected
 ) => {
   const connection = new Connection('https://api.mainnet-beta.solana.com');
-  
+
   const tx = await connection.getTransaction(signature, {
     commitment: 'confirmed',
     maxSupportedTransactionVersion: 0,

@@ -271,7 +271,8 @@ export function usePayment() {
     inputAmount: number,
     receiverWallet?: string,
     slippageBps: number = 300,
-    priorityFee?: number
+    priorityFee?: number,
+    swapSymbol: string = 'SOL'
   ): Promise<PaymentResult & { quote?: SwapQuote; outputAmount?: string }> => {
     if (!validateWalletConnection()) {
       return { success: false, error: 'Wallet not connected' };
@@ -377,11 +378,9 @@ export function usePayment() {
         
         if (status.success) {
           await updateTransactionStatus(signature, 'confirmed');
-          const outputAmountFormatted = (parseInt(quote.outAmount) / 10**6).toFixed(6);
-          const successMessage = receiverWallet 
-            ? `Swap completed! Sent ${outputAmountFormatted} tokens to receiver`
-            : `Swap completed! Received ${outputAmountFormatted} tokens`;
-          toast.success(successMessage);
+          // const outputAmountFormatted = (parseInt(quote.outAmount) / 10**6).toFixed(6);
+          // const successMessage = `Sent ${outputAmountFormatted} tokens to receiver for ${swapSymbol}`;
+          // toast.success(successMessage);
         } else if (status.error) {
           await updateTransactionStatus(signature, 'failed');
         }
@@ -471,7 +470,7 @@ export function usePayment() {
         
         if (status.success) {
           await updateTransactionStatus(signature, 'confirmed');
-          toast.success('Payment confirmed!');
+          // toast.success('Payment confirmed!');
         } else if (status.error) {
           await updateTransactionStatus(signature, 'failed');
         }
@@ -522,7 +521,7 @@ export function usePayment() {
         
         if (status.success) {
           await updateTransactionStatus(signature, 'confirmed');
-          toast.success('Payment confirmed!');
+          // toast.success('Payment confirmed!');
         } else if (status.error) {
           await updateTransactionStatus(signature, 'failed');
         }
