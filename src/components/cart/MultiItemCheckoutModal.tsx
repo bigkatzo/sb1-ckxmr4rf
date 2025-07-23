@@ -541,10 +541,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
 
       setOrderProgress({ step: 'processing_payment' });
       
-      if(paymentMethod?.type === 'stripe') {
+      if( paymentMethod?.type === 'stripe') {
         setShowStripeModal(true);
-      } else if (paymentMethod?.type === 'tokens') {
-        // Handle token payments - you can implement your token payment flow here
+      } else if (paymentMethod?.type === 'tokens' || paymentMethod?.type === 'other-chains') {
+        // Handle token payments directly in the checkout flow
+        // You can implement the token payment logic here
+        toast.info('Token payment flow will be implemented here');
         toast.info('Token payment flow will be implemented');
       } else if (paymentMethod?.type === 'other-chains') {
         // Handle cross-chain payments - you can implement your DeBridge flow here
@@ -800,50 +802,110 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       </div>
                     </div>
                   ))}
-                </div>
-                
-                {/* Coupon Section */}
-                <div className="mt-4 border-t border-gray-800 pt-4">
-                  {appliedCoupon ? (
-                    <div className="flex items-center justify-between bg-gray-800/70 rounded-lg p-3">
-                      <div className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-secondary" />
-                        <div>
-                          <span className="text-sm font-medium text-white">Coupon: {appliedCoupon.code}</span>
-                          <p className="text-xs text-gray-400">
-                            {appliedCoupon.discountPercentage 
-                              ? `${appliedCoupon.discountPercentage}% off` 
-                              : formatPrice(appliedCoupon.discountAmount) + ' off'}
-                          </p>
+                  
+                  {/* Coupon Section */}
+                  <div className="mt-4 border-t border-gray-800 pt-4">
+                    <h4 className="text-sm font-medium text-gray-300 mb-2">Coupon Code</h4>
+                    {appliedCoupon ? (
+                      <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-green-500" />
+                          <span className="text-sm text-green-400">
+                            {appliedCoupon.code} applied
+                          </span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoupon}
+                          className="text-xs text-gray-400 hover:text-white"
+                        >
+                          Remove
+                        </button>
                       </div>
-                      <Button 
-                        onClick={handleRemoveCoupon}
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs text-gray-400 hover:text-red-400"
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ) : (
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value)}
+                          placeholder="Enter coupon code"
+                          className="flex-1 bg-gray-800 text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary placeholder-gray-500"
+                        />
+                        <Button
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          variant="outline"
+                          size="sm"
+                          isLoading={validatingCoupon}
+                          disabled={validatingCoupon || !couponCode.trim()}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Default Token Selector */}
+                  <div className="mb-4">
                     <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Enter coupon code"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value)}
-                        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                      />
-                      <Button
-                        onClick={handleApplyCoupon}
-                        variant="outline"
-                        size="sm"
-                        isLoading={validatingCoupon}
-                        disabled={validatingCoupon || !couponCode.trim()}
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod({
+                          type: 'tokens',
+                          defaultToken: 'usdc'
+                        })}
+                        className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                          paymentMethod?.defaultToken === 'usdc'
+                            ? 'border-secondary bg-secondary/10 text-white'
+                            : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        }`}
                       >
-                        Apply
-                      </Button>
+                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                          <span className="text-xs font-bold text-white">$</span>
+                        </div>
+                        <span className="text-sm font-medium">Pay with USDC</span>
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod({
+                          type: 'tokens',
+                          defaultToken: 'sol'
+                        })}
+                        className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+                          paymentMethod?.defaultToken === 'sol'
+                            ? 'border-secondary bg-secondary/10 text-white'
+                            : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        }`}
+                      >
+                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                          <span className="text-xs font-bold text-white">◎</span>
+                        </div>
+                        <span className="text-sm font-medium">Pay with SOL</span>
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2 text-center">
+                      {paymentMethod?.defaultToken === 'usdc' 
+                        ? 'Pay directly with USDC (no swap needed)' 
+                        : 'Pay directly with SOL (no swap needed)'}
+                    </p>
+                  </div>
+                  
+                  {/* Payment Method Selector */}
+                  <PaymentMethodSelector
+                    selectedMethod={paymentMethod}
+                    onMethodChange={setPaymentMethod}
+                    isConnected={isConnected}
+                    disabled={processingPayment}
+                    usdAmount={finalPrice}
+                    onGetPriceQuote={handleGetPriceQuote}
+                  />
+                  
+                  {paymentMethod?.type === 'tokens' && !isConnected && (
+                    <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                      <p className="text-amber-400 text-sm">
+                        Please connect your wallet to continue with token payment
+                      </p>
                     </div>
                   )}
                 </div>
@@ -1213,7 +1275,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     size="lg"
                     isLoading={processingPayment}
                     loadingText={processingPayment ? "Processing..." : ""}
-                    disabled={processingPayment || 
+                    disabled={processingPayment || (paymentMethod?.type === 'tokens' && !isConnected) || !paymentMethod || 
                       (['solana', 'usdc', 'other-tokens'].includes(paymentMethod?.type || '') && !isConnected) || 
                       !paymentMethod || 
                       (paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) && !isConnected) || 
@@ -1227,7 +1289,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       !!phoneError || !!zipError}
                     className="w-full"
                   >
-                    {!isConnected && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod?.type || '') ? (
+                    {!isConnected && paymentMethod?.type === 'tokens' ? (
                       <>
                         <Check className="h-4 w-4 mr-2" />
                         <span>Connect Wallet</span>
@@ -1249,16 +1311,13 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       {/* Stripe Payment Modal */}
       {showStripeModal && orderData.batchOrderId && (
         <StripePaymentModal
-          // isOpen={showStripeModal}
           onClose={() => setShowStripeModal(false)}
           onSuccess={handleStripeSuccess}
           amount={orderData.price || 0}
           productName={`Batch Order - ${items.length} items`}
-          // productDescription={`Order containing ${items.length} items from cart`}
           orderId={orderData.batchOrderId}
           batchOrderId={orderData.batchOrderId}
           shippingInfo={formattedShippingInfo}
-          // walletAddress={walletAddress || 'anonymous'}
         />
       )}
     </div>

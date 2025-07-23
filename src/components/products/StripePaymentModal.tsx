@@ -60,7 +60,7 @@ interface ShippingInfo {
 interface StripePaymentModalProps {
   onClose: () => void;
   onSuccess: (paymentIntentId: string, orderId?: string, batchOrderId?: string) => void;
-  solAmount: number;
+  amount: number;
   productName: string;
   orderId?: string;
   batchOrderId?: string;
@@ -73,14 +73,14 @@ interface StripePaymentModalProps {
 type PaymentStatus = 'idle' | 'processing' | 'requires_action' | 'succeeded' | 'error';
 
 function StripeCheckoutForm({ 
-  solAmount, 
+  amount, 
   onSuccess,
   couponDiscount = 0,
   originalPrice = 0,
   solPrice,
   shippingInfo
 }: {
-  solAmount: number;
+  amount: number;
   onSuccess: (paymentIntentId: string, orderId?: string, batchOrderId?: string) => void;
   couponDiscount?: number;
   originalPrice?: number;
@@ -241,7 +241,7 @@ function StripeCheckoutForm({
     return <Loading type={LoadingType.ACTION} text="Loading price data..." />;
   }
 
-  const usdAmount = Math.max(solAmount * solPrice, 0.50).toFixed(2);
+  const usdAmount = Math.max(amount * solPrice, 0.50).toFixed(2);
   const isProcessing = paymentStatus === 'processing' || paymentStatus === 'requires_action';
 
   return (
@@ -251,7 +251,7 @@ function StripeCheckoutForm({
           <span className="text-gray-300">Amount:</span>
           <div className="text-right">
             <span className="text-white font-medium">
-              ${usdAmount} <span className="text-gray-400">({solAmount.toFixed(2)} SOL)</span>
+              ${usdAmount} <span className="text-gray-400">({amount.toFixed(2)} SOL)</span>
             </span>
             {couponDiscount > 0 && originalPrice > 0 && (
               <div className="text-sm">
@@ -259,7 +259,7 @@ function StripeCheckoutForm({
                 <span className="text-purple-400 ml-2">Coupon applied</span>
               </div>
             )}
-            {solAmount * solPrice < 0.50 && (
+            {amount * solPrice < 0.50 && (
               <div className="text-sm text-yellow-400">
                 Adjusted to minimum payment amount ($0.50)
               </div>
@@ -334,7 +334,7 @@ function StripeCheckoutForm({
 export function StripePaymentModal({
   onClose,
   onSuccess,
-  solAmount,
+  amount,
   productName,
   orderId,
   batchOrderId,
@@ -397,7 +397,7 @@ export function StripePaymentModal({
         }
         
         console.log('Creating payment intent for', {
-          solAmount,
+          amount,
           productName,
           orderId,
           batchOrderId,
@@ -588,7 +588,7 @@ export function StripePaymentModal({
                 </div>
               }>
                 <StripeCheckoutForm 
-                  solAmount={solAmount}
+                  amount={amount}
                   onSuccess={handlePaymentSuccess}
                   solPrice={solPrice}
                   shippingInfo={shippingInfo}

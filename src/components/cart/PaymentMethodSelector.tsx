@@ -96,6 +96,7 @@ export function PaymentMethodSelector({
   const [tokenInfo, setTokenInfo] = useState<{ name: string; symbol: string } | null>(null);
   const [showPriceDetails, setShowPriceDetails] = useState(false);
   const [defaultToken, setDefaultToken] = useState<'usdc' | 'sol'>('usdc');
+  const [showCustomTokenInput, setShowCustomTokenInput] = useState(false);
 
   const paymentOptions = [
     {
@@ -107,8 +108,8 @@ export function PaymentMethodSelector({
     },
     {
       type: 'tokens' as const,
-      label: 'Pay with Tokens',
-      description: 'SOL, USDC, or any SPL token',
+      label: 'Use Other Tokens',
+      description: 'Pay with any SPL token',
       icon: Wallet,
       available: isConnected
     },
@@ -315,6 +316,7 @@ export function PaymentMethodSelector({
     setTokenInfo(null);
     setCustomTokenAddress('');
     setShowPriceDetails(false);
+    setShowCustomTokenInput(false);
     
     const paymentMethod: PaymentMethod = { 
       type: method.type,
@@ -326,6 +328,7 @@ export function PaymentMethodSelector({
   const handlePopularTokenSelect = async (token: typeof POPULAR_TOKENS[0]) => {
     setCustomTokenAddress(token.address);
     setTokenInfo({ name: token.name, symbol: token.symbol });
+    setPriceQuote(null); // Clear previous quote
     
     onMethodChange({
       type: 'tokens',
@@ -352,6 +355,9 @@ export function PaymentMethodSelector({
     
     // Wait a bit for token info to load
     setTimeout(async () => {
+      // Clear previous quote before setting new token
+      setPriceQuote(null);
+      
       onMethodChange({
         type: 'tokens',
         defaultToken,
@@ -369,6 +375,9 @@ export function PaymentMethodSelector({
 
   const handleChainPaymentSubmit = async () => {
     const usdcAddress = USDC_ADDRESSES[selectedChain.id as keyof typeof USDC_ADDRESSES];
+    
+    // Clear previous quote
+    setPriceQuote(null);
     
     onMethodChange({
       type: 'other-chains',
@@ -409,7 +418,7 @@ export function PaymentMethodSelector({
       case 'other-chains':
         return `${selectedMethod.chainName} USDC Payment`;
       default:
-        return 'Select Payment Method';
+        return `Pay with ${defaultToken.toUpperCase()}`;
     }
   };
 
@@ -472,71 +481,13 @@ export function PaymentMethodSelector({
       {selectedMethod?.type === 'tokens' && (
         <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-white">Token Payment</h4>
+            <h4 className="text-sm font-medium text-white">Select Token</h4>
           </div>
           
-          {/* Default Token Selector */}
+          {/* Token Selection Grid */}
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-2">Default Payment Token</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setDefaultToken('usdc');
-                  if (!selectedMethod.tokenAddress) {
-                    onMethodChange({
-                      ...selectedMethod,
-                      defaultToken: 'usdc'
-                    });
-                  }
-                }}
-                className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-md border transition-colors ${
-                  defaultToken === 'usdc'
-                    ? 'border-secondary bg-secondary/10 text-white'
-                    : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
-              >
-                <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white">$</span>
-                </div>
-                <span className="text-sm font-medium">USDC</span>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => {
-                  setDefaultToken('sol');
-                  if (!selectedMethod.tokenAddress) {
-                    onMethodChange({
-                      ...selectedMethod,
-                      defaultToken: 'sol'
-                    });
-                  }
-                }}
-                className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-md border transition-colors ${
-                  defaultToken === 'sol'
-                    ? 'border-secondary bg-secondary/10 text-white'
-                    : 'border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
-              >
-                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white">◎</span>
-                </div>
-                <span className="text-sm font-medium">SOL</span>
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {defaultToken === 'usdc' 
-                ? 'Pay directly with USDC (no swap needed)' 
-                : 'Pay directly with SOL (no swap needed)'}
-            </p>
-          </div>
-          
-          {/* Popular Tokens */}
-          <div>
-            <label className="block text-xs font-medium text-gray-300 mb-2">Or Use Other Tokens</label>
             <div className="grid grid-cols-2 gap-2">
-              {POPULAR_TOKENS.map((token) => (
+              {POPULAR_TOKENS.slice(0, 3).map((token) => (
                 <button
                   key={token.address}
                   type="button"
@@ -556,13 +507,32 @@ export function PaymentMethodSelector({
                   </div>
                 </button>
               ))}
+              
+              {/* Others Button */}
+              <button
+                type="button"
+                onClick={() => setShowCustomTokenInput(!showCustomTokenInput)}
+                className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
+                  showCustomTokenInput
+                    ? 'border-secondary bg-secondary/10'
+                    : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
+                }`}
+              >
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center">
+                  <span className="text-xs font-bold text-white">+</span>
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-medium text-white">Others</div>
+                  <div className="text-xs text-gray-400">Custom token</div>
+                </div>
+              </button>
             </div>
           </div>
 
-          {/* Custom Token */}
-          <div>
-            <label className="block text-xs font-medium text-gray-300 mb-2">Or Enter Custom Token</label>
+          {/* Custom Token Input - Only show when "Others" is clicked */}
+          {showCustomTokenInput && (
             <div className="space-y-2">
+              <label className="block text-xs font-medium text-gray-300">Enter Custom Token</label>
               <div className="relative">
                 <input
                   type="text"
@@ -621,7 +591,7 @@ export function PaymentMethodSelector({
                 </Button>
               </div>
             </div>
-          </div>
+          )}
           
           {/* Price Quote Display */}
           {priceQuote && (selectedMethod.tokenAddress || customTokenAddress) && (
