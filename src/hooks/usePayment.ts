@@ -368,7 +368,7 @@ export function usePayment() {
 
   const processTokenPayment = async (
     amount: number,
-    buyerAddress: string,
+    orderId: string,
     merchantWalletAddress: string,
     tokenMint: PublicKey = USDC_MINT
   ): Promise<PaymentResult> => {
@@ -380,7 +380,7 @@ export function usePayment() {
       await ensureAuthenticated();
       setStatus({ processing: true, success: false, error: null });
 
-      const buyerPubkey = new PublicKey(buyerAddress);
+      const buyerPubkey = new PublicKey(walletAddress!);
       const merchantPubkey = new PublicKey(merchantWalletAddress);
       const instructions: any[] = [];
 
