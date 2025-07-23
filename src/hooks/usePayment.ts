@@ -431,8 +431,12 @@ export function usePayment() {
       );
       instructions.push(transferIx);
 
+      console.log('🔄 Preparing transaction with instructions:', instructions);
+
       // Prepare and send transaction
       const transaction = await prepareTransaction(instructions, buyerPubkey);
+
+      console.log('✅ Transaction prepared successfully', transaction);
       
       // Type guard to ensure window.solana exists
       if (!window.solana) {
