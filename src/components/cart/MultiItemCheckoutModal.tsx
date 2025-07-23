@@ -462,7 +462,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       success = paymentSuccess;
       signature = txSignature;
     } else {
-      const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(totalAmount, buyerAddress, receiverWallet);
+      const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(totalAmount, cartId, receiverWallet);
       success = paymentSuccess;
       signature = txSignature;
     }
