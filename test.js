@@ -1,4 +1,4 @@
-import { Connection as _Connection, PublicKey as _PublicKey } from '@solana/web3.js';
+import { Connection as _Connection, PublicKey as _PublicKey, VersionedMessage, TransactionMessage } from '@solana/web3.js';
 const Connection = _Connection;
 const PublicKey = _PublicKey;
 
@@ -103,18 +103,24 @@ const testTransaction = async () => {
     console.log('Using Solana connection:', SOLANA_CONNECTION.rpcEndpoint);
 
 
-    let signature = "66VKt69TSaLKjVax9QY5652KhEfoXsvrAJBZPvtxE74RZUokcpbfQPsPiKLvNVCBhvwELfj1xDnxtfnqDHX4fywJ";
+    let signature = "FQxdrb9GaSnqRZULJYi7f7TnXwT8ygUK7QqWod5Dr1oHghJT4GmnQVG1qnZznfxRfEJ2FnHyBfPKyyCJcboU9nQ";
 
     // {"fee": 0, "itemIndex": 1, "itemTotal": 0.03, "totalPrice": 0.03, "variantKey": "36b325f5-1c55-4ab0-a764-252fdfe22b77:M", "actualPrice": 0.01, "isFreeOrder": false, "orderNumber": "SF-0723-8745", "batchOrderId": "477dd2d6-1e3c-4dcc-9fb7-3faa1d384531", "defaultToken": "usdc", "isBatchOrder": true, "originalPrice": 0.03, "paymentMethod": "usdc", "walletAmounts": {"CCLShJpoFgPam7xZJmPcJ6eLnpmfQSxxaK7qbu8C4z9y": 0.03}, "couponDiscount": 0, "merchantWallet": "CCLShJpoFgPam7xZJmPcJ6eLnpmfQSxxaK7qbu8C4z9y", "receiverWallet": "CCLShJpoFgPam7xZJmPcJ6eLnpmfQSxxaK7qbu8C4z9y", "totalItemsInBatch": 1, "totalPaymentForBatch": 0.03}
 
-    const details = {
-      amount: 0.06,
+    // const details = {
+    //   amount: 0.06,
+    //   buyer: "2HPHsL1trUftzgcS1Jnrn2xiQAMop647yXoJ9Psk4iH6",
+    //   recipient: "CCLShJpoFgPam7xZJmPcJ6eLnpmfQSxxaK7qbu8C4z9y",
+    //   tokenMint: 'usdc',
+    // };
+    let expected = {
       buyer: "2HPHsL1trUftzgcS1Jnrn2xiQAMop647yXoJ9Psk4iH6",
-      recipient: "CCLShJpoFgPam7xZJmPcJ6eLnpmfQSxxaK7qbu8C4z9y",
-      tokenMint: 'usdc',
-    };
-    await verifySolanaTransactionDetails(signature, details);
-    await verifyJupiterSwapTransaction()
+      merchant: "CCLShJpoFgPam7xZJmPcJ6eLnpmfQSxxaK7qbu8C4z9y",
+      expectedOutputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+      expectedMinAmountOut: 0.05 * 10**6, // 0.03 USDC in smallest unit
+    }
+    // // await verifySolanaTransactionDetails(signature, details);
+    await verifyJupiterSwapTransaction(signature, expected);
 }
 
 async function verifySolanaTransactionDetails(signature, expectedDetails) {
@@ -297,9 +303,7 @@ const verifyJupiterSwapTransaction = async (
   signature,
   expected
 ) => {
-  const connection = new Connection('https://api.mainnet-beta.solana.com');
-
-  const tx = await connection.getTransaction(signature, {
+  const tx = await SOLANA_CONNECTION.getTransaction(signature, {
     commitment: 'confirmed',
     maxSupportedTransactionVersion: 0,
   });
@@ -307,32 +311,33 @@ const verifyJupiterSwapTransaction = async (
   if (!tx) throw new Error('Transaction not found or not yet confirmed');
 
   const { meta, transaction } = tx;
+  const message = transaction.message;
 
-  // 1. Ensure buyer signed the transaction
-  const buyerPubkey = new PublicKey(expected.buyer);
-  if (!transaction.message.accountKeys.some(k => k.equals(buyerPubkey))) {
-    throw new Error('Buyer did not sign this transaction');
-  }
+  const staticKeys = message.staticAccountKeys.map((k) => k.toBase58());
+  const buyerPubkey = new PublicKey(expected.buyer).toBase58();
 
-  // 2. Check if Jupiter router was invoked
-  const jupiterProgramId = 'JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB';
-  const isJupiterSwap = transaction.message.instructions.some(
-    ix => ix.programId.toString() === jupiterProgramId
+  // Check if buyer signed
+  const buyerSigned = staticKeys.includes(buyerPubkey);
+  if (!buyerSigned) throw new Error('Buyer did not sign the transaction');
+
+  // Merchant token balance check
+  const merchantPubkey = expected.merchant;
+  const outputTokenMint = expected.expectedOutputMint;
+
+  console.log(meta.postTokenBalances);
+
+  const tokenTransfers = meta?.postTokenBalances?.filter(
+    (balance) =>
+      balance.mint === outputTokenMint &&
+      balance.owner === merchantPubkey
   );
-  if (!isJupiterSwap) {
-    throw new Error('Not a Jupiter swap transaction');
-  }
 
-  // 3. Check if merchant received the expected token and amount
-  const merchantPubkey = new PublicKey(expected.merchant);
-  const outputTokenMint = new PublicKey(expected.expectedOutputMint);
-
-  const tokenTransfers = meta?.postTokenBalances?.filter((balance) =>
-    balance.mint === outputTokenMint.toString() &&
-    balance.owner === merchantPubkey.toString()
-  );
+  console.log('Token transfers:', tokenTransfers);
 
   const received = tokenTransfers?.[0]?.uiTokenAmount?.amount;
+
+  console.log('Received amount:', received);
+  console.log('expected amount:', expected.expectedMinAmountOut);
   if (!received || parseInt(received) < expected.expectedMinAmountOut) {
     throw new Error('Insufficient output amount received by merchant');
   }
@@ -343,7 +348,6 @@ const verifyJupiterSwapTransaction = async (
     confirmedSlot: tx.slot,
   };
 };
-
 
 
 testTransaction();
