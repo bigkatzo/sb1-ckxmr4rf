@@ -229,7 +229,7 @@ exports.handler = async (event, context) => {
       
       // Get actual price from Supabase
       const { price, variantKey, variantSelections } = await getProductPrice(
-        product.id, 
+        product.id,
         item.selectedOptions
       );
       

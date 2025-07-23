@@ -18,6 +18,7 @@ import { verifyFinalTransaction } from '../../utils/transaction-monitor.tsx';
 import { Button } from '../ui/Button';
 import { OrderSuccessView } from '../OrderSuccessView';
 import { PaymentMethodSelector, PaymentMethod, PriceQuote } from './PaymentMethodSelector';
+import { updateOrderTransactionSignature } from '../../services/orders.ts';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -99,7 +100,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   
   // Payment method state - updated to use new PaymentMethod type
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>({
+    type: 'tokens',
+    defaultToken: 'usdc'
+  });
   const [processingPayment, setProcessingPayment] = useState(false);
   
   // Define order progress steps
@@ -112,7 +116,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   
   // Add state for Stripe payment modal
   const [showStripeModal, setShowStripeModal] = useState(false);
-
   const [orderData, setOrderData] = useState<{
     orderIds?: Array<string>;
     orderNumbers?: Array<string>;
@@ -363,20 +366,82 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
 
   // Dummy function for price quotes - you can implement Jupiter/DeBridge APIs here
   const handleGetPriceQuote = async (tokenAddress: string, chainId?: string) => {
-    // This is where you'll implement your Jupiter/DeBridge API calls
+    // This is where you'll implement your actual Jupiter/DeBridge API calls
     console.log('Getting price quote for:', { tokenAddress, chainId });
     
-    // Return dummy data for now
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (chainId) {
+      // DeBridge API implementation for cross-chain USDC
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const bridgeFee = finalPrice * 0.005; // 0.5% bridge fee
+      const totalAmount = finalPrice + bridgeFee;
+      
+      return {
+        tokenAmount: totalAmount.toFixed(6),
+        tokenSymbol: 'USDC',
+        tokenName: 'USD Coin',
+        usdValue: finalPrice.toFixed(2),
+        exchangeRate: '1.000000',
+        bridgeFee: bridgeFee.toFixed(6),
+        loading: false
+      };
+    } else {
+      // Jupiter API implementation for SPL tokens
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Mock rates for demonstration
+      const mockRates: { [key: string]: number } = {
+        'So11111111111111111111111111111111111111112': 180.00, // SOL
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 1.00, // USDC
+        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1.00, // USDT
+        '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump': 0.85, // FARTCOIN
+      };
+      
+      const rate = mockRates[tokenAddress] || Math.random() * 100;
+      const tokenAmount = (finalPrice / rate).toFixed(6);
+      
+      return {
+        tokenAmount,
+        tokenSymbol: 'TOKEN',
+        tokenName: 'Custom Token',
+        usdValue: finalPrice.toFixed(2),
+        exchangeRate: rate.toFixed(6),
+        loading: false
+      };
+    }
+  };
+  
+  const handleCryptoComplete = async (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => {
+    console.log('Crypto payment successful:', txSignature, orderId, batchOrderId);
     
-    return {
-      tokenAmount: '100.000000',
-      tokenSymbol: 'TOKEN',
-      tokenName: 'Custom Token',
-      usdValue: finalPrice.toFixed(2),
-      exchangeRate: '1.000000',
-      loading: false
-    };
+    if (!status.success) {
+      setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
+      try {
+        await updateOrderTransactionSignature({
+          transactionSignature: `rejected_${walletAddress}_${orderData.batchOrderId}_${Date.now()}`,
+          amountSol: orderData.price || 0,
+          batchOrderId: orderData.batchOrderId
+        });
+      } catch (err) {
+        console.error('Error updating order status:', err);
+      }
+      return;
+    }
+
+    const statusSuccess = await updateOrderTransactionSignature({
+      transactionSignature: txSignature,
+      amountSol: orderData.price || 0,
+      walletAddress: walletAddress || 'anonymous',
+      batchOrderId,
+    });
+
+    if (!statusSuccess) {
+      throw new Error('Failed to update order transaction');
+    }
+
+    // Start transaction confirmation
+    setOrderProgress({ step: 'confirming_transaction' });
+    await handleVerifyBatchTransactions(txSignature, batchOrderId, receiverWallet);
   };
   
   // Update the handleStripeSuccess function to receive and use batchOrderId
@@ -428,11 +493,17 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           walletAddress: walletAddress || 'anonymous',
           paymentMetadata: {
             paymentMethod: paymentMethod?.type ?? 'stripe',
+            defaultToken: paymentMethod?.defaultToken,
             tokenAddress: paymentMethod?.tokenAddress,
             tokenSymbol: paymentMethod?.tokenSymbol,
             tokenName: paymentMethod?.tokenName,
             chainId: paymentMethod?.chainId,
             chainName: paymentMethod?.chainName,
+            // tokenAddress: paymentMethod?.tokenAddress,
+            // tokenSymbol: paymentMethod?.tokenSymbol,
+            // tokenName: paymentMethod?.tokenName,
+            // chainId: paymentMethod?.chainId,
+            // chainName: paymentMethod?.chainName,
             couponCode: appliedCoupon?.code,
             couponDiscount: appliedCoupon?.discountAmount,
             originalPrice: totalPrice,
@@ -472,7 +543,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       
       if(paymentMethod?.type === 'stripe') {
         setShowStripeModal(true);
-      } else if (paymentMethod?.type === 'solana') {
+      } else if (paymentMethod?.type === 'tokens') {
         // Handle token payments - you can implement your token payment flow here
         toast.info('Token payment flow will be implemented');
       } else if (paymentMethod?.type === 'other-chains') {
@@ -597,7 +668,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     }
     
     // Verify wallet connection for crypto payments
-    if (paymentMethod?.type === 'solana' && !isConnected) {
+    if (paymentMethod?.type === 'tokens' && !isConnected) {
       toast.info("Please connect your wallet to proceed with payment", {
         position: "bottom-center",
         autoClose: 3000
@@ -658,17 +729,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             totalItems={items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0)}
             itemPosition={1}
             isBatchOrder={true}
-          />
-        ) : showStripeModal ? (
-          <StripePaymentModal
-            onClose={() => setShowStripeModal(false)}
-            onSuccess={handleStripeSuccess}
-            solAmount={(orderData.price || 0)}
-            productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
-            batchOrderId={orderData.batchOrderId || ''}
-            shippingInfo={formattedShippingInfo}
-            couponDiscount={orderData.couponDiscount}
-            originalPrice={orderData.originalPrice || 0}
           />
         ) : (
           <div className="relative bg-gray-900 w-full max-w-2xl rounded-xl overflow-hidden">
@@ -786,6 +846,17 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       </Button>
                     </div>
                   )}
+                </div>
+
+                 {/* Enhanced Payment Method Selection */}
+                <div className="pt-4 border-t border-gray-800 mt-4">
+                  <PaymentMethodSelector
+                    selectedMethod={paymentMethod}
+                    onMethodChange={setPaymentMethod}
+                    isConnected={isConnected}
+                    usdAmount={1000}
+                    disabled={processingPayment}
+                  />
                 </div>
                 
                 {/* Price Summary */}
@@ -1134,17 +1205,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   </div>
                 </div>
                 
-                {/* Enhanced Payment Method Selection */}
-                <div className="pt-4 border-t border-gray-800 mt-4">
-                  <PaymentMethodSelector
-                    selectedMethod={paymentMethod}
-                    onMethodChange={setPaymentMethod}
-                    isConnected={isConnected}
-                    usdAmount={1000}
-                    disabled={processingPayment}
-                  />
-                </div>
-                
                 {/* Checkout button */}
                 <div className="pt-4 border-t border-gray-800 mt-4">
                   <Button
@@ -1185,6 +1245,22 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           </div>
         )}
       </div>
+
+      {/* Stripe Payment Modal */}
+      {showStripeModal && orderData.batchOrderId && (
+        <StripePaymentModal
+          // isOpen={showStripeModal}
+          onClose={() => setShowStripeModal(false)}
+          onSuccess={handleStripeSuccess}
+          amount={orderData.price || 0}
+          productName={`Batch Order - ${items.length} items`}
+          // productDescription={`Order containing ${items.length} items from cart`}
+          orderId={orderData.batchOrderId}
+          batchOrderId={orderData.batchOrderId}
+          shippingInfo={formattedShippingInfo}
+          // walletAddress={walletAddress || 'anonymous'}
+        />
+      )}
     </div>
   );
 }
