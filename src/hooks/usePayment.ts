@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useWallet } from '../contexts/WalletContext';
-import { PublicKey, Transaction } from '@solana/web3.js';
+import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { createSolanaPayment } from '../services/payments';
 import { monitorTransaction } from '../utils/transaction-monitor';
 import { updateTransactionStatus } from '../services/orders';
@@ -225,7 +225,7 @@ export function usePayment() {
   const ensureTokenAccount = async (
     tokenMint: PublicKey,
     owner: PublicKey,
-    instructions: any[]
+    instructions: TransactionInstruction[]
   ): Promise<PublicKey> => {
     const tokenAccount = await getAssociatedTokenAddress(tokenMint, owner);
     
@@ -260,11 +260,6 @@ export function usePayment() {
     
     return tokenAccount;
   };
-
-  // Also update the balance checking part in processTokenPayment:
-  // Replace this part of your processTokenPayment function:
-
-  // Check buyer has enough balance (updated version)
   
 
   const processSolanaSwapTokenPayment = async (
@@ -282,6 +277,8 @@ export function usePayment() {
     try {
       await ensureAuthenticated();
       setStatus({ processing: true, success: false, error: null });
+
+      inputAmount = Math.floor(inputAmount * 10 ** USDC_DECIMALS); // Convert to smallest unit (e.g., 6 decimals for USDC)
 
       console.log('🔄 Getting Jupiter swap quote...');
       
@@ -403,7 +400,7 @@ export function usePayment() {
 
       const buyerPubkey = new PublicKey(walletAddress!);
       const merchantPubkey = new PublicKey(merchantWalletAddress);
-      const instructions: any[] = [];
+      const instructions: TransactionInstruction[] = [];
 
       // Ensure both token accounts exist
       const buyerTokenAccount = await ensureTokenAccount(tokenMint, buyerPubkey, instructions);
@@ -429,6 +426,7 @@ export function usePayment() {
         buyerPubkey,
         amountInSmallestUnit
       );
+
       instructions.push(transferIx);
 
       console.log('🔄 Preparing transaction with instructions:', instructions);
