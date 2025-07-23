@@ -29,7 +29,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   const { items, clearCart, verifyAllItems } = useCart();
   const { isConnected, walletAddress } = useWallet();
   const { setVisible } = useWalletModal();
-  const { processPayment } = usePayment();
+  const { processPayment, processTokenPayment, processSolanaSwapTokenPayment } = usePayment();
   
   // Form state
   const [shipping, setShipping] = useState<{
@@ -459,7 +459,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       success = paymentSuccess;
       signature = txSignature;
     } else {
-      const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, cartId, receiverWallet);
+      const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(totalAmount, cartId, receiverWallet);
       success = paymentSuccess;
       signature = txSignature;
     }
@@ -580,13 +580,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       if( paymentMethod?.type === 'stripe') {
         setShowStripeModal(true);
       } else if (paymentMethod?.type === 'spl-tokens') {
-        // Handle token payments directly in the checkout flow
         toast.info('Token payment flow will be implemented');
       } else if (paymentMethod?.type === 'cross-chain') {
-        // Handle cross-chain payments - you can implement your DeBridge flow here
         toast.info('Cross-chain payment flow will be implemented');
       } else {
-        // default...
         await processSolanaPayment();
         toast.info('Normal payment flow will be implemented');
       }
