@@ -20,7 +20,7 @@ import type { PriceWithDiscount } from '../../types/coupons';
 import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
-import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
+import { getLocationFromZip, doesCountryRequireTaxId, isCountrySupportedForShipping } from '../../utils/addressUtil';
 import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
 import { usePreventScroll } from '../../hooks/usePreventScroll';
 
@@ -202,6 +202,11 @@ export function TokenVerificationModal({
     const countryCode = countries.find(c => c.name === shippingInfoState.country)?.code;
     return countryCode ? getStatesByCountryCode(countryCode) : [];
   }, [shippingInfoState.country]);
+  
+  // Check if the selected country is supported for shipping
+  const isCountrySupported = useMemo(() => {
+    return shippingInfoState.country ? isCountrySupportedForShipping(shippingInfoState.country) : true;
+  }, [shippingInfoState.country]);
 
   // Enhance the handleZipChange function to detect country when possible
   const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -357,6 +362,12 @@ export function TokenVerificationModal({
     try {
       if (!isConnected) {
         toast.error('Please connect your wallet first');
+        return;
+      }
+      
+      // Check if the selected country is supported for shipping
+      if (!isCountrySupportedForShipping(shippingInfoState.country)) {
+        toast.error(`We currently do not support shipping to ${shippingInfoState.country}. Please select a different country.`);
         return;
       }
       
@@ -981,6 +992,12 @@ export function TokenVerificationModal({
   // Add a function to handle order creation for Stripe payments
   const handleStripeOrderCreation = async () => {
     try {
+      // Check if the selected country is supported for shipping
+      if (!isCountrySupportedForShipping(shippingInfoState.country)) {
+        toast.error(`We currently do not support shipping to ${shippingInfoState.country}. Please select a different country.`);
+        return;
+      }
+      
       setSubmitting(true);
       updateProgressStep(0, 'processing', 'Creating order for Stripe payment...');
       
@@ -1271,6 +1288,12 @@ export function TokenVerificationModal({
                             name="country"
                             id="country"
                           />
+                          {!isCountrySupported && shippingInfoState.country && (
+                            <p className="mt-2 text-sm text-red-400 flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4" />
+                              We currently do not support shipping to {shippingInfoState.country}. Please select a different country.
+                            </p>
+                          )}
                         </div>
 
                         {availableStates.length > 0 ? (
@@ -1500,7 +1523,7 @@ export function TokenVerificationModal({
                           !shippingInfoState.contactValue || !shippingInfoState.firstName ||
                           !shippingInfoState.lastName || !shippingInfoState.phoneNumber || 
                           (shippingInfoState.country && doesCountryRequireTaxId(shippingInfoState.country) && !shippingInfoState.taxId) ||
-                          !!phoneError || !!zipError}
+                          !!phoneError || !!zipError || !isCountrySupported}
                         className="w-full bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
                         <span>Pay with Solana ({finalPrice.toFixed(2)} SOL)</span>
@@ -1518,7 +1541,7 @@ export function TokenVerificationModal({
                             !shippingInfoState.contactValue || !shippingInfoState.firstName ||
                             !shippingInfoState.lastName || !shippingInfoState.phoneNumber || 
                             (shippingInfoState.country && doesCountryRequireTaxId(shippingInfoState.country) && !shippingInfoState.taxId) ||
-                            !!phoneError || !!zipError}
+                            !!phoneError || !!zipError || !isCountrySupported}
                           className="text-primary hover:text-primary/80 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Pay with Credit Card

@@ -4,7 +4,12 @@ import { getStateFromZipCode } from '../lib/validation';
 /**
  * Countries that require tax ID for shipping
  */
-export const COUNTRIES_REQUIRING_TAX_ID = ['ZA', 'MX', 'NO', 'CL', 'TR', 'KR']; // South Africa, Mexico, Norway, Chile, Turkey, Republic of Korea
+export const COUNTRIES_REQUIRING_TAX_ID = ['ZA', 'MX', 'NO', 'CL', 'TR', 'KR', 'BR'];
+
+/**
+ * Countries that are not supported for shipping
+ */
+export const UNSUPPORTED_SHIPPING_COUNTRIES = ['IN']; // India // South Africa, Mexico, Norway, Chile, Turkey, Republic of Korea
 
 /**
  * Check if a country requires tax ID for shipping
@@ -12,6 +17,14 @@ export const COUNTRIES_REQUIRING_TAX_ID = ['ZA', 'MX', 'NO', 'CL', 'TR', 'KR']; 
 export function doesCountryRequireTaxId(countryCodeOrName: string): boolean {
   const countryInfo = getCountryInfo(countryCodeOrName);
   return countryInfo ? COUNTRIES_REQUIRING_TAX_ID.includes(countryInfo.code) : false;
+}
+
+/**
+ * Check if a country is supported for shipping
+ */
+export function isCountrySupportedForShipping(countryCodeOrName: string): boolean {
+  const countryInfo = getCountryInfo(countryCodeOrName);
+  return countryInfo ? !UNSUPPORTED_SHIPPING_COUNTRIES.includes(countryInfo.code) : true;
 }
 
 /**

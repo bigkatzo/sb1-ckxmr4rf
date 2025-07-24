@@ -11,7 +11,7 @@ import { CouponService } from '../../services/coupons';
 import { validatePhoneNumber, validateZipCode, getStateFromZipCode } from '../../lib/validation';
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
-import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
+import { getLocationFromZip, doesCountryRequireTaxId, isCountrySupportedForShipping } from '../../utils/addressUtil';
 import { usePayment } from '../../hooks/usePayment';
 import { StripePaymentModal } from '../products/StripePaymentModal';
 import { verifyFinalTransaction } from '../../utils/transaction-monitor.tsx';
@@ -69,6 +69,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   // Check if the selected country requires a tax ID
   const requiresTaxId = useMemo(() => {
     return doesCountryRequireTaxId(shipping.country);
+  }, [shipping.country]);
+  
+  // Check if the selected country is supported for shipping
+  const isCountrySupported = useMemo(() => {
+    return shipping.country ? isCountrySupportedForShipping(shipping.country) : true;
   }, [shipping.country]);
   
   // Format shipping info at component level for reuse
@@ -509,6 +514,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     // Validate state/province is selected if available for country
     if (availableStates.length > 0 && !shipping.state) {
       toast.error('Please select a state/province');
+      return;
+    }
+    
+    // Check if the selected country is supported for shipping
+    if (!isCountrySupportedForShipping(shipping.country)) {
+      toast.error(`We currently do not support shipping to ${shipping.country}. Please select a different country.`);
       return;
     }
     
@@ -1323,6 +1334,12 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                         name="country"
                         id="country"
                       />
+                      {!isCountrySupported && shipping.country && (
+                        <p className="mt-2 text-sm text-red-400 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4" />
+                          We currently do not support shipping to {shipping.country}. Please select a different country.
+                        </p>
+                      )}
                     </div>
 
                     {availableStates.length > 0 ? (
@@ -1542,7 +1559,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       !shipping.contactValue || !shipping.firstName ||
                       !shipping.lastName || !shipping.phoneNumber || 
                       (shipping.country && doesCountryRequireTaxId(shipping.country) && !shipping.taxId) ||
-                      !!phoneError || !!zipError}
+                      !!phoneError || !!zipError || !isCountrySupported}
                     className="w-full"
                   >
                     {!isConnected && paymentMethod === 'solana' ? (
