@@ -185,6 +185,7 @@
       form-action 'self';
       manifest-src 'self';
       media-src 'self' blob: data:;
+      frame-ancestors https://grid.wtf https://*.grid.wtf;
       upgrade-insecure-requests;
     """
     # Short cache for HTML files
