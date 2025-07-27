@@ -378,9 +378,6 @@ export function usePayment() {
         
         if (status.success) {
           await updateTransactionStatus(signature, 'confirmed');
-          // const outputAmountFormatted = (parseInt(quote.outAmount) / 10**6).toFixed(6);
-          // const successMessage = `Sent ${outputAmountFormatted} tokens to receiver for ${swapSymbol}`;
-          // toast.success(successMessage);
         } else if (status.error) {
           await updateTransactionStatus(signature, 'failed');
         }

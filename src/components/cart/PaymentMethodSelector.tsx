@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 
 export interface PaymentMethod {
   type: 'default' | 'stripe' | 'spl-tokens' | 'cross-chain';
-  defaultToken?: 'usdc' | 'sol';
+  defaultToken?: 'usdc' | 'sol' | 'merchant';
   tokenAddress?: string;
   chainId?: string;
   tokenSymbol?: string;
@@ -89,7 +89,7 @@ export function PaymentMethodSelector({
   const [loadingTokenInfo, setLoadingTokenInfo] = useState(false);
   const [tokenInfo, setTokenInfo] = useState<{ name: string; symbol: string } | null>(null);
   const [showPriceDetails, setShowPriceDetails] = useState(false);
-  const [defaultToken, setDefaultToken] = useState<'usdc' | 'sol'>('usdc');
+  const [defaultToken, setDefaultToken] = useState<'usdc' | 'sol' | 'merchant'>('usdc');
   const [showCustomTokenInput, setShowCustomTokenInput] = useState(false);
 
   const paymentOptions = [
@@ -295,6 +295,31 @@ export function PaymentMethodSelector({
     onMethodChange(paymentMethod);
   };
 
+  // Handle merchant token selection - automatically switch to SPL tokens
+  const handleMerchantTokenSelect = () => {
+    // Set a default merchant token address (you can customize this)
+    const merchantTokenAddress = 'MERCHANTtokenaddresshere123456789'; // Replace with actual merchant token
+    const merchantTokenInfo = {
+      name: 'Merchant Token',
+      symbol: 'MERCHANT'
+    };
+    
+    setCustomTokenAddress(merchantTokenAddress);
+    setTokenInfo(merchantTokenInfo);
+    setShowCustomTokenInput(true);
+    setPriceQuote(null);
+    
+    // Switch to SPL tokens method
+    onMethodChange({
+      type: 'spl-tokens',
+      tokenAddress: merchantTokenAddress,
+      tokenSymbol: merchantTokenInfo.symbol,
+      tokenName: merchantTokenInfo.name
+    });
+
+    toast.success('Merchant token selected for payment');
+  };
+
   const handlePopularTokenSelect = async (token: typeof POPULAR_TOKENS[0]) => {
     setCustomTokenAddress(token.address);
     setTokenInfo({ name: token.name, symbol: token.symbol });
@@ -381,6 +406,51 @@ export function PaymentMethodSelector({
     }
   };
 
+  // Render default token selection buttons
+  const renderDefaultTokenButtons = () => {
+    const tokens = [
+      { key: 'usdc', label: 'USDC', description: 'USD Coin' },
+      { key: 'sol', label: 'SOL', description: 'Solana' },
+      { key: 'merchant', label: 'MERCHANT', description: 'Merchant Token' }
+    ];
+
+    return (
+      <div className="grid grid-cols-3 gap-2">
+        {tokens.map((token) => (
+          <button
+            key={token.key}
+            type="button"
+            onClick={() => {
+              if (token.key === 'merchant') {
+                handleMerchantTokenSelect();
+              } else {
+                setDefaultToken(token.key as 'usdc' | 'sol' | 'merchant');
+                onMethodChange({
+                  type: 'default',
+                  defaultToken: token.key as 'usdc' | 'sol' | 'merchant'
+                });
+              }
+            }}
+            className={`flex flex-col items-center gap-1 p-2 rounded-md border transition-colors ${
+              (selectedMethod?.type === 'default' && selectedMethod.defaultToken === token.key) ||
+              (selectedMethod?.type === 'spl-tokens' && token.key === 'merchant' && selectedMethod.tokenSymbol === 'MERCHANT')
+                ? 'border-secondary bg-secondary/10'
+                : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
+            }`}
+          >
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
+              <span className="text-xs font-bold text-white">{token.label[0]}</span>
+            </div>
+            <div className="text-center">
+              <div className="text-xs font-medium text-white">{token.label}</div>
+              <div className="text-xs text-gray-400">{token.description}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4 border-t border-gray-800 mt-4 pt-4">
       <div className="relative">
@@ -436,6 +506,23 @@ export function PaymentMethodSelector({
         )}
       </div>
 
+      {/* Default Payment Method Selection */}
+      {selectedMethod?.type === 'default' && (
+        <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-white">Select Default Token</h4>
+          </div>
+          
+          {renderDefaultTokenButtons()}
+          
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
+            <p className="text-xs text-blue-400">
+              Quick payment options. Selecting MERCHANT will automatically switch to SPL token payment.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* SPL Token Payment Selection */}
       {selectedMethod?.type === 'spl-tokens' && (
         <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
@@ -488,16 +575,19 @@ export function PaymentMethodSelector({
             </div>
           </div>
 
-          {/* Custom Token Input - Only show when "Others" is clicked */}
-          {showCustomTokenInput && (
+          {/* Custom Token Input - Show when "Others" is clicked OR when merchant token is auto-selected */}
+          {(showCustomTokenInput || (selectedMethod.tokenSymbol === 'MERCHANT')) && (
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-gray-300">Enter Custom Token</label>
+              <label className="block text-xs font-medium text-gray-300">
+                {selectedMethod.tokenSymbol === 'MERCHANT' ? 'Merchant Token Selected' : 'Enter Custom Token'}
+              </label>
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Paste token contract address"
+                  placeholder={selectedMethod.tokenSymbol === 'MERCHANT' ? 'Merchant token address' : 'Paste token contract address'}
                   value={customTokenAddress}
                   onChange={(e) => setCustomTokenAddress(e.target.value)}
+                  readOnly={selectedMethod.tokenSymbol === 'MERCHANT'}
                   className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 pr-10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
                 />
                 {customTokenAddress && (
