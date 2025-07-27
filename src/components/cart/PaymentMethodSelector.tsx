@@ -153,7 +153,7 @@ export function PaymentMethodSelector({
     }
   };
 
-  // Jupiter API price quote function
+// Jupiter API price quote function
   const getJupiterPriceQuote = async (tokenAddress: string): Promise<PriceQuote> => {
     await new Promise(resolve => setTimeout(resolve, 800));
     
@@ -166,7 +166,7 @@ export function PaymentMethodSelector({
       const outputAmount = Math.floor(usdAmount * Math.pow(10, outputDecimals));
       
       const quoteResponse = await fetch(
-        `https://quote-api.jup.ag/v6/quote?inputMint=${tokenAddress}&outputMint=${outputMint}&amount=${outputAmount}&swapMode=ExactOut&slippageBps=50`
+        `https://quote-api.jup.ag/v6/quote?inputMint=${outputMint}&outputMint=${tokenAddress}&amount=${outputAmount}&slippageBps=50`
       );
       
       if (!quoteResponse.ok) {
@@ -174,8 +174,10 @@ export function PaymentMethodSelector({
       }
       
       const quoteData = await quoteResponse.json();
-      const inputDecimals = tokenAddress === 'So11111111111111111111111111111111111111112' ? 9 : 6;
-      const tokenAmount = (parseFloat(quoteData.inAmount) / Math.pow(10, inputDecimals)).toFixed(6);
+      
+      // Get token decimals - assume 6 for most SPL tokens, 9 for SOL
+      const tokenDecimals = tokenAddress === 'So11111111111111111111111111111111111111112' ? 9 : 6;
+      const tokenAmount = (parseFloat(quoteData.outAmount) / Math.pow(10, tokenDecimals)).toFixed(6);
       const rate = parseFloat(tokenAmount) > 0 ? usdAmount / parseFloat(tokenAmount) : 0;
       
       return {
@@ -183,7 +185,7 @@ export function PaymentMethodSelector({
         tokenSymbol: tokenInfo?.symbol || 'TOKEN',
         tokenName: tokenInfo?.name || 'Custom Token',
         usdValue: usdAmount.toFixed(2),
-        exchangeRate: rate.toFixed(6),
+        exchangeRate: (1 / rate).toFixed(6),
         loading: false
       };
     } catch (error) {
