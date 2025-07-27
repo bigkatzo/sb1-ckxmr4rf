@@ -410,48 +410,59 @@ export function PaymentMethodSelector({
 
   // Render default token selection buttons
   const renderDefaultTokenButtons = () => {
-    const tokens = [
-      { key: 'usdc', label: 'USDC', description: 'USD Coin' },
-      { key: 'sol', label: 'SOL', description: 'Solana' },
-      { key: 'merchant', label: 'MERCHANT', description: 'Merchant Token' }
-    ];
+      return (
+        selectedMethod?.type === 'default' && (
+          <div className="space-y-3 mt-4 pt-4 text-xs">
+            <div className="flex justify-end">
+              <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDefaultToken('usdc');
+                    onMethodChange({ type: 'default', defaultToken: 'usdc' });
+                  }}
+                  className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
+                    selectedMethod?.defaultToken === 'usdc'
+                      ? 'bg-secondary text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-white">$</span>
+                  </div>
+                  USDC
+                </button>
 
-    return (
-      <div className="grid grid-cols-3 gap-2">
-        {tokens.map((token) => (
-          <button
-            key={token.key}
-            type="button"
-            onClick={() => {
-              if (token.key === 'merchant') {
-                handleMerchantTokenSelect();
-              } else {
-                setDefaultToken(token.key as 'usdc' | 'sol' | 'merchant');
-                onMethodChange({
-                  type: 'default',
-                  defaultToken: token.key as 'usdc' | 'sol' | 'merchant'
-                });
-              }
-            }}
-            className={`flex flex-col items-center gap-1 p-2 rounded-md border transition-colors ${
-              (selectedMethod?.type === 'default' && selectedMethod.defaultToken === token.key) ||
-              (selectedMethod?.type === 'spl-tokens' && token.key === 'merchant' && selectedMethod.tokenSymbol === 'MERCHANT')
-                ? 'border-secondary bg-secondary/10'
-                : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
-            }`}
-          >
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
-              <span className="text-xs font-bold text-white">{token.label[0]}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDefaultToken('sol');
+                    onMethodChange({ type: 'default', defaultToken: 'sol' });
+                  }}
+                  className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
+                    selectedMethod?.defaultToken === 'sol'
+                      ? 'bg-secondary text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-white">◎</span>
+                  </div>
+                  SOL
+                </button>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-xs font-medium text-white">{token.label}</div>
-              <div className="text-xs text-gray-400">{token.description}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-    );
-  };
+
+            <p className="text-[10px] text-gray-400 text-right">
+              {selectedMethod?.defaultToken === 'usdc'
+                ? 'Pay with USDC (no swap)'
+                : 'Pay with SOL (no swap)'}
+            </p>
+          </div>
+        )
+      );
+    };
+
 
   return (
     <div className="space-y-4 border-t border-gray-800 mt-4 pt-4">
