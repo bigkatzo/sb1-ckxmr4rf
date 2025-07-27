@@ -910,7 +910,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     onGetPriceQuote={undefined}
                   />
                 
-                {paymentMethod?.type === 'default' && (
+                {/* {paymentMethod?.type === 'default' && (
                   <div className="space-y-3 mt-4 pt-4 text-xs">
                     <div className="flex justify-end">
                       <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700">
@@ -952,7 +952,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                         : 'Pay with SOL (no swap)'}
                     </p>
                   </div>
-)}
+                )} */}
 
 
                 {paymentMethod?.type === 'spl-tokens' || paymentMethod?.type === 'default' && !isConnected && (
