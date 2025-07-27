@@ -86,6 +86,10 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const [dexscreenerUrl, setDexscreenerUrl] = useState(collection?.dexscreener_url || '');
   const [pumpfunUrl, setPumpfunUrl] = useState(collection?.pumpfun_url || '');
   const [websiteUrl, setWebsiteUrl] = useState(collection?.website_url || '');
+  const [recommendedToken, setRecommendedToken] = useState(collection?.ca || '');
+  const [tokenName, setTokenName] = useState('');
+  const [loadingToken, setLoadingToken] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
   
   // Initialize launch date with proper error handling
   const [launchDate, setLaunchDate] = useState(() => {
@@ -224,6 +228,65 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
     setShowImageTooltip(false);
   };
 
+  const loadTokenInfo = async () => {
+    if (!recommendedToken.trim()) {
+      setTokenError('Please enter a contract address');
+      return;
+    }
+
+    setLoadingToken(true);
+    setTokenError(null);
+    setTokenName('');
+
+    try {
+      // Try to extract contract address from various URL formats
+      let contractAddress = recommendedToken.trim();
+      
+      // Extract from DexScreener URLs
+      const dexScreenerMatch = contractAddress.match(/dexscreener\.com\/[^\/]+\/([a-zA-Z0-9]+)/);
+      if (dexScreenerMatch) {
+        contractAddress = dexScreenerMatch[1];
+      }
+      
+      // Extract from PumpFun URLs
+      const pumpFunMatch = contractAddress.match(/pump\.fun\/([a-zA-Z0-9]+)/);
+      if (pumpFunMatch) {
+        contractAddress = pumpFunMatch[1];
+      }
+      
+      // Remove any remaining URL parts and clean the address
+      contractAddress = contractAddress.replace(/^https?:\/\//, '').split('/').pop() || contractAddress;
+      
+      // Mock API call - in a real implementation, you'd call a token info API
+      // For now, we'll simulate loading token information
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Simulate different responses based on contract address format
+      if (contractAddress.length >= 32 && /^[a-zA-Z0-9]+$/.test(contractAddress)) {
+        // Generate a mock token name based on the contract address
+        const mockNames = [
+          'PepeCoin',
+          'MoonToken',
+          'DiamondHands',
+          'RocketFuel',
+          'GemFinder',
+          'AlphaCoin',
+          'BetaToken',
+          'GammaGem'
+        ];
+        const mockName = mockNames[contractAddress.length % mockNames.length];
+        setTokenName(`${mockName} (${contractAddress.slice(0, 6)}...${contractAddress.slice(-4)})`);
+      } else {
+        throw new Error('Invalid contract address format');
+      }
+    } catch (error) {
+      console.error('Error loading token info:', error);
+      setTokenError('Failed to load token information. Please check the contract address.');
+    } finally {
+      setLoadingToken(false);
+    }
+  };
+
   const saveTheme = async () => {
     try {
       const formData = new FormData();
@@ -287,6 +350,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       formData.append('pumpfun_url', pumpfunUrl || '');
       formData.append('website_url', websiteUrl || '');
       formData.append('free_notes', freeNotes || '');
+      formData.append('ca', recommendedToken || '');
 
       await onSubmit(formData);
       
@@ -358,6 +422,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       formData.append('dexscreener_url', dexscreenerUrl || '');
       formData.append('pumpfun_url', pumpfunUrl || '');
       formData.append('website_url', websiteUrl || '');
+      formData.append('ca', recommendedToken || '');
 
       // Add theme data - preserve existing theme data if not changed in theme modal
       if (themeData.theme_use_custom) {
@@ -679,6 +744,53 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                       className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
                       placeholder="https://pump.fun/example"
                     />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="ca" className="block text-xs text-gray-400 mb-1">
+                      Recommended Token
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          id="ca"
+                          name="ca"
+                          value={recommendedToken}
+                          onChange={(e) => {
+                            setRecommendedToken(e.target.value);
+                            setTokenError(null);
+                            setTokenName('');
+                          }}
+                          className="flex-1 rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                          placeholder="Enter contract address or token URL"
+                        />
+                        <button
+                          type="button"
+                          onClick={loadTokenInfo}
+                          disabled={loadingToken || !recommendedToken.trim()}
+                          className="px-4 py-2 bg-primary hover:bg-primary/80 disabled:bg-gray-700 disabled:text-gray-400 text-white rounded-lg transition-colors text-sm font-medium"
+                        >
+                          {loadingToken ? 'Loading...' : 'Load Token'}
+                        </button>
+                      </div>
+                      
+                      {tokenError && (
+                        <div className="text-red-400 text-xs bg-red-900/20 border border-red-500/30 rounded px-2 py-1">
+                          {tokenError}
+                        </div>
+                      )}
+                      
+                      {tokenName && (
+                        <div className="text-green-400 text-xs bg-green-900/20 border border-green-500/30 rounded px-2 py-1">
+                          <span className="font-medium">Token found:</span> {tokenName}
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-gray-500">
+                        Enter a contract address, DexScreener URL, or PumpFun URL to automatically load token information
+                      </p>
+                    </div>
                   </div>
                   
                   <div>

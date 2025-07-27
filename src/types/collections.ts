@@ -63,6 +63,7 @@ export interface Collection {
   x_url?: string;
   telegram_url?: string;
   dexscreener_url?: string;
+  ca?: string;
   pumpfun_url?: string;
   website_url?: string;
   free_notes?: string;
