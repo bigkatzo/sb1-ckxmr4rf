@@ -909,51 +909,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     usdAmount={finalPrice}
                     onGetPriceQuote={undefined}
                   />
-                
-                {/* {paymentMethod?.type === 'default' && (
-                  <div className="space-y-3 mt-4 pt-4 text-xs">
-                    <div className="flex justify-end">
-                      <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700">
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod({ type: 'default', defaultToken: 'usdc' })}
-                          className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
-                            paymentMethod?.defaultToken === 'usdc'
-                              ? 'bg-secondary text-white'
-                              : 'text-gray-400 hover:text-white'
-                          }`}
-                        >
-                          <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
-                            <span className="text-[10px] font-bold text-white">$</span>
-                          </div>
-                          USDC
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod({ type: 'default', defaultToken: 'sol' })}
-                          className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
-                            paymentMethod?.defaultToken === 'sol'
-                              ? 'bg-secondary text-white'
-                              : 'text-gray-400 hover:text-white'
-                          }`}
-                        >
-                          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                            <span className="text-[10px] font-bold text-white">◎</span>
-                          </div>
-                          SOL
-                        </button>
-                      </div>
-                    </div>
-
-                    <p className="text-[10px] text-gray-400 text-right">
-                      {paymentMethod?.defaultToken === 'usdc'
-                        ? 'Pay with USDC (no swap)'
-                        : 'Pay with SOL (no swap)'}
-                    </p>
-                  </div>
-                )} */}
-
 
                 {paymentMethod?.type === 'spl-tokens' || paymentMethod?.type === 'default' && !isConnected && (
                     <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
