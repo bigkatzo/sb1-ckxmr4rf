@@ -410,58 +410,82 @@ export function PaymentMethodSelector({
 
   // Render default token selection buttons
   const renderDefaultTokenButtons = () => {
-      return (
-        selectedMethod?.type === 'default' && (
-          <div className="space-y-3 mt-4 pt-4 text-xs">
-            <div className="flex justify-end">
-              <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDefaultToken('usdc');
-                    onMethodChange({ type: 'default', defaultToken: 'usdc' });
-                  }}
-                  className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
-                    selectedMethod?.defaultToken === 'usdc'
-                      ? 'bg-secondary text-white'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-white">$</span>
-                  </div>
-                  USDC
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDefaultToken('sol');
-                    onMethodChange({ type: 'default', defaultToken: 'sol' });
-                  }}
-                  className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
-                    selectedMethod?.defaultToken === 'sol'
-                      ? 'bg-secondary text-white'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-white">◎</span>
-                  </div>
-                  SOL
-                </button>
+  return (
+    selectedMethod?.type === 'default' && (
+      <div className="space-y-3 mt-4 pt-4 text-xs">
+        <div className="flex justify-end">
+          <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700 gap-1">
+            {/* USDC */}
+            <button
+              type="button"
+              onClick={() => {
+                setDefaultToken('usdc');
+                onMethodChange({ type: 'default', defaultToken: 'usdc' });
+              }}
+              className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
+                selectedMethod?.defaultToken === 'usdc'
+                  ? 'bg-secondary text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                <span className="text-[10px] font-bold text-white">$</span>
               </div>
-            </div>
+              USDC
+            </button>
 
-            <p className="text-[10px] text-gray-400 text-right">
-              {selectedMethod?.defaultToken === 'usdc'
-                ? 'Pay with USDC (no swap)'
-                : 'Pay with SOL (no swap)'}
-            </p>
+            {/* SOL */}
+            <button
+              type="button"
+              onClick={() => {
+                setDefaultToken('sol');
+                onMethodChange({ type: 'default', defaultToken: 'sol' });
+              }}
+              className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
+                selectedMethod?.defaultToken === 'sol'
+                  ? 'bg-secondary text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                <span className="text-[10px] font-bold text-white">◎</span>
+              </div>
+              SOL
+            </button>
+
+            {/* MERCHANT */}
+            <button
+              type="button"
+              onClick={() => {
+                setDefaultToken('merchant');
+                onMethodChange({ type: 'default', defaultToken: 'merchant' });
+              }}
+              className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
+                selectedMethod?.defaultToken === 'merchant'
+                  ? 'bg-secondary text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <div className="w-4 h-4 rounded-full bg-yellow-400 flex items-center justify-center">
+                <span className="text-[10px] font-bold text-gray-900">M</span>
+              </div>
+              MERCHANT
+            </button>
           </div>
-        )
-      );
-    };
+        </div>
+
+        <p className="text-[10px] text-gray-400 text-right">
+          {selectedMethod?.defaultToken === 'usdc'
+            ? 'Pay with USDC (no swap)'
+            : selectedMethod?.defaultToken === 'sol'
+            ? 'Pay with SOL (no swap)'
+            : 'Pay with MERCHANT token (no swap)'}
+        </p>
+      </div>
+    )
+  );
+};
+
 
 
   return (
