@@ -457,8 +457,9 @@ export function PaymentMethodSelector({
             <button
               type="button"
               onClick={() => {
-                setDefaultToken('merchant');
-                onMethodChange({ type: 'default', defaultToken: 'merchant' });
+                handleMerchantTokenSelect();
+                // setDefaultToken('merchant');
+                // onMethodChange({ type: 'default', defaultToken: 'merchant' });
               }}
               className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
                 selectedMethod?.defaultToken === 'merchant'
