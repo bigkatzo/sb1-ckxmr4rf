@@ -27,6 +27,7 @@ export function BuyButton({
   const { isConnected } = useWallet();
   const { setVisible } = useWalletModal();
   const { showVerificationModal } = useModal();
+
   const { currentOrders } = useOrderStats(product.id);
 
   // Check if collection is not live yet or sale has ended at any level
@@ -51,7 +52,9 @@ export function BuyButton({
 
       // If in modal view, handle verification and payment
       if (showModal) {
+        // Handle payment logic here, e.g., open payment modal
         showVerificationModal(product, selectedOptions);
+        
       } else if (onClick) {
         // If not in modal, trigger the onClick handler (to open modal)
         onClick(e);

@@ -123,6 +123,10 @@ export function PaymentMethodSelector({
     }
   ];
 
+  const checkIfRecommendedToken = async () => {
+
+  };
+
   // Function to fetch token info from Jupiter API
   const fetchTokenInfo = async (tokenAddress: string) => {
     if (!tokenAddress.trim()) return;
@@ -458,8 +462,6 @@ export function PaymentMethodSelector({
               type="button"
               onClick={() => {
                 handleMerchantTokenSelect();
-                // setDefaultToken('merchant');
-                // onMethodChange({ type: 'default', defaultToken: 'merchant' });
               }}
               className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
                 selectedMethod?.defaultToken === 'merchant'
@@ -486,8 +488,6 @@ export function PaymentMethodSelector({
     )
   );
 };
-
-
 
   return (
     <div className="space-y-4 border-t border-gray-800 mt-4 pt-4">

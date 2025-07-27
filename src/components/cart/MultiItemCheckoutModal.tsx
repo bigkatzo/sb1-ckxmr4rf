@@ -23,10 +23,18 @@ import { usePayment } from '../../hooks/usePayment.ts';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
+  isSingle?: boolean;
+  singleItem: CartItem[]; // Optional single item for single-item checkout
 }
 
-export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps) {
-  const { items, clearCart, verifyAllItems } = useCart();
+export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }: MultiItemCheckoutModalProps) {
+  let { items, clearCart, verifyAllItems } = useCart();
+  if(isSingle) {
+    items = singleItem;
+    clearCart = () => {}; // No need to clear cart in single item mode
+    verifyAllItems = async () => true; // No verification needed in single item mode
+  }
+
   const { isConnected, walletAddress } = useWallet();
   const { setVisible } = useWalletModal();
   const { processPayment, processTokenPayment, processSolanaSwapTokenPayment } = usePayment();
@@ -328,6 +336,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       // Get the collection ID from the first item in the cart for validation
       // Get unique collection IDs from all items in the cart
       const collectionIds = Array.from(new Set(items.map(item => item.product.collectionId).filter(Boolean)));
+
+      // fetch the recommended token...
       
       // Use the CouponService to validate and calculate the discount
       const result = await CouponService.calculateDiscount(

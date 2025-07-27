@@ -266,6 +266,8 @@ export function CartDrawer() {
       {isCheckoutModalOpen && (
         <MultiItemCheckoutModal
           onClose={() => setIsCheckoutModalOpen(false)}
+          isSingle={false}
+          singleItem={[]}
         />
       )}
     </>

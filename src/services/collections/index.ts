@@ -69,7 +69,6 @@ export async function createCollection(data: FormData) {
         name: name as string,
         description: data.get('description') as string || '',
         image_url: imageUrl || null,
-        // launch_date: parsedDate.toISOString(),
         launch_date: launchDate,
         slug,
         visible: data.get('visible') === 'true',
