@@ -126,10 +126,6 @@ export function PaymentMethodSelector({
     }
   ];
 
-  const checkIfRecommendedToken = async () => {
-
-  };
-
   // Function to fetch token info from Jupiter API
   const fetchTokenInfo = async (tokenAddress: string) => {
     if (!tokenAddress.trim()) return;
