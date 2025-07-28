@@ -10,6 +10,7 @@ import type { Product } from '../../types/variants';
 interface BuyButtonProps {
   product: Product;
   selectedOptions?: Record<string, string>;
+  customizationData?: Record<string, any>; // think about attaching it to variant soon.
   disabled?: boolean;
   className?: string;
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void;

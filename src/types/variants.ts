@@ -66,6 +66,7 @@ export interface Product {
     image?: boolean; // Whether image customization is available
     text?: boolean; // Whether text customization is available
   };
+  basePrice: string; // Base price as a string for display
 }
 
 export interface ProductVariantFormData {

@@ -67,7 +67,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     customization: {
       image: initialData?.customization?.image || false,
       text: initialData?.customization?.text || false,
-    }
+    },
+    basePrice: initialData?.basePrice || 'sol' // Base price as string for display
   }), [initialData]);
   
   // Set up react-hook-form with zod validation
@@ -194,10 +195,13 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       formData.append('variants', JSON.stringify(data.variants || []));
       formData.append('variantPrices', JSON.stringify(data.variantPrices || {}));
 
-      if(initialData?.isCustomizable) {
-        const customizableBit = 100 + (initialData.customization?.image ? 10 : 0) + (initialData.customization?.text ? 1 : 0);
-        formData.append('isCustomizable', customizableBit.toString());
-      }
+      formData.append('isCustomizable', data?.isCustomizable ? 'true' : 'false');
+      formData.append('customization.image', data.customization?.image ? 'true' :
+        'false');
+      formData.append('customization.text', data.customization?.text ? 'true' :
+        'false');
+      formData.append('basePrice', data.basePrice || 'sol'); // Base price as string for display
+    
 
       // Submit to the appropriate endpoint
       await onSubmit(formData);
