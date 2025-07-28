@@ -98,7 +98,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
                 launch_date,
                 sale_ended,
                 visible,
-                user_id
+                user_id,
+                recommended_ca,
               )
             `)
             .eq('slug', productSlug)
