@@ -115,7 +115,6 @@ function ProductBuyButton({
         disabled={isDisabled}
         className="flex-1 flex items-center justify-center gap-2 py-3 text-sm sm:text-base"
         showModal={true}
-        selectedCurrency={selectedCurrency}
       />
       
       <AddToCartButton
@@ -125,7 +124,6 @@ function ProductBuyButton({
         disabled={isDisabled}
         size="md"
         className="px-3 py-3"
-        selectedCurrency={selectedCurrency}
       />
     </div>
   );
@@ -847,7 +845,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                   <ProductVariantPrice
                     product={product}
                     selectedOptions={selectedOptions}
-                    selectedCurrency={selectedCurrency}
+                    // selectedCurrency={selectedCurrency}
                   />
 
                   {/* Product Customization Component */}
