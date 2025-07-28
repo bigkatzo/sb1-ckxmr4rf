@@ -38,6 +38,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   
   const currentDescription = watch('description') || '';
+  const isCustomizable = watch('isCustomizable') || false;
   
   return (
     <div className="space-y-4">
@@ -98,6 +99,55 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         />
         {errors.sku && (
           <p className="text-red-400 text-xs mt-1">{errors.sku.message}</p>
+        )}
+      </div>
+
+      {/* Customization Options Section */}
+      <div className="border border-gray-800 rounded-lg p-4 bg-gray-900">
+        <div className="flex items-center space-x-3 mb-3">
+          <input
+            type="checkbox"
+            id="isCustomizable"
+            {...register('isCustomizable')}
+            className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
+          />
+          <label htmlFor="isCustomizable" className="text-sm font-medium text-white">
+            This product is customizable
+          </label>
+        </div>
+        
+        {isCustomizable && (
+          <div className="ml-7 space-y-3">
+            <p className="text-sm text-gray-400 mb-3">Select customization options:</p>
+            
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="customization.image"
+                {...register('customization.image')}
+                className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="customization.image" className="text-sm text-white">
+                Image customization
+              </label>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="customization.text"
+                {...register('customization.text')}
+                className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="customization.text" className="text-sm text-white">
+                Text customization
+              </label>
+            </div>
+            
+            {errors.customization && (
+              <p className="text-red-400 text-xs mt-1">{errors.customization.message}</p>
+            )}
+          </div>
         )}
       </div>
 

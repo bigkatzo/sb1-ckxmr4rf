@@ -155,6 +155,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     batchOrderId?: string;
     createdOrderIds?: Array<string>;
     price?: number;
+    solPrice?: number;
     originalPrice?: number;
     fee?: number;
     couponDiscount?: number;
@@ -493,6 +494,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   const processSolanaPayment = async (batchOrderData: any) => {
     let cartId = batchOrderData.batchOrderId ?? '';
     const totalAmount = batchOrderData.totalPaymentAmount ?? 0;
+    const solAmount = batchOrderData.solAmount ?? 0;
     const receiverWallet = batchOrderData.receiverWallet ?? 'anonymous';
     // const buyerAddress = walletAddress || 'anonymous';
     const tokenToProcess = paymentMethod?.defaultToken;
@@ -503,7 +505,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     let signature: string | undefined;
     if(paymentMethod?.type === 'default') {
       if(tokenToProcess === 'sol') {
-        const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, cartId, receiverWallet);
+        const { success: paymentSuccess, signature: txSignature } = await processPayment(solAmount, cartId, receiverWallet);
         success = paymentSuccess;
         signature = txSignature;
       } else {
