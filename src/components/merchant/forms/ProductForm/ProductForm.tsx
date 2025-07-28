@@ -128,7 +128,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             key !== 'designFiles' &&
             key !== 'existingDesignFiles' &&
             key !== 'removedDesignFiles' &&
-            key !== 'notes') {
+            key !== 'notes' &&
+            key !== 'customization') {
           
           formData.append(key, val.toString());
         }
@@ -192,6 +193,11 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       // Add variant data
       formData.append('variants', JSON.stringify(data.variants || []));
       formData.append('variantPrices', JSON.stringify(data.variantPrices || {}));
+
+      if(initialData?.isCustomizable) {
+        const customizableBit = 100 + (initialData.customization?.image ? 10 : 0) + (initialData.customization?.text ? 1 : 0);
+        formData.append('isCustomizable', customizableBit.toString());
+      }
 
       // Submit to the appropriate endpoint
       await onSubmit(formData);

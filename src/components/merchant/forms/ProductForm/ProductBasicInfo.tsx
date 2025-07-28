@@ -102,55 +102,6 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         )}
       </div>
 
-      {/* Customization Options Section */}
-      <div className="border border-gray-800 rounded-lg p-4 bg-gray-900">
-        <div className="flex items-center space-x-3 mb-3">
-          <input
-            type="checkbox"
-            id="isCustomizable"
-            {...register('isCustomizable')}
-            className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
-          />
-          <label htmlFor="isCustomizable" className="text-sm font-medium text-white">
-            This product is customizable
-          </label>
-        </div>
-        
-        {isCustomizable && (
-          <div className="ml-7 space-y-3">
-            <p className="text-sm text-gray-400 mb-3">Select customization options:</p>
-            
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                id="customization.image"
-                {...register('customization.image')}
-                className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
-              />
-              <label htmlFor="customization.image" className="text-sm text-white">
-                Image customization
-              </label>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                id="customization.text"
-                {...register('customization.text')}
-                className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
-              />
-              <label htmlFor="customization.text" className="text-sm text-white">
-                Text customization
-              </label>
-            </div>
-            
-            {errors.customization && (
-              <p className="text-red-400 text-xs mt-1">{errors.customization.message}</p>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* Advanced Product Options Section */}
       <div className="border border-gray-800 rounded-lg overflow-hidden">
         <button
@@ -211,6 +162,55 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
       </div>
 
       <PricingCurveEditor />
+
+      {/* Customization Options Section */}
+      <div className="border border-gray-800 rounded-lg p-4 bg-gray-900">
+        <div className="flex items-center space-x-3 mb-3">
+          <input
+            type="checkbox"
+            id="isCustomizable"
+            {...register('isCustomizable')}
+            className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
+          />
+          <label htmlFor="isCustomizable" className="text-sm font-medium text-white">
+            Make product user customizable
+          </label>
+        </div>
+        
+        {isCustomizable && (
+          <div className="ml-7 space-y-3">
+            <p className="text-sm text-gray-400 mb-3">Select customization options:</p>
+            
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="customization.image"
+                {...register('customization.image')}
+                className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="customization.image" className="text-sm text-white">
+                Image customization
+              </label>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="customization.text"
+                {...register('customization.text')}
+                className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="customization.text" className="text-sm text-white">
+                Text customization
+              </label>
+            </div>
+            
+            {errors.customization && (
+              <p className="text-red-400 text-xs mt-1">{errors.customization.message}</p>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="border-t border-gray-800 pt-4 mt-4">
         <h3 className="text-sm font-medium text-white mb-2">Product Notes (Optional)</h3>
