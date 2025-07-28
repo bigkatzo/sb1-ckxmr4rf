@@ -43,7 +43,7 @@ export async function uploadDesignFiles(files: File[]): Promise<string[]> {
   return Promise.all(files.map(file => uploadDesignFile(file)));
 }
 
-export async function createProduct(collectionId: string, formData: FormData) {
+export async function createProduct(collectionId: string, formData: FormData, ca?: string) {
   try {
     // Validate critical form fields first
     // Get category ID
@@ -242,7 +242,8 @@ export async function createProduct(collectionId: string, formData: FormData) {
       note_for_supplier: noteForSupplier || null,
       notes: hasShippingNote || hasQualityNote || hasReturnsNote ? notes : {},
       free_notes: freeNotes || '',
-      created_by: user?.id
+      created_by: user?.id,
+      recommended_ca: ca || null // Optional CA for recommended token
     };
 
 

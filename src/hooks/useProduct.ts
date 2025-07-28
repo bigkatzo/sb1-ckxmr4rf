@@ -182,7 +182,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
           notes: hasValidNotes ? data.notes : undefined,
           collectionUserId: data.collection_user_id,
           collectionOwnerMerchantTier: collectionOwnerMerchantTier,
-          freeNotes: freeNotesValue
+          freeNotes: freeNotesValue,
+          recommendedCa: data.recommended_ca || null, // Optional CA for recommended token
         };
 
         // Cache the product data with preview mode awareness

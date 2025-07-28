@@ -82,7 +82,7 @@ export function ProductsTab() {
           data.append('currentDesignFiles', JSON.stringify(editingProduct.designFiles));
         }
         
-        await createProduct(selectedCollection, data);
+        await createProduct(selectedCollection, data, collections.find(c => c.id === selectedCollection)?.ca);
         toast.success('Product created successfully');
       }
       setShowForm(false);

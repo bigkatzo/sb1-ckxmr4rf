@@ -62,7 +62,12 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     removedImages: [],
     designFiles: [],
     existingDesignFiles: initialData?.designFiles || [],
-    removedDesignFiles: []
+    removedDesignFiles: [],
+    isCustomizable: initialData?.isCustomizable || false,
+    customization: {
+      image: initialData?.customization?.image || false,
+      text: initialData?.customization?.text || false,
+    }
   }), [initialData]);
   
   // Set up react-hook-form with zod validation
