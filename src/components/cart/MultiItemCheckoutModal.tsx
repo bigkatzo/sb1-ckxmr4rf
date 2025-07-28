@@ -20,6 +20,7 @@ import { OrderSuccessView } from '../OrderSuccessView';
 import { PaymentMethodSelector, PaymentMethod, PriceQuote } from './PaymentMethodSelector';
 import { updateOrderTransactionSignature } from '../../services/orders.ts';
 import { usePayment } from '../../hooks/usePayment.ts';
+import { useModifiedPrice } from '../../hooks/useModifiedPrice.ts';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -31,6 +32,17 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   let { items, clearCart, verifyAllItems } = useCart();
   if(isSingle) {
     items = singleItem;
+    // get the price info
+    const { modifiedPrice } = useModifiedPrice({
+      product: items[0].product,
+      selectedOptions: items[0].selectedOptions
+    })
+    items[0].priceInfo = {
+      modifiedPrice,
+      basePrice: items[0].product.price,
+      variantKey: null,
+      variantPriceAdjustments: 0
+    }
     clearCart = () => {}; // No need to clear cart in single item mode
     verifyAllItems = async () => true; // No verification needed in single item mode
   }
@@ -142,6 +154,10 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   
   // Add the showSuccessView state within the component
   const [showSuccessView, setShowSuccessView] = useState(false);
+  
+  // Add state for total display price
+  const [totalDisplayPrice, setTotalDisplayPrice] = useState<string>('');
+  const [totalDisplaySymbol, setTotalDisplaySymbol] = useState<string>('USD');
   
   // Try to load shipping info from localStorage
   useEffect(() => {
@@ -322,6 +338,14 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
       ? totalPrice * (1 - appliedCoupon.discountPercentage / 100) 
       : totalPrice - appliedCoupon.discountAmount
     : totalPrice;
+  
+  // Initialize total display price
+  useEffect(() => {
+    if (!totalDisplayPrice) {
+      setTotalDisplayPrice(finalPrice.toFixed(2));
+      setTotalDisplaySymbol('USD');
+    }
+  }, [finalPrice, totalDisplayPrice]);
   
   // Handle coupon application
   const handleApplyCoupon = async () => {
@@ -918,6 +942,10 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     disabled={processingPayment}
                     usdAmount={finalPrice}
                     onGetPriceQuote={undefined}
+                    onTotalPriceChange={(price, symbol) => {
+                      setTotalDisplayPrice(price);
+                      setTotalDisplaySymbol(symbol);
+                    }}
                   />
 
                 {paymentMethod?.type === 'spl-tokens' || paymentMethod?.type === 'default' && !isConnected && (
@@ -952,7 +980,9 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     
                     <div className="flex justify-between font-medium pt-2">
                       <span className="text-gray-300">Total</span>
-                      <span className="text-lg text-white">{formatPrice(finalPrice, paymentMethod?.type == 'default' ? paymentMethod.defaultToken : 'USDC')}</span>
+                      <span className="text-lg text-white">
+                        {totalDisplaySymbol === 'USD' ? '$' : ''}{totalDisplayPrice} {totalDisplaySymbol !== 'USD' ? totalDisplaySymbol : ''}
+                      </span>
                     </div>
                   </div>
                 </div>

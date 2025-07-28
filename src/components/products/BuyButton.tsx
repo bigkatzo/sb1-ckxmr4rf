@@ -53,7 +53,8 @@ export function BuyButton({
       // If in modal view, handle verification and payment
       if (showModal) {
         // Handle payment logic here, e.g., open payment modal
-        showVerificationModal(product, selectedOptions);
+      console.log('ModalProvider render', product);
+      showVerificationModal(product, selectedOptions);
         
       } else if (onClick) {
         // If not in modal, trigger the onClick handler (to open modal)

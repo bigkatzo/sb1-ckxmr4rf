@@ -2,8 +2,6 @@ import React, { createContext, useContext, useState } from 'react';
 import { TokenVerificationModal } from '../components/products/TokenVerificationModal';
 import type { Product } from '../types/variants';
 import { MultiItemCheckoutModal } from '../components/cart';
-import { useModifiedPrice } from '../hooks/useModifiedPrice';
-import { CartItemPriceInfo } from './CartContext';
 
 interface ModalContextType {
   showVerificationModal: (
@@ -27,7 +25,6 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     isOpen: boolean;
     product?: Product;
     selectedOptions: Record<string, string>;
-    priceInfo: CartItemPriceInfo;
     additionalData?: {
       shippingInfo?: any;
       paymentMetadata?: any;
@@ -35,12 +32,6 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   }>({
     isOpen: false,
     selectedOptions: {},
-    priceInfo: {
-      modifiedPrice: 0,
-      basePrice: 0,
-      variantKey: null,
-      variantPriceAdjustments: 0
-    }
   });
 
   const showVerificationModal = (
@@ -51,21 +42,12 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       paymentMetadata?: any;
     }
   ) => {
-    const { modifiedPrice, originalPrice: basePrice } = useModifiedPrice({
-      product,
-      selectedOptions,
-    });
-    const priceInfo = {
-      modifiedPrice,
-      basePrice,
-      variantKey: null,
-      variantPriceAdjustments: modifiedPrice
-    };
-    setModalState({ isOpen: true, product, selectedOptions, additionalData, priceInfo });
+    console.log('showVerificationModal', product, selectedOptions, additionalData);
+    setModalState({ isOpen: true, product, selectedOptions, additionalData });
   };
 
   const hideVerificationModal = () => {
-    setModalState({ isOpen: false, selectedOptions: {}, priceInfo: { modifiedPrice: 0, basePrice: 0, variantKey: null, variantPriceAdjustments: 0 } });
+    setModalState({ isOpen: false, selectedOptions: {} });
   };
 
   return (
@@ -75,7 +57,12 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
         <MultiItemCheckoutModal
         onClose={hideVerificationModal}
         isSingle={true}
-        singleItem={[{ product: modalState.product, selectedOptions: modalState.selectedOptions, quantity: 1, priceInfo: modalState.priceInfo }]} // Assuming single item checkout
+        singleItem={[{ product: modalState.product, selectedOptions: modalState.selectedOptions, quantity: 1, priceInfo: {
+          modifiedPrice: 0, // Placeholder, will be calculated in the modal
+          basePrice: 0,
+          variantKey: null,
+          variantPriceAdjustments: 0
+        } }]} // Assuming single item checkout
         />
       )}
     </ModalContext.Provider>

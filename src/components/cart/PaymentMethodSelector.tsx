@@ -32,6 +32,7 @@ interface PaymentMethodSelectorProps {
   disabled?: boolean;
   usdAmount: number;
   onGetPriceQuote?: (tokenAddress: string, chainId?: string) => Promise<PriceQuote>;
+  onTotalPriceChange?: (totalPrice: string, tokenSymbol: string) => void;
 }
 
 const POPULAR_TOKENS = [
@@ -80,7 +81,8 @@ export function PaymentMethodSelector({
   isConnected, 
   disabled, 
   usdAmount, 
-  onGetPriceQuote 
+  onGetPriceQuote,
+  onTotalPriceChange
 }: PaymentMethodSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [customTokenAddress, setCustomTokenAddress] = useState('');
@@ -91,6 +93,7 @@ export function PaymentMethodSelector({
   const [showPriceDetails, setShowPriceDetails] = useState(false);
   const [defaultToken, setDefaultToken] = useState<'usdc' | 'sol' | 'merchant'>('usdc');
   const [showCustomTokenInput, setShowCustomTokenInput] = useState(false);
+  const [defaultTokenQuote, setDefaultTokenQuote] = useState<PriceQuote | null>(null);
 
   const paymentOptions = [
     {
@@ -244,6 +247,114 @@ export function PaymentMethodSelector({
     }
   };
 
+  // Function to get price quote for default tokens (SOL/USDC conversion)
+  const fetchDefaultTokenQuote = async (targetToken: 'usdc' | 'sol' | 'merchant') => {
+    if (targetToken === 'usdc' || targetToken === 'merchant') {
+      // No conversion needed for USDC
+      const usdcQuote = {
+        tokenAmount: usdAmount.toFixed(6),
+        tokenSymbol: 'USDC',
+        tokenName: 'USD Coin',
+        usdValue: usdAmount.toFixed(2),
+        exchangeRate: '1.000000',
+        loading: false
+      };
+      setDefaultTokenQuote(usdcQuote);
+      
+      // Update total price display
+      if (onTotalPriceChange) {
+        onTotalPriceChange(usdcQuote.tokenAmount, 'USDC');
+      }
+      return;
+    }
+
+    setDefaultTokenQuote({
+      tokenAmount: '0',
+      tokenSymbol: targetToken.toUpperCase(),
+      tokenName: targetToken === 'sol' ? 'Solana' : 'Merchant Token',
+      usdValue: '0',
+      exchangeRate: '0',
+      loading: true
+    });
+
+    try {
+      if (targetToken === 'sol') {
+        // Get SOL price quote
+        const solMint = 'So11111111111111111111111111111111111111112';
+        const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+        const usdcAmount = Math.floor(usdAmount * Math.pow(10, 6)); // USDC has 6 decimals
+        
+        const quoteResponse = await fetch(
+          `https://quote-api.jup.ag/v6/quote?inputMint=${usdcMint}&outputMint=${solMint}&amount=${usdcAmount}&slippageBps=50`
+        );
+        
+        if (quoteResponse.ok) {
+          const quoteData = await quoteResponse.json();
+          const solAmount = (parseFloat(quoteData.outAmount) / Math.pow(10, 9)).toFixed(6); // SOL has 9 decimals
+          const rate = parseFloat(solAmount) > 0 ? usdAmount / parseFloat(solAmount) : 0;
+          
+          const solQuote = {
+            tokenAmount: solAmount,
+            tokenSymbol: 'SOL',
+            tokenName: 'Solana',
+            usdValue: usdAmount.toFixed(2),
+            exchangeRate: rate.toFixed(2),
+            loading: false
+          };
+          setDefaultTokenQuote(solQuote);
+          
+          // Update total price display
+          if (onTotalPriceChange) {
+            onTotalPriceChange(solQuote.tokenAmount, 'SOL');
+          }
+        } else {
+          throw new Error('Failed to get SOL quote');
+        }
+      } else if (targetToken === 'merchant') {
+        // Mock merchant token quote
+        const mockRate = 0.5; // $0.50 per MERCHANT token
+        const tokenAmount = (usdAmount / mockRate).toFixed(6);
+        
+        const merchantQuote = {
+          tokenAmount,
+          tokenSymbol: 'MERCHANT',
+          tokenName: 'Merchant Token',
+          usdValue: usdAmount.toFixed(2),
+          exchangeRate: mockRate.toFixed(6),
+          loading: false
+        };
+        setDefaultTokenQuote(merchantQuote);
+        
+        // Update total price display
+        if (onTotalPriceChange) {
+          onTotalPriceChange(merchantQuote.tokenAmount, 'MERCHANT');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get default token quote:', error);
+      // Fallback to mock data
+      const mockRates = { sol: 100, merchant: 0.5 };
+      const rate = mockRates[targetToken as keyof typeof mockRates];
+      const tokenAmount = (usdAmount / rate).toFixed(6);
+      
+      const fallbackQuote = {
+        tokenAmount,
+        tokenSymbol: targetToken.toUpperCase(),
+        tokenName: targetToken === 'sol' ? 'Solana' : 'Merchant Token',
+        usdValue: usdAmount.toFixed(2),
+        exchangeRate: rate.toFixed(6),
+        loading: false,
+        error: 'Using fallback rates'
+      };
+      setDefaultTokenQuote(fallbackQuote);
+      
+      // Update total price display
+      if (onTotalPriceChange) {
+        onTotalPriceChange(fallbackQuote.tokenAmount, fallbackQuote.tokenSymbol);
+      }
+    }
+  };
+
   // Function to get price quote
   const fetchPriceQuote = async (tokenAddress?: string, chainId?: number) => {
     setPriceQuote({ 
@@ -289,6 +400,7 @@ export function PaymentMethodSelector({
     
     setIsDropdownOpen(false);
     setPriceQuote(null);
+    setDefaultTokenQuote(null);
     setTokenInfo(null);
     setCustomTokenAddress('');
     setShowPriceDetails(false);
@@ -299,6 +411,11 @@ export function PaymentMethodSelector({
       defaultToken: method.type === 'default' ? defaultToken : undefined
     };
     onMethodChange(paymentMethod);
+    
+    // Reset total price display when changing payment methods
+    if (onTotalPriceChange && method.type !== 'default') {
+      onTotalPriceChange(usdAmount.toFixed(2), 'USD');
+    }
   };
 
   // Handle merchant token selection - automatically switch to SPL tokens
@@ -313,7 +430,7 @@ export function PaymentMethodSelector({
     setCustomTokenAddress(merchantTokenAddress);
     setTokenInfo(merchantTokenInfo);
     setShowCustomTokenInput(true);
-    setPriceQuote(null);
+    setDefaultTokenQuote(null);
     
     // Switch to SPL tokens method
     onMethodChange({
@@ -416,15 +533,16 @@ export function PaymentMethodSelector({
   const renderDefaultTokenButtons = () => {
   return (
     selectedMethod?.type === 'default' && (
-      <div className="space-y-3 mt-4 pt-4 text-xs">
+      <div className="space-y-3 mt-4 pt-4">
         <div className="flex justify-end">
           <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700 gap-1">
             {/* USDC */}
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 setDefaultToken('usdc');
                 onMethodChange({ type: 'default', defaultToken: 'usdc' });
+                await fetchDefaultTokenQuote('usdc');
               }}
               className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
                 selectedMethod?.defaultToken === 'usdc'
@@ -441,9 +559,10 @@ export function PaymentMethodSelector({
             {/* SOL */}
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 setDefaultToken('sol');
                 onMethodChange({ type: 'default', defaultToken: 'sol' });
+                await fetchDefaultTokenQuote('sol');
               }}
               className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
                 selectedMethod?.defaultToken === 'sol'
@@ -460,7 +579,8 @@ export function PaymentMethodSelector({
             {/* MERCHANT */}
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
+                await fetchDefaultTokenQuote('merchant');
                 handleMerchantTokenSelect();
               }}
               className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
@@ -484,6 +604,64 @@ export function PaymentMethodSelector({
             ? 'Pay with SOL (no swap)'
             : 'Pay with MERCHANT token (no swap)'}
         </p>
+
+        {/* Default Token Price Quote Display */}
+        {defaultTokenQuote && selectedMethod?.defaultToken !== 'usdc' && (
+          <div className="bg-gray-700/50 rounded-lg overflow-hidden mt-3">
+            <button
+              type="button"
+              onClick={() => setShowPriceDetails(!showPriceDetails)}
+              className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
+                {defaultTokenQuote.loading && (
+                  <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {!defaultTokenQuote.loading && !defaultTokenQuote.error && (
+                  <span className="text-sm font-medium text-white">
+                    {defaultTokenQuote.tokenAmount} {defaultTokenQuote.tokenSymbol}
+                  </span>
+                )}
+                <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
+              </div>
+            </button>
+            
+            {showPriceDetails && (
+              <div className="px-3 pb-3 space-y-2 border-t border-gray-600/50">
+                {defaultTokenQuote.loading ? (
+                  <div className="flex items-center gap-2 py-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                    <span className="text-sm text-gray-400">Fetching {defaultTokenQuote.tokenSymbol} price...</span>
+                  </div>
+                ) : defaultTokenQuote.error ? (
+                  <div className="text-sm text-red-400 py-2">{defaultTokenQuote.error}</div>
+                ) : (
+                  <div className="space-y-1 pt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400">You'll pay:</span>
+                      <span className="text-sm font-medium text-white">
+                        {defaultTokenQuote.tokenAmount} {defaultTokenQuote.tokenSymbol}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400">USD Value:</span>
+                      <span className="text-sm text-gray-300">${defaultTokenQuote.usdValue}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400">Current Rate:</span>
+                      <span className="text-xs text-gray-400">
+                        1 {defaultTokenQuote.tokenSymbol} = ${defaultTokenQuote.exchangeRate}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     )
   );
@@ -555,7 +733,7 @@ export function PaymentMethodSelector({
           
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
             <p className="text-xs text-blue-400">
-              Quick payment options. Selecting MERCHANT will automatically switch to SPL token payment.
+              Quick payment options. Selecting MERCHANT will open up the recommended token by merchant.
             </p>
           </div>
         </div>
