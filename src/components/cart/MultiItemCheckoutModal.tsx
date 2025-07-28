@@ -81,7 +81,17 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   // Add validation states
   const [zipError, setZipError] = useState<string>('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
-  
+
+  // const recommendedCas: string[] = Array.from(
+  //   new Set(
+  //     items
+  //       .map(item => item.product?.recommendedCa)
+  //       .filter((ca): ca is string => typeof ca === 'string' && !!ca)
+  //   )
+  // );
+
+  const recommendedCas = ["7PagSBusvxQ252fuBFnhipMZwd4T4jGikLeuwrDibonk"];
+
   // Get states for the selected country
   const availableStates = useMemo(() => {
     const countryCode = countries.find(c => c.name === shipping.country)?.code;
@@ -942,6 +952,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     disabled={processingPayment}
                     usdAmount={finalPrice}
                     onGetPriceQuote={undefined}
+                    recommendedCAs={recommendedCas}
                     onTotalPriceChange={(price, symbol) => {
                       setTotalDisplayPrice(price);
                       setTotalDisplaySymbol(symbol);

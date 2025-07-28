@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, CreditCard, Wallet, Coins, Link, Check, Copy, ExternalLink, ChevronRight } from 'lucide-react';
+// Import from App.tsx temporarily - you should move these to proper UI components
 import { Button } from '../ui/Button';
 import { toast } from 'react-toastify';
 
@@ -11,6 +12,10 @@ export interface PaymentMethod {
   tokenSymbol?: string;
   tokenName?: string;
   chainName?: string;
+}
+
+export interface RecommendedCAInput {
+  address: string;
 }
 
 export interface PriceQuote {
@@ -25,6 +30,12 @@ export interface PriceQuote {
   bridgeFee?: string;
 }
 
+export interface RecommendedCA {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals?: number;
+}
 interface PaymentMethodSelectorProps {
   selectedMethod: PaymentMethod | null;
   onMethodChange: (method: PaymentMethod) => void;
@@ -33,6 +44,7 @@ interface PaymentMethodSelectorProps {
   usdAmount: number;
   onGetPriceQuote?: (tokenAddress: string, chainId?: string) => Promise<PriceQuote>;
   onTotalPriceChange?: (totalPrice: string, tokenSymbol: string) => void;
+  recommendedCAs?: string[]; // Array of token addresses
 }
 
 const POPULAR_TOKENS = [
@@ -82,7 +94,8 @@ export function PaymentMethodSelector({
   disabled, 
   usdAmount, 
   onGetPriceQuote,
-  onTotalPriceChange
+  onTotalPriceChange,
+  recommendedCAs = []
 }: PaymentMethodSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [customTokenAddress, setCustomTokenAddress] = useState('');
@@ -94,6 +107,71 @@ export function PaymentMethodSelector({
   const [defaultToken, setDefaultToken] = useState<'usdc' | 'sol' | 'merchant'>('usdc');
   const [showCustomTokenInput, setShowCustomTokenInput] = useState(false);
   const [defaultTokenQuote, setDefaultTokenQuote] = useState<PriceQuote | null>(null);
+  const [fetchedRecommendedCAs, setFetchedRecommendedCAs] = useState<RecommendedCA[]>([]);
+  const [loadingRecommendedCAs, setLoadingRecommendedCAs] = useState(false);
+
+  // Get the first available fetched recommended CA
+  const firstRecommendedCA = fetchedRecommendedCAs && fetchedRecommendedCAs.length > 0 ? fetchedRecommendedCAs[0] : null;
+  const hasMerchantToken = !!firstRecommendedCA;
+
+  // Function to fetch token info from Jupiter API for multiple addresses
+  const fetchRecommendedCAInfo = async (addresses: string[]) => {
+    if (!addresses || addresses.length === 0) {
+      setFetchedRecommendedCAs([]);
+      return;
+    }
+
+    setLoadingRecommendedCAs(true);
+    try {
+      const fetchPromises = addresses.map(async (address) => {
+        try {
+          const response = await fetch(`https://tokens.jup.ag/token/${address}`);
+          if (response.ok) {
+            const tokenData = await response.json();
+            return {
+              address,
+              name: tokenData.name || 'Unknown Token',
+              symbol: tokenData.symbol || 'TOKEN',
+              decimals: tokenData.decimals || 6
+            };
+          } else {
+            // Fallback for tokens not found in Jupiter
+            return {
+              address,
+              name: 'Custom Token',
+              symbol: 'TOKEN',
+              decimals: 6
+            };
+          }
+        } catch (error) {
+          console.error(`Failed to fetch token info for ${address}:`, error);
+          return {
+            address,
+            name: 'Custom Token',
+            symbol: 'TOKEN',
+            decimals: 6
+          };
+        }
+      });
+
+      const results = await Promise.all(fetchPromises);
+      setFetchedRecommendedCAs(results);
+    } catch (error) {
+      console.error('Failed to fetch recommended CA info:', error);
+      setFetchedRecommendedCAs([]);
+    } finally {
+      setLoadingRecommendedCAs(false);
+    }
+  };
+
+  // Effect to fetch recommended CA info when recommendedCAs prop changes
+  React.useEffect(() => {
+    if (recommendedCAs && recommendedCAs.length > 0) {
+      fetchRecommendedCAInfo(recommendedCAs);
+    } else {
+      setFetchedRecommendedCAs([]);
+    }
+  }, [recommendedCAs]);
 
   const paymentOptions = [
     {
@@ -243,7 +321,6 @@ export function PaymentMethodSelector({
     }
   };
 
-  // Function to get price quote for default tokens (SOL/USDC conversion)
   const fetchDefaultTokenQuote = async (targetToken: 'usdc' | 'sol' | 'merchant') => {
     if (targetToken === 'usdc' || targetToken === 'merchant') {
       // No conversion needed for USDC
@@ -308,23 +385,7 @@ export function PaymentMethodSelector({
         }
       } else if (targetToken === 'merchant') {
         // Mock merchant token quote
-        const mockRate = 0.5; // $0.50 per MERCHANT token
-        const tokenAmount = (usdAmount / mockRate).toFixed(6);
-        
-        const merchantQuote = {
-          tokenAmount,
-          tokenSymbol: 'MERCHANT',
-          tokenName: 'Merchant Token',
-          usdValue: usdAmount.toFixed(2),
-          exchangeRate: mockRate.toFixed(6),
-          loading: false
-        };
-        setDefaultTokenQuote(merchantQuote);
-        
-        // Update total price display
-        if (onTotalPriceChange) {
-          onTotalPriceChange(merchantQuote.tokenAmount, 'MERCHANT');
-        }
+        // do nada...
       }
     } catch (error) {
       console.error('Failed to get default token quote:', error);
@@ -416,11 +477,15 @@ export function PaymentMethodSelector({
 
   // Handle merchant token selection - automatically switch to SPL tokens
   const handleMerchantTokenSelect = () => {
-    // Set a default merchant token address (you can customize this)
-    const merchantTokenAddress = 'MERCHANTtokenaddresshere123456789'; // Replace with actual merchant token
+    if (!firstRecommendedCA) {
+      toast.error('No merchant token available');
+      return;
+    }
+
+    const merchantTokenAddress = firstRecommendedCA.address;
     const merchantTokenInfo = {
-      name: 'Merchant Token',
-      symbol: 'MERCHANT'
+      name: firstRecommendedCA.name,
+      symbol: firstRecommendedCA.symbol
     };
     
     setCustomTokenAddress(merchantTokenAddress);
@@ -436,7 +501,7 @@ export function PaymentMethodSelector({
       tokenName: merchantTokenInfo.name
     });
 
-    toast.success('Merchant token selected for payment');
+    toast.success(`${firstRecommendedCA.symbol} selected for payment`);
   };
 
   const handlePopularTokenSelect = async (token: typeof POPULAR_TOKENS[0]) => {
@@ -572,7 +637,8 @@ export function PaymentMethodSelector({
               SOL
             </button>
 
-            {/* MERCHANT */}
+            {/* MERCHANT - Only show if we have a recommended CA */}
+            {hasMerchantToken && !loadingRecommendedCAs && (
             <button
               type="button"
               onClick={async () => {
@@ -586,10 +652,19 @@ export function PaymentMethodSelector({
               }`}
             >
               <div className="w-4 h-4 rounded-full bg-yellow-400 flex items-center justify-center">
-                <span className="text-[10px] font-bold text-gray-900">M</span>
+                <span className="text-[10px] font-bold text-gray-900">{firstRecommendedCA.symbol[0]}</span>
               </div>
-              MERCHANT
+              {firstRecommendedCA.symbol}
             </button>
+            )}
+
+            {/* Loading state for recommended CAs */}
+            {loadingRecommendedCAs && recommendedCAs && recommendedCAs.length > 0 && (
+              <div className="px-3 py-1 rounded-full bg-gray-700 flex items-center gap-1">
+                <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
+                <span className="text-xs text-gray-400">Loading...</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -598,7 +673,9 @@ export function PaymentMethodSelector({
             ? 'Pay with USDC (no swap)'
             : selectedMethod?.defaultToken === 'sol'
             ? 'Pay with SOL (no swap)'
-            : 'Pay with MERCHANT token (no swap)'}
+            : hasMerchantToken && firstRecommendedCA
+            ? `Pay with ${firstRecommendedCA.symbol} token (no swap)`
+            : 'Pay with selected token (no swap)'}
         </p>
 
         {/* Default Token Price Quote Display */}
@@ -729,7 +806,7 @@ export function PaymentMethodSelector({
           
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
             <p className="text-xs text-blue-400">
-              Quick payment options. Selecting MERCHANT will open up the recommended token by merchant.
+              Quick payment options.{hasMerchantToken && firstRecommendedCA ? ` Selecting ${firstRecommendedCA.symbol} will open up the recommended token by merchant.` : ''}
             </p>
           </div>
         </div>
@@ -788,18 +865,18 @@ export function PaymentMethodSelector({
           </div>
 
           {/* Custom Token Input - Show when "Others" is clicked OR when merchant token is auto-selected */}
-          {(showCustomTokenInput || (selectedMethod.tokenSymbol === 'MERCHANT')) && (
+          {(showCustomTokenInput || (firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol)) && (
             <div className="space-y-2">
               <label className="block text-xs font-medium text-gray-300">
-                {selectedMethod.tokenSymbol === 'MERCHANT' ? 'Merchant Token Selected' : 'Enter Custom Token'}
+                {firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol ? `${firstRecommendedCA.name} Selected` : 'Enter Custom Token'}
               </label>
               <div className="relative">
                 <input
                   type="text"
-                  placeholder={selectedMethod.tokenSymbol === 'MERCHANT' ? 'Merchant token address' : 'Paste token contract address'}
+                  placeholder={firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol ? `${firstRecommendedCA.name} token address` : 'Paste token contract address'}
                   value={customTokenAddress}
                   onChange={(e) => setCustomTokenAddress(e.target.value)}
-                  readOnly={selectedMethod.tokenSymbol === 'MERCHANT'}
+                  readOnly={!!(firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol)}
                   className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 pr-10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
                 />
                 {customTokenAddress && (

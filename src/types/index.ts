@@ -71,6 +71,7 @@ export interface Product {
   };
   freeNotes?: string;
   rank?: number;
+  recommendedCa?: string | null; // Optional CA for recommended token
 }
 
 export interface SearchResult {

@@ -161,6 +161,21 @@ const getMerchantWallet = async (collectionId) => {
   }
 };
 
+const convertUsdcToSolWithCoinGeckoRate = async (usdAmount) => {
+  try {
+    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch SOL price: ${response.statusText}`);
+    }
+    const data = await response.json();
+    const solPrice = data.solana.usd;
+    return usdAmount / solPrice; // Convert USD to SOL
+  } catch (error) {
+    console.error('Error converting USDC to SOL:', error);
+    throw error;
+  } 
+}
+
 exports.handler = async (event, context) => {
   // Enable CORS for frontend
   const headers = {
@@ -305,6 +320,13 @@ exports.handler = async (event, context) => {
     const fee = (chargeFeeMethods.includes(paymentMethod)) && Object.keys(walletAmounts).length > 1 && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
     totalPaymentForBatch = isFreeOrder ? 0 : totalPaymentForBatch + fee - couponDiscount;
 
+    let solAmount = 0;
+    if(paymentMetadata?.paymentMethod === 'sol') {
+      // Convert USDC to SOL using CoinGecko rate
+      solAmount = await convertUsdcToSolWithCoinGeckoRate(totalPaymentForBatch);
+      console.log(`Converted total payment amount to SOL: ${solAmount}`);
+    }
+
     let transactionSignature;
     if (isFreeOrder) {
       // Generate a consistent transaction ID for free orders
@@ -349,6 +371,7 @@ exports.handler = async (event, context) => {
           couponDiscount,
           isFreeOrder,
           totalPaymentForBatch,
+          solAmount,
           fee,
           walletAmounts,
           originalPrice,
@@ -379,8 +402,9 @@ exports.handler = async (event, context) => {
             .from('orders')
             .update({
               batch_order_id: batchOrderId,
-              amount_sol: itemTotal,
+              amount: itemTotal,
               total_amount_paid_for_batch: totalPaymentForBatch,
+              sol_amount: solAmount,
               quantity,
               order_number: orderNumber,
               status: 'draft',
@@ -405,6 +429,7 @@ exports.handler = async (event, context) => {
             status: isFreeOrder ? 'confirmed' : 'draft',
             quantity: quantity,
             totalItemsInBatch: processedItems.length,
+            solAmount,
             price: actualPrice,
             itemTotal: actualPrice * quantity,
             variantKey
