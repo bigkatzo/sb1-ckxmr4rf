@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useFormContext } from 'react-hook-form';
 import type { ProductVariant, VariantPricing } from '../../../../types/variants';
 
@@ -10,7 +10,7 @@ interface VariantPricingProps {
 }
 
 export function VariantPricing({ variants, prices, basePrice, onPriceChange }: VariantPricingProps) {
-  const { register, watch } = useFormContext();
+  const { watch } = useFormContext();
   
   const baseCurrency = watch('baseCurrency') || 'sol';
   
@@ -74,18 +74,18 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
   }, [combinations]);
 
   // Apply base price to all variants
-  const applyBasePriceToAll = () => {
+  const applyBasePriceToAll = useCallback(() => {
     combinations.forEach(({ key }) => {
       onPriceChange(key, basePrice);
     });
-  };
+  }, [combinations, basePrice, onPriceChange]);
 
   // Apply base price to specific section
-  const applyBasePriceToSection = (sectionCombinations: typeof combinations) => {
+  const applyBasePriceToSection = useCallback((sectionCombinations: typeof combinations) => {
     sectionCombinations.forEach(({ key }) => {
       onPriceChange(key, basePrice);
     });
-  };
+  }, [basePrice, onPriceChange]);
 
   if (!variants.length) return null;
 
@@ -127,41 +127,40 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
-            {combos.map(({ key, labels }) => (
-              <tr key={key}>
-                <td className="py-2 pr-4">{labels.join(', ')}</td>
-                <td className="py-2">
-                  <div className="flex justify-end">
-                    <input
-                      type="text"
-                      value={prices[key] ?? basePrice}
-                      onChange={e => {
-                        const value = e.target.value;
-                        // Allow intermediate states during typing
-                        if (value === '' || value === '.' || /^\d*\.?\d*$/.test(value)) {
-                          const numValue = parseFloat(value);
-                          if (!isNaN(numValue) && numValue >= 0) {
-                            onPriceChange(key, numValue);
-                          } else if (value === '' || value === '.') {
-                            // Keep the current value in state but allow empty input
-                            // The display will show the current stored value
+            {combos.map(({ key, labels }) => {
+              const currentPrice = prices[key] ?? basePrice;
+              
+              return (
+                <tr key={key}>
+                  <td className="py-2 pr-4">{labels.join(', ')}</td>
+                  <td className="py-2">
+                    <div className="flex justify-end">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={currentPrice}
+                        onChange={e => {
+                          const value = parseFloat(e.target.value);
+                          if (!isNaN(value) && value >= 0) {
+                            onPriceChange(key, value);
                           }
-                        }
-                      }}
-                      onBlur={e => {
-                        const value = e.target.value;
-                        if (value === '' || isNaN(parseFloat(value))) {
-                          // Reset to base price if invalid
-                          onPriceChange(key, basePrice);
-                        }
-                      }}
-                      placeholder={basePrice.toString()}
-                      className="w-32 bg-gray-800 rounded px-3 py-1 text-right focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </td>
-              </tr>
-            ))}
+                        }}
+                        onBlur={e => {
+                          const value = parseFloat(e.target.value);
+                          if (isNaN(value) || value < 0) {
+                            // Reset to base price if invalid
+                            onPriceChange(key, basePrice);
+                          }
+                        }}
+                        placeholder={basePrice.toString()}
+                        className="w-32 bg-gray-800 rounded px-3 py-1 text-right focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -170,24 +169,6 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
 
   return (
     <div className="space-y-6">
-      {/* Currency Selection */}
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
-        <label htmlFor="baseCurrency" className="block text-sm font-medium text-white mb-2">
-          Base Currency
-        </label>
-        <select
-          id="baseCurrency"
-          {...register('baseCurrency')}
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-        >
-          <option value="sol">SOL</option>
-          <option value="usdc">USDC</option>
-        </select>
-        <p className="text-xs text-gray-400 mt-1">
-          Select the currency for all product pricing
-        </p>
-      </div>
-
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Variant Pricing</h3>
         <button
