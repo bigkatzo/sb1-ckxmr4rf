@@ -211,7 +211,6 @@ export function PricingCurveEditor() {
             <p className="text-red-400 text-xs mt-1">{errors.baseCurrency.message as string}</p>
           )}
       </div>
-      
 
       {/* Base Price with + and - buttons */}
       <div className="space-y-2 bg-gray-900/50 p-3 rounded-lg">
@@ -245,7 +244,9 @@ export function PricingCurveEditor() {
             >
               <Plus size={16} />
             </button>
-            <span className="text-sm text-white ml-1">SOL</span>
+            <span className="text-sm text-white ml-1">
+             {watch('baseCurrency')?.toUpperCase()}
+            </span>
           </div>
         </div>
         {errors.price && <p className="text-red-400 text-xs">{errors.price.message}</p>}
@@ -356,7 +357,7 @@ export function PricingCurveEditor() {
               <div className="text-xs text-gray-300 mt-1">
                 {modifierBefore ? (
                   modifierBefore < 0 ? 
-                    `Early buyers get ${Math.abs(modifierBefore * 100).toFixed(0)}% off (${minPrice.toFixed(2)} SOL)` : 
+                    `Early buyers get ${Math.abs(modifierBefore * 100).toFixed(0)}% off (${minPrice.toFixed(2)} ${watch('baseCurrency')?.toUpperCase()})` : 
                     `No discount applied`
                 ) : 'No early pricing adjustment'}
               </div>
@@ -389,7 +390,7 @@ export function PricingCurveEditor() {
                   'Post-MOQ price increases are only available with limited stock'
                 ) : (
                   modifierAfter ? 
-                    `Late buyers pay up to ${(modifierAfter * 100).toFixed(0)}% more (${maxPrice.toFixed(2)} SOL)` : 
+                    `Late buyers pay up to ${(modifierAfter * 100).toFixed(0)}% more (${maxPrice.toFixed(2)} ${watch('baseCurrency')?.toUpperCase()})` : 
                     'No late pricing adjustment'
                 )}
               </div>
@@ -401,7 +402,7 @@ export function PricingCurveEditor() {
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-medium text-white">Price Curve Preview</h4>
               <div className="text-xs text-gray-400">
-                Range: {priceRange.min.toFixed(2)} - {priceRange.max.toFixed(2)} SOL
+                Range: {priceRange.min.toFixed(2)} - {priceRange.max.toFixed(2)} ${watch('baseCurrency')?.toUpperCase()}
               </div>
             </div>
             <div className="h-[200px] w-full bg-gray-800 rounded-lg p-2 overflow-hidden">
@@ -426,7 +427,7 @@ export function PricingCurveEditor() {
                       color: '#F3F4F6',
                       fontSize: '12px'
                     }}
-                    formatter={(value: number) => [`${value.toFixed(2)} SOL`, 'Price']}
+                    formatter={(value: number) => [`${value.toFixed(2)}`, 'Price']}
                     labelFormatter={(value) => `Orders: ${value}`}
                   />
                   <ReferenceLine 
@@ -460,15 +461,15 @@ export function PricingCurveEditor() {
             <div className="mt-3 flex flex-col md:flex-row gap-2 justify-between text-center">
               <div className="bg-gray-900/60 rounded-md p-2 flex-1">
                 <div className="text-xs text-gray-400">Early Price</div>
-                <div className="text-white font-medium">{minPrice.toFixed(2)} SOL</div>
+                <div className="text-white font-medium">{minPrice.toFixed(2)} {watch('baseCurrency')?.toUpperCase()}</div>
               </div>
               <div className="bg-gray-900/60 rounded-md p-2 flex-1">
                 <div className="text-xs text-gray-400">Base Price</div>
-                <div className="text-white font-medium">{basePrice.toFixed(2)} SOL</div>
+                <div className="text-white font-medium">{basePrice.toFixed(2)} {watch('baseCurrency')?.toUpperCase()}</div>
               </div>
               <div className="bg-gray-900/60 rounded-md p-2 flex-1">
                 <div className="text-xs text-gray-400">Maximum Price</div>
-                <div className="text-white font-medium">{maxPrice.toFixed(2)} SOL</div>
+                <div className="text-white font-medium">{maxPrice.toFixed(2)} {watch('baseCurrency')?.toUpperCase()}</div>
               </div>
             </div>
           </div>
