@@ -9,11 +9,23 @@ interface VariantPricingProps {
 }
 
 export function VariantPricing({ variants, prices, basePrice, onPriceChange }: VariantPricingProps) {
+  // Separate customization variants from regular variants
+  const { customizationVariants, regularVariants } = useMemo(() => {
+    const customization = variants.filter(v => 
+      v.name === 'Image Customization' || v.name === 'Text Customization'
+    );
+    const regular = variants.filter(v => 
+      v.name !== 'Image Customization' && v.name !== 'Text Customization'
+    );
+    return { customizationVariants: customization, regularVariants: regular };
+  }, [variants]);
+
   // Generate unique combinations of variants
   const combinations = useMemo(() => {
     const result: Array<{
       key: string;
       labels: string[];
+      isCustomization: boolean;
     }> = [];
     
     const generate = (current: string[], currentLabels: string[], index: number) => {
@@ -26,9 +38,15 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
         
         // Only add if this combination is unique
         if (!result.some(c => c.key === key)) {
+          // Check if this combination includes any customization variants
+          const isCustomization = currentLabels.some(label => 
+            label.includes('Image Customization') || label.includes('Text Customization')
+          );
+          
           result.push({
             key,
-            labels: [...currentLabels]
+            labels: [...currentLabels],
+            isCustomization
           });
         }
         return;
@@ -48,6 +66,13 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
     return result;
   }, [variants]);
 
+  // Group combinations by type
+  const { customizationCombinations, regularCombinations } = useMemo(() => {
+    const customization = combinations.filter(c => c.isCustomization);
+    const regular = combinations.filter(c => !c.isCustomization);
+    return { customizationCombinations: customization, regularCombinations: regular };
+  }, [combinations]);
+
   // Apply base price to all variants
   const applyBasePriceToAll = () => {
     combinations.forEach(({ key }) => {
@@ -55,19 +80,33 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
     });
   };
 
+  // Apply base price to specific section
+  const applyBasePriceToSection = (sectionCombinations: typeof combinations) => {
+    sectionCombinations.forEach(({ key }) => {
+      onPriceChange(key, basePrice);
+    });
+  };
+
   if (!variants.length) return null;
 
-  return (
-    <div className="space-y-4">
+  const renderPricingTable = (
+    combos: typeof combinations, 
+    title: string, 
+    showSectionButton: boolean = false,
+    bgColor: string = ""
+  ) => (
+    <div className={`space-y-2 ${bgColor}`}>
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Variant Pricing</h3>
-        <button
-          type="button"
-          onClick={applyBasePriceToAll}
-          className="text-sm text-secondary hover:text-secondary-light border border-secondary rounded-lg px-3 py-1 transition-colors"
-        >
-          Apply Base Price to All
-        </button>
+        <h4 className="text-sm font-medium text-gray-300">{title}</h4>
+        {showSectionButton && (
+          <button
+            type="button"
+            onClick={() => applyBasePriceToSection(combos)}
+            className="text-xs text-secondary hover:text-secondary-light border border-secondary rounded px-2 py-1 transition-colors"
+          >
+            Apply Base Price
+          </button>
+        )}
       </div>
       
       <div className="overflow-x-auto">
@@ -79,7 +118,7 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
-            {combinations.map(({ key, labels }) => (
+            {combos.map(({ key, labels }) => (
               <tr key={key}>
                 <td className="py-2 pr-4">{labels.join(', ')}</td>
                 <td className="py-2">
@@ -105,6 +144,51 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
           </tbody>
         </table>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium">Variant Pricing</h3>
+        <button
+          type="button"
+          onClick={applyBasePriceToAll}
+          className="text-sm text-secondary hover:text-secondary-light border border-secondary rounded-lg px-3 py-1 transition-colors"
+        >
+          Apply Base Price to All
+        </button>
+      </div>
+
+      {/* Customization Variants Section */}
+      {customizationCombinations.length > 0 && (
+        <div className="bg-blue-900/10 border border-blue-800 rounded-lg p-4">
+          {renderPricingTable(
+            customizationCombinations, 
+            "Customization Options", 
+            true
+          )}
+          <p className="text-xs text-blue-400 mt-2">
+            These variants are automatically generated from your customization settings.
+          </p>
+        </div>
+      )}
+
+      {/* Regular Variants Section */}
+      {regularCombinations.length > 0 && (
+        renderPricingTable(
+          regularCombinations, 
+          regularVariants.length > 0 ? "Product Variants" : "Base Product", 
+          regularCombinations.length > 1
+        )
+      )}
+
+      {/* Show message when only customization variants exist */}
+      {customizationCombinations.length > 0 && regularCombinations.length === 0 && (
+        <div className="text-center py-4 text-gray-400 text-sm">
+          Add product variants (like size, color, etc.) to see additional pricing options.
+        </div>
+      )}
     </div>
   );
 }
