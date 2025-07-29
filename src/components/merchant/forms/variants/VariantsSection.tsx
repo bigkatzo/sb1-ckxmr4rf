@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, GripVertical } from 'lucide-react';
 import { VariantGroup } from './VariantGroup';
 import { VariantPricing } from './VariantPricing';
@@ -65,7 +65,7 @@ function SortableVariant({ variant, onUpdate, onRemove }: SortableVariantProps) 
 export function VariantsSection({ variants: initialVariants, onChange, initialPrices = {}, basePrice, allVariants }: VariantsSectionProps) {
   const [localVariants, setLocalVariants] = useState<ProductVariant[]>(initialVariants);
   const [localPrices, setLocalPrices] = useState<VariantPricingType>(initialPrices);
-  const isInitializing = useRef(true);
+  const [shouldNotifyParent, setShouldNotifyParent] = useState(false);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -76,13 +76,10 @@ export function VariantsSection({ variants: initialVariants, onChange, initialPr
     useSensor(KeyboardSensor)
   );
 
-  // Update local state when props change (only during initialization)
+  // Update local state when props change
   useEffect(() => {
-    if (isInitializing.current) {
-      setLocalVariants(initialVariants);
-      setLocalPrices(initialPrices);
-      isInitializing.current = false;
-    }
+    setLocalVariants(initialVariants);
+    setLocalPrices(initialPrices);
   }, [initialVariants, initialPrices]);
 
   // Memoize the combination generation function
@@ -112,35 +109,27 @@ export function VariantsSection({ variants: initialVariants, onChange, initialPr
     return validKeys;
   }, [localVariants]);
 
-  // Clean up invalid combinations and notify parent
+  // Clean up invalid combinations
   useEffect(() => {
-    if (isInitializing.current) return;
+    if (!shouldNotifyParent) return;
 
     const validKeys = getValidCombinationKeys();
-    const newPrices: VariantPricingType = { ...localPrices };
+    const newPrices: VariantPricingType = {};
 
-    // Remove invalid combinations
-    Object.keys(newPrices).forEach(key => {
-      if (!validKeys.has(key)) {
-        delete newPrices[key];
-      }
-    });
-
-    // Add new combinations with base price
+    // Preserve existing prices for valid combinations
     validKeys.forEach(key => {
-      if (!(key in newPrices)) {
-        newPrices[key] = basePrice;
-      }
+      newPrices[key] = localPrices[key] ?? basePrice;
     });
 
-    // Update local prices if needed
+    // Only update if prices have changed
     if (JSON.stringify(newPrices) !== JSON.stringify(localPrices)) {
       setLocalPrices(newPrices);
     }
 
-    // Always notify parent of changes
+    // Notify parent of changes
     onChange(localVariants, newPrices);
-  }, [localVariants, getValidCombinationKeys, onChange, basePrice, localPrices]);
+    setShouldNotifyParent(false);
+  }, [localVariants, localPrices, getValidCombinationKeys, onChange, shouldNotifyParent, basePrice]);
 
   const addVariant = () => {
     const newVariant: ProductVariant = {
@@ -149,27 +138,25 @@ export function VariantsSection({ variants: initialVariants, onChange, initialPr
       options: []
     };
     setLocalVariants(prev => [...prev, newVariant]);
+    setShouldNotifyParent(true);
   };
 
   const updateVariant = (updatedVariant: ProductVariant) => {
     setLocalVariants(prev => 
       prev.map(variant => variant.id === updatedVariant.id ? updatedVariant : variant)
     );
+    setShouldNotifyParent(true);
   };
 
   const removeVariant = (variantId: string) => {
     setLocalVariants(prev => prev.filter(variant => variant.id !== variantId));
+    setShouldNotifyParent(true);
   };
 
-  // Handle price changes directly in local state
   const handlePriceChange = useCallback((key: string, price: number) => {
-    setLocalPrices(prev => {
-      const updated = { ...prev, [key]: price };
-      // Notify parent immediately of price changes
-      onChange(localVariants, updated);
-      return updated;
-    });
-  }, [localVariants, onChange]);
+    setLocalPrices(prev => ({ ...prev, [key]: price }));
+    setShouldNotifyParent(true);
+  }, []);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -181,7 +168,9 @@ export function VariantsSection({ variants: initialVariants, onChange, initialPr
       const newIndex = variants.findIndex(v => v.id === over.id);
       
       if (oldIndex !== -1 && newIndex !== -1) {
-        return arrayMove(variants, oldIndex, newIndex);
+        const newVariants = arrayMove(variants, oldIndex, newIndex);
+        setShouldNotifyParent(true);
+        return newVariants;
       }
       
       return variants;
@@ -210,7 +199,7 @@ export function VariantsSection({ variants: initialVariants, onChange, initialPr
             onDragEnd={handleDragEnd}
           >
             <SortableContext 
-              items={localVariants.map(v => v.id)}
+              items={localVariants.map(v => v.id)} 
               strategy={rectSortingStrategy}
             >
               <div className="space-y-4">
