@@ -12,6 +12,7 @@ interface VariantsSectionProps {
   onChange: (variants: ProductVariant[], prices: VariantPricingType) => void;
   initialPrices?: VariantPricingType;
   basePrice: number;
+  allVariants?: ProductVariant[];
 }
 
 // Sortable wrapper for VariantGroup
@@ -61,7 +62,7 @@ function SortableVariant({ variant, onUpdate, onRemove }: SortableVariantProps) 
   );
 }
 
-export function VariantsSection({ variants: initialVariants, onChange, initialPrices = {}, basePrice }: VariantsSectionProps) {
+export function VariantsSection({ variants: initialVariants, onChange, initialPrices = {}, basePrice, allVariants }: VariantsSectionProps) {
   const [localVariants, setLocalVariants] = useState<ProductVariant[]>(initialVariants);
   const [localPrices, setLocalPrices] = useState<VariantPricingType>(initialPrices);
   const [shouldNotifyParent, setShouldNotifyParent] = useState(false);
@@ -215,16 +216,27 @@ export function VariantsSection({ variants: initialVariants, onChange, initialPr
           </DndContext>
 
           <VariantPricing
-            variants={localVariants}
+            variants={allVariants || localVariants}
             prices={localPrices}
             basePrice={basePrice}
             onPriceChange={handlePriceChange}
           />
         </>
       ) : (
+        <>
+          {/* Show pricing even when no regular variants exist, but customization variants might */}
+          {allVariants && allVariants.length > 0 && (
+            <VariantPricing
+              variants={allVariants}
+              prices={localPrices}
+              basePrice={basePrice}
+              onPriceChange={handlePriceChange}
+            />
+          )}
         <p className="text-sm text-gray-400">
           No variants added. Add variants if your product comes in different options like sizes or colors.
         </p>
+        </>
       )}
     </div>
   );

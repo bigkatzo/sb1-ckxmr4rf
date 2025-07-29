@@ -49,8 +49,7 @@ export function CustomizationOptions() {
             {
               id: crypto.randomUUID(),
               value: 'Yes',
-              label: 'Image Customization',
-              // isDefault: true
+              label: 'Add Custom Image'
             }
           ]
         };
@@ -84,8 +83,7 @@ export function CustomizationOptions() {
             {
               id: crypto.randomUUID(),
               value: 'Yes',
-              label: 'Text Customization',
-              // isDefault: true
+              label: 'Add Custom Text'
             }
           ]
         };
@@ -167,10 +165,10 @@ export function CustomizationOptions() {
               <div className="mt-3 p-3 bg-blue-900/20 border border-blue-700 rounded-md">
                 <p className="text-xs text-blue-400 mb-1">Auto-generated variants:</p>
                 {customizationImage && (
-                  <p className="text-xs text-green-400">• Image Customization variant added</p>
+                  <p className="text-xs text-green-400">• Image Customization: Add Custom Image</p>
                 )}
                 {customizationText && (
-                  <p className="text-xs text-green-400">• Text Customization variant added</p>
+                  <p className="text-xs text-green-400">• Text Customization: Add Custom Text</p>
                 )}
                 <p className="text-xs text-gray-400 mt-2">
                   Set prices for these customization options in the Variant Pricing section below.

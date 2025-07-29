@@ -35,12 +35,11 @@ export function ProductVariants({ initialVariants = [], initialPrices = {} }: Pr
     setValue('variantPrices', updatedPrices);
   };
 
-  // Filter out customization variants for display (they're auto-managed)
+  // Separate variants for display purposes
   const userVariants = variants.filter((variant: ProductVariant) => 
     variant.name !== 'Image Customization' && variant.name !== 'Text Customization'
   );
 
-  // Get customization variants for info display
   const customizationVariants = variants.filter((variant: ProductVariant) => 
     variant.name === 'Image Customization' || variant.name === 'Text Customization'
   );
@@ -74,6 +73,7 @@ export function ProductVariants({ initialVariants = [], initialPrices = {} }: Pr
         }}
         initialPrices={variantPrices}
         basePrice={basePrice}
+        allVariants={variants}
       />
     </div>
   );

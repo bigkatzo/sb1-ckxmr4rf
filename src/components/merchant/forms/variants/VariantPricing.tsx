@@ -28,40 +28,35 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
       isCustomization: boolean;
     }> = [];
     
+    if (variants.length === 0) return result;
+    
     const generate = (current: string[], currentLabels: string[], index: number) => {
       if (index === variants.length) {
-        // Create a deterministic key by sorting variant IDs
-        const key = current
-          .map((value, i) => `${variants[i].id}:${value}`)
-          .sort()
-          .join('|');
+        // Create a deterministic key
+        const keyParts = current.map((value, i) => `${variants[i].id}:${value}`).sort();
+        const key = keyParts.join('|');
         
-        // Only add if this combination is unique
-        if (!result.some(c => c.key === key)) {
-          // Check if this combination includes any customization variants
-          const isCustomization = currentLabels.some(label => 
-            label.includes('Image Customization') || label.includes('Text Customization')
-          );
-          
-          result.push({
-            key,
-            labels: [...currentLabels],
-            isCustomization
-          });
-        }
+        // Check if this combination includes any customization variants
+        const isCustomization = currentLabels.some(label => 
+          label.includes('Image Customization') || label.includes('Text Customization')
+        );
+        
+        result.push({
+          key,
+          labels: [...currentLabels],
+          isCustomization
+        });
         return;
       }
       
       variants[index].options.forEach(option => {
         current[index] = option.value;
-        currentLabels[index] = `${variants[index].name}: ${option.value}`;
+        currentLabels[index] = `${variants[index].name}: ${option.label || option.value}`;
         generate(current, currentLabels, index + 1);
       });
     };
     
-    if (variants.length > 0) {
-      generate(new Array(variants.length), new Array(variants.length), 0);
-    }
+    generate(new Array(variants.length), new Array(variants.length), 0);
     
     return result;
   }, [variants]);
@@ -89,13 +84,20 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
 
   if (!variants.length) return null;
 
+  // Debug logging to help troubleshoot
+  console.log('VariantPricing - variants:', variants);
+  console.log('VariantPricing - combinations:', combinations);
+  console.log('VariantPricing - customizationCombinations:', customizationCombinations);
+  console.log('VariantPricing - regularCombinations:', regularCombinations);
+
   const renderPricingTable = (
     combos: typeof combinations, 
     title: string, 
     showSectionButton: boolean = false,
-    bgColor: string = ""
+    bgColor: string = "",
+    description?: string
   ) => (
-    <div className={`space-y-2 ${bgColor}`}>
+    <div className={`space-y-3 p-4 rounded-lg ${bgColor}`}>
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-gray-300">{title}</h4>
         {showSectionButton && (
@@ -108,6 +110,10 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
           </button>
         )}
       </div>
+      
+      {description && (
+        <p className="text-xs text-gray-400">{description}</p>
+      )}
       
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -162,16 +168,13 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
 
       {/* Customization Variants Section */}
       {customizationCombinations.length > 0 && (
-        <div className="bg-blue-900/10 border border-blue-800 rounded-lg p-4">
-          {renderPricingTable(
-            customizationCombinations, 
-            "Customization Options", 
-            true
-          )}
-          <p className="text-xs text-blue-400 mt-2">
-            These variants are automatically generated from your customization settings.
-          </p>
-        </div>
+        renderPricingTable(
+          customizationCombinations, 
+          "Customization Options", 
+          true,
+          "bg-blue-900/10 border border-blue-800",
+          "Set additional prices for customization services. These are added to the base product price."
+        )
       )}
 
       {/* Regular Variants Section */}
@@ -179,7 +182,8 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
         renderPricingTable(
           regularCombinations, 
           regularVariants.length > 0 ? "Product Variants" : "Base Product", 
-          regularCombinations.length > 1
+          regularCombinations.length > 1,
+          "bg-gray-900/50 border border-gray-700"
         )
       )}
 
