@@ -802,15 +802,16 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     />
                   )}
 
-                  <ProductVariantPrice
-                    product={product}
-                    selectedOptions={selectedOptions}
-                  />
-
                   {/* Product Customization Component */}
                   <ProductCustomization
                     customizable={{image: true, text: true}}
                     onChange={handleCustomizationChange}
+                    isCustomizable={"no"}
+                  />
+
+                  <ProductVariantPrice
+                    product={product}
+                    selectedOptions={selectedOptions}
                   />
 
                   {/* Buy button for desktop - static position */}
