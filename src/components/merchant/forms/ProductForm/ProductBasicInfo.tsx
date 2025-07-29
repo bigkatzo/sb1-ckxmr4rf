@@ -102,23 +102,6 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         )}
       </div>
 
-      <div>
-          <label htmlFor="baseCurrency" className="block text-sm font-medium text-white mb-1">
-            Price currency
-          </label>
-          <select
-            id="baseCurrency"
-            {...register('baseCurrency')}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          >
-            <option value="sol">SOL</option>
-            <option value="usdc">USDC</option>
-          </select>
-          {errors.baseCurrency && (
-            <p className="text-red-400 text-xs mt-1">{errors.baseCurrency.message as string}</p>
-          )}
-      </div>
-
       {/* Advanced Product Options Section */}
       <div className="border border-gray-800 rounded-lg overflow-hidden">
         <button
