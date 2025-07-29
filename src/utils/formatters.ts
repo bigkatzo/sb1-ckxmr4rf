@@ -3,8 +3,11 @@
  * @param price Price in SOL
  * @returns Formatted price as string
  */
-export function formatPrice(price: number, paymentMethodType = 'USDC'): string {
+export function formatPrice(price: number, paymentMethodType = 'USDC', basePrice = 'sol'): string {
   // Format as number with up to 4 decimal places
+  // if basePrice is sol and paymentMethod is sol ... return format
+  // if basePrice is sol and method is usdc... convert to usdc with format/rate
+  // if basePrice is usdc and method is sol... 
   const formattedValue = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 4

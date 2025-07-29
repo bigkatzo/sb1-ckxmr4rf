@@ -44,7 +44,7 @@ const getProductPrice = async (productId, selectedOptions) => {
     // Fetch the product with its variants from Supabase
     const { data: product, error } = await supabase
       .from('products')
-      .select('price, variants')
+      .select('price, variants', 'base_price')
       .eq('id', productId)
       .single();
 
@@ -60,6 +60,7 @@ const getProductPrice = async (productId, selectedOptions) => {
     if (!product.variants || !selectedOptions || Object.keys(selectedOptions).length === 0) {
       return {
         price: product.price,
+        basePrice: product.base_price,
         variantKey: null,
         variantSelections: []
       };
@@ -110,6 +111,7 @@ const getProductPrice = async (productId, selectedOptions) => {
     // If no variant price found, return base price
     return {
       price: product.price,
+      basePrice: product.base_price,
       variantKey: variantKey || null,
       variantSelections
     };
@@ -303,7 +305,7 @@ exports.handler = async (event, context) => {
 
           if (isValid) {
             couponDiscount = coupon.discount_type === 'fixed_sol' 
-              ? Math.min(coupon.discount_value, totalPaymentForBatch) 
+              ? Math.min(coupon.discount_value, totalPaymentForBatch)
               : (totalPaymentForBatch * coupon.discount_value) / 100;
             console.log(`Coupon ${couponCode} applied: ${couponDiscount} discount`);
           }
@@ -323,6 +325,7 @@ exports.handler = async (event, context) => {
     let solAmount = 0;
     if(paymentMetadata?.paymentMethod === 'sol') {
       // Convert USDC to SOL using CoinGecko rate
+
       solAmount = await convertUsdcToSolWithCoinGeckoRate(totalPaymentForBatch);
       console.log(`Converted total payment amount to SOL: ${solAmount}`);
     }

@@ -178,27 +178,27 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
         </div>
         
         {isCustomizable && (
-          <div className="ml-7 space-y-3">
-            <p className="text-sm text-gray-400 mb-3">Select customization options:</p>
+          <div className="ml-7 space-y-2">
+            <p className="text-sm text-gray-400 mb-2">Select customization options:</p>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
                 id="customization.image"
                 {...register('customization.image')}
-                className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
+                className="h-3 w-3 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
               />
               <label htmlFor="customization.image" className="text-sm text-white">
                 Image customization
               </label>
             </div>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
                 id="customization.text"
                 {...register('customization.text')}
-                className="h-4 w-4 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
+                className="h-3 w-3 text-primary bg-gray-800 border-gray-600 rounded focus:ring-primary focus:ring-2"
               />
               <label htmlFor="customization.text" className="text-sm text-white">
                 Text customization
