@@ -60,13 +60,12 @@ export interface Product {
   };
   freeNotes?: string; // Free-form notes for additional information
   reviewStats?: ReviewStats; // Add review stats
-  recommendedCa?: string | null; // Optional CA for recommended token
   isCustomizable?: string; // Whether the product can be customized
   customization?: {
     image?: boolean; // Whether image customization is available
     text?: boolean; // Whether text customization is available
   };
-  basePrice: string; // Base price as a string for display
+  baseCurrency: string; // Base price as a string for display
 }
 
 export interface ProductVariantFormData {

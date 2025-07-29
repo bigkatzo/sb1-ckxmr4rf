@@ -63,6 +63,7 @@ export const productSchema = z.object({
     image: z.boolean().optional().default(false),
     text: z.boolean().optional().default(false),
   }).optional(),
+  baseCurrency: z.string().optional().default('sol'),
 });
 
 // Basic product form values from schema

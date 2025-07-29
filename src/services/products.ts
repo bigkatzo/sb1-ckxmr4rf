@@ -243,13 +243,12 @@ export async function createProduct(collectionId: string, formData: FormData, ca
       notes: hasShippingNote || hasQualityNote || hasReturnsNote ? notes : {},
       free_notes: freeNotes || '',
       created_by: user?.id,
-      recommended_ca: ca || null, // Optional CA for recommended token
-      isCustomizable: formData.get('isCustomizable') === 'true',
+      is_customizable: formData.get('isCustomizable'),
       customization: {
         image: formData.get('customization.image') === 'true',
         text: formData.get('customization.text') === 'true'
       },
-      basePrice: formData.get('basePrice') as string || 'sol' // Base price as string for display
+      base_currency: formData.get('baseCurrency') as string || 'sol' // Base price as string for display
     };
 
 

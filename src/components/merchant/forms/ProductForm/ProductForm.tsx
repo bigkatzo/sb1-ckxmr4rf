@@ -69,7 +69,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       image: initialData?.customization?.image || false,
       text: initialData?.customization?.text || false,
     },
-    basePrice: initialData?.basePrice || 'sol' // Base price as string for display
+    baseCurrency: initialData?.baseCurrency || 'sol' // Currency selection
   }), [initialData]);
   
   // Set up react-hook-form with zod validation
@@ -97,7 +97,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         technique: initialData?.technique ?? '',
         noteForSupplier: initialData?.noteForSupplier ?? '',
         notes: notesForReset,
-        freeNotes: initialData?.freeNotes ?? ''
+        freeNotes: initialData?.freeNotes ?? '',
+        baseCurrency: initialData?.baseCurrency || 'sol'
       });
       
       initializedRef.current = true;
@@ -196,12 +197,12 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       formData.append('variants', JSON.stringify(data.variants || []));
       formData.append('variantPrices', JSON.stringify(data.variantPrices || {}));
 
-      formData.append('isCustomizable', data?.isCustomizable ? 'true' : 'false');
+      formData.append('is_customizable', data?.isCustomizable ? 'true' : 'false');
       formData.append('customization.image', data.customization?.image ? 'true' :
         'false');
       formData.append('customization.text', data.customization?.text ? 'true' :
         'false');
-      formData.append('basePrice', data.basePrice || 'sol'); // Base price as string for display
+      formData.append('baseCurrency', data.baseCurrency || 'sol');
     
 
       // Submit to the appropriate endpoint
@@ -319,4 +320,4 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       </ProductImagesContext.Provider>
     </FormProvider>
   );
-} 
+}

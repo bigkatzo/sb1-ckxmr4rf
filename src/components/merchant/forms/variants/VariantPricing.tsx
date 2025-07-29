@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useFormContext } from 'react-hook-form';
 import type { ProductVariant, VariantPricing } from '../../../../types/variants';
 
 interface VariantPricingProps {
@@ -9,6 +10,10 @@ interface VariantPricingProps {
 }
 
 export function VariantPricing({ variants, prices, basePrice, onPriceChange }: VariantPricingProps) {
+  const { register, watch } = useFormContext();
+  
+  const baseCurrency = watch('baseCurrency') || 'sol';
+  
   // Separate customization variants from regular variants
   const { customizationVariants, regularVariants } = useMemo(() => {
     const customization = variants.filter(v => 
@@ -84,11 +89,9 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
 
   if (!variants.length) return null;
 
-  // Debug logging to help troubleshoot
-  console.log('VariantPricing - variants:', variants);
-  console.log('VariantPricing - combinations:', combinations);
-  console.log('VariantPricing - customizationCombinations:', customizationCombinations);
-  console.log('VariantPricing - regularCombinations:', regularCombinations);
+  const getCurrencyLabel = () => {
+    return baseCurrency.toUpperCase();
+  };
 
   const renderPricingTable = (
     combos: typeof combinations, 
@@ -120,7 +123,7 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
           <thead>
             <tr className="border-b border-gray-800">
               <th className="py-2 text-left font-medium text-gray-400 w-2/3">Variant</th>
-              <th className="py-2 text-right font-medium text-gray-400 w-1/3">Price (SOL)</th>
+              <th className="py-2 text-right font-medium text-gray-400 w-1/3">Price ({getCurrencyLabel()})</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
@@ -130,14 +133,26 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
                 <td className="py-2">
                   <div className="flex justify-end">
                     <input
-                      type="number"
-                      min="0"
-                      step="0.000000001"
+                      type="text"
                       value={prices[key] ?? basePrice}
                       onChange={e => {
-                        const value = parseFloat(e.target.value);
-                        if (!isNaN(value) && value >= 0) {
-                          onPriceChange(key, value);
+                        const value = e.target.value;
+                        // Allow intermediate states during typing
+                        if (value === '' || value === '.' || /^\d*\.?\d*$/.test(value)) {
+                          const numValue = parseFloat(value);
+                          if (!isNaN(numValue) && numValue >= 0) {
+                            onPriceChange(key, numValue);
+                          } else if (value === '' || value === '.') {
+                            // Keep the current value in state but allow empty input
+                            // The display will show the current stored value
+                          }
+                        }
+                      }}
+                      onBlur={e => {
+                        const value = e.target.value;
+                        if (value === '' || isNaN(parseFloat(value))) {
+                          // Reset to base price if invalid
+                          onPriceChange(key, basePrice);
                         }
                       }}
                       placeholder={basePrice.toString()}
@@ -155,6 +170,24 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
 
   return (
     <div className="space-y-6">
+      {/* Currency Selection */}
+      <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
+        <label htmlFor="baseCurrency" className="block text-sm font-medium text-white mb-2">
+          Base Currency
+        </label>
+        <select
+          id="baseCurrency"
+          {...register('baseCurrency')}
+          className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        >
+          <option value="sol">SOL</option>
+          <option value="usdc">USDC</option>
+        </select>
+        <p className="text-xs text-gray-400 mt-1">
+          Select the currency for all product pricing
+        </p>
+      </div>
+
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Variant Pricing</h3>
         <button
