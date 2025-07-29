@@ -3,8 +3,8 @@ import { ChevronDown } from 'lucide-react';
 import { useCurrency, Currency } from '../../contexts/CurrencyContext';
 
 const currencies: { value: Currency; label: string; symbol: string }[] = [
+  { value: 'SOL', label: 'SOL', symbol: '◎' },
   { value: 'USDC', label: 'USDC', symbol: '$' },
-  { value: 'SOL', label: 'SOL', symbol: '◎' }
 ];
 
 export function CurrencySelector() {

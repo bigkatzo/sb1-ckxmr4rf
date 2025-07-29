@@ -1,19 +1,38 @@
+import {getSolanaPrice} from './price-conversion'
+
+
 /**
- * Format a price as SOL
- * @param price Price in SOL
- * @returns Formatted price as string
+ * Format a price with currency conversion.
+ * @param price Price in base currency (basePrice).
+ * @param paymentMethodType Target currency for display ('SOL' or 'USDC').
+ * @param basePrice The currency the price is currently in ('SOL' or 'USDC').
+ * @returns Formatted price as string in the target payment method.
  */
-export function formatPrice(price: number, paymentMethodType = 'USDC', basePrice = 'sol'): string {
-  // Format as number with up to 4 decimal places
-  // if basePrice is sol and paymentMethod is sol ... return format
-  // if basePrice is sol and method is usdc... convert to usdc with format/rate
-  // if basePrice is usdc and method is sol... 
+export async function formatPrice(
+  price: number,
+  paymentMethodType: string = 'SOL',
+  basePrice: string = 'SOL'
+): Promise<string> {
+  let convertedPrice = price;
+
+  if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
+      const solRate = await getSolanaPrice(); // USD value of 1 SOL
+    if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
+      // Convert SOL → USDC
+      convertedPrice = price * solRate;
+    } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
+      // Convert USDC → SOL
+      convertedPrice = price / solRate;
+    }
+  }
+
   const formattedValue = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4
-  }).format(price);
-  
-  // Add SOL suffix
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 8,
+  }).format(convertedPrice);
+
+  console.log(`Formatted price: ${formattedValue} ${paymentMethodType.toUpperCase()}`);
+
   return `${formattedValue} ${paymentMethodType.toUpperCase()}`;
 }
 
