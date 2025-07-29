@@ -58,7 +58,7 @@ export const productSchema = z.object({
   designFiles: fileArraySchema,
   existingDesignFiles: stringArraySchema,
   removedDesignFiles: stringArraySchema,
-  isCustomizable: z.boolean().optional().default(false),
+  isCustomizable: z.string().optional().default('no'),
   customization: z.object({
     image: z.boolean().optional().default(false),
     text: z.boolean().optional().default(false),

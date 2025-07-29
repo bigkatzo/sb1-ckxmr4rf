@@ -11,6 +11,7 @@ import type { Category } from '../../../../types/index';
 import type { Product } from '../../../../types/variants';
 import { Toggle } from '../../../ui/Toggle';
 import { Loader2 } from 'lucide-react';
+import { CustomizationOptions } from './CustomizationOptions';
 
 export interface ProductFormProps {
   categories: Category[];
@@ -63,7 +64,7 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     designFiles: [],
     existingDesignFiles: initialData?.designFiles || [],
     removedDesignFiles: [],
-    isCustomizable: initialData?.isCustomizable || false,
+    isCustomizable: initialData?.isCustomizable || 'no',
     customization: {
       image: initialData?.customization?.image || false,
       text: initialData?.customization?.text || false,
@@ -267,6 +268,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             <ProductBasicInfo 
               categories={categories}
             />
+
+            <CustomizationOptions />
 
             <div>
               <label className="block text-sm font-medium text-white mb-1">

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight, Clock, Ban } from 'lucide-react';
-import { ChevronDown } from 'lucide-react';
 import { CategoryDescription } from '../collections/CategoryDescription';
 import { CompactReviewSection } from '../reviews/CompactReviewSection';
 import { VariantDisplay } from './variants/VariantDisplay';
@@ -67,8 +66,7 @@ function ProductBuyButton({
   hasVariants, 
   isUpcoming, 
   isSaleEnded, 
-  allOptionsSelected,
-  selectedCurrency
+  allOptionsSelected 
 }: { 
   product: Product; 
   selectedOptions: Record<string, string>; 
@@ -77,7 +75,6 @@ function ProductBuyButton({
   isUpcoming: boolean; 
   isSaleEnded: boolean; 
   allOptionsSelected: boolean;
-  selectedCurrency: 'SOL' | 'USDC';
 }) {
   if (isUpcoming) {
     return (
@@ -151,7 +148,6 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   const [scrollDirection, setScrollDirection] = useState<'horizontal' | 'vertical' | null>(null);
   const isAnimating = useRef(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState<'SOL' | 'USDC'>('SOL');
 
   // Use standardized scroll prevention
   usePreventScroll(true);
@@ -243,10 +239,6 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
       ...prev,
       [variantId]: value
     }));
-  };
-
-  const handleCurrencyChange = (currency: 'SOL' | 'USDC') => {
-    setSelectedCurrency(currency);
   };
 
   const handleCustomizationChange = (data: CustomizationData) => {
@@ -810,42 +802,9 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     />
                   )}
 
-                  {/* Currency Selection */}
-                  <div className="space-y-2">
-                    <label 
-                      className="block text-sm font-medium"
-                      style={{ color: 'var(--color-text)' }}
-                    >
-                      Prices in
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={selectedCurrency}
-                        onChange={(e) => handleCurrencyChange(e.target.value as 'SOL' | 'USDC')}
-                        className="w-full rounded-lg px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 appearance-none"
-                        style={{
-                          backgroundColor: 'var(--color-input-background)',
-                          color: 'var(--color-text)',
-                          borderColor: 'var(--color-input-background)',
-                          '--focus-ring-color': 'var(--color-secondary)'
-                        } as React.CSSProperties}
-                        onFocus={(e) => e.target.style.boxShadow = `0 0 0 2px var(--color-secondary)`}
-                        onBlur={(e) => e.target.style.boxShadow = 'none'}
-                      >
-                        <option value="SOL">SOL</option>
-                        <option value="USDC">USDC</option>
-                      </select>
-                      <ChevronDown 
-                        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-                        style={{ color: 'var(--color-text-muted)' }}
-                      />
-                    </div>
-                  </div>
-
                   <ProductVariantPrice
                     product={product}
                     selectedOptions={selectedOptions}
-                    // selectedCurrency={selectedCurrency}
                   />
 
                   {/* Product Customization Component */}
@@ -864,7 +823,6 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                       isUpcoming={!!isUpcoming}
                       isSaleEnded={!!isSaleEnded}
                       allOptionsSelected={!!allOptionsSelected}
-                      selectedCurrency={selectedCurrency}
                     />
                   </div>
 
@@ -962,7 +920,6 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                   isUpcoming={!!isUpcoming}
                   isSaleEnded={!!isSaleEnded}
                   allOptionsSelected={!!allOptionsSelected}
-                  selectedCurrency={selectedCurrency}
                 />
               </div>
             </div>
