@@ -10,21 +10,24 @@ interface CustomizationData {
 
 interface ProductCustomizationProps {
   isCustomizable: string; // 'no', 'optional', 'mandatory'
-  customizable: {
+  customization: {
     image?: boolean;
     text?: boolean;
   };
   onChange: (data: CustomizationData) => void;
   className?: string;
+  onValidationChange?: (isValid: boolean) => void;
 }
 
-export function ProductCustomization({ customizable, isCustomizable, onChange, className }: ProductCustomizationProps) {
+export function ProductCustomization({ customization, isCustomizable, onChange, className, onValidationChange }: ProductCustomizationProps) {
   const [customizationData, setCustomizationData] = useState<CustomizationData>({});
   const [showCustomization, setShowCustomization] = useState(isCustomizable === 'mandatory');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  console.log('ProductCustomization mounted with customization:', customization, 'isCustomizable:', isCustomizable);
+
   // Don't render if product is not customizable
-  if (isCustomizable === 'no' || (!customizable.image && !customizable.text)) {
+  if (isCustomizable === 'no' || (!customization.image && !customization.text)) {
     return null;
   }
 
@@ -41,6 +44,24 @@ export function ProductCustomization({ customizable, isCustomizable, onChange, c
       onChange(initialData);
     }
   }, [isCustomizable, onChange]);
+
+  // Validation effect for mandatory customization
+  useEffect(() => {
+    if (!onValidationChange) return;
+
+    if (isCustomizable === 'mandatory') {
+      const isImageValid = !customization.image || (customizationData.image !== null && customizationData.image !== undefined);
+      const isTextValid = !customization.text || (customizationData.text && customizationData.text.trim().length > 0);
+      const isValid = isImageValid && isTextValid;
+      onValidationChange(isValid || false);
+    } else if (isCustomizable === 'optional') {
+      // For optional, always valid since customization is not required
+      onValidationChange(true);
+    } else {
+      // For 'no' customization, always valid
+      onValidationChange(true);
+    }
+  }, [isCustomizable, customization, customizationData, onValidationChange]);
 
   const handleCustomizationChoice = (value: string) => {
     const wantsCustomization = value === 'yes';
@@ -162,28 +183,10 @@ export function ProductCustomization({ customizable, isCustomizable, onChange, c
           </div>
         </div>
       )}
-
-      {/* Show mandatory customization header */}
-      {isCustomizable === 'mandatory' && (
-        <div className="mb-4">
-          <h3 
-            className="text-lg font-semibold"
-            style={{ color: 'var(--color-text)' }}
-          >
-            Product Customization Required
-          </h3>
-          <p 
-            className="text-sm mt-1"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            Please provide your customization details below.
-          </p>
-        </div>
-      )}
       
       {showCustomization && (
         <div className="space-y-4 pt-2">
-          {customizable.image && (
+          {customization.image && (
             <div>
               <label 
                 className="block text-sm font-medium mb-3 flex items-center gap-2"
@@ -191,9 +194,6 @@ export function ProductCustomization({ customizable, isCustomizable, onChange, c
               >
                 <ImageIcon className="h-4 w-4" />
                 Upload Your Image
-                {isCustomizable === 'mandatory' && (
-                  <span className="text-red-500 ml-1">*</span>
-                )}
               </label>
           
               {customizationData.imagePreview ? (
@@ -237,7 +237,7 @@ export function ProductCustomization({ customizable, isCustomizable, onChange, c
                 <div 
                   className="relative rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-colors hover:border-secondary/50"
                   style={{ 
-                    borderColor: isCustomizable === 'mandatory' ? 'var(--color-secondary)' : 'var(--color-border)',
+                    borderColor: 'var(--color-border)',
                     backgroundColor: 'var(--color-background)'
                   }}
                   onClick={() => fileInputRef.current?.click()}
@@ -248,9 +248,6 @@ export function ProductCustomization({ customizable, isCustomizable, onChange, c
                     style={{ color: 'var(--color-text)' }}
                   >
                     Click to upload your image
-                    {isCustomizable === 'mandatory' && (
-                      <span className="text-red-500 ml-1">*</span>
-                    )}
                   </p>
                   <p 
                     className="text-xs mt-1"
@@ -271,7 +268,7 @@ export function ProductCustomization({ customizable, isCustomizable, onChange, c
             </div>
           )}
 
-          {customizable.text && (
+          {customization.text && (
             <div>
               <label 
                 className="block text-sm font-medium mb-3 flex items-center gap-2"
@@ -279,9 +276,6 @@ export function ProductCustomization({ customizable, isCustomizable, onChange, c
               >
                 <Type className="h-4 w-4" />
                 Add Your Text
-                {isCustomizable === 'mandatory' && (
-                  <span className="text-red-500 ml-1">*</span>
-                )}
               </label>
               <textarea
                 value={customizationData.text || ''}
@@ -291,7 +285,7 @@ export function ProductCustomization({ customizable, isCustomizable, onChange, c
                 style={{ 
                   backgroundColor: 'var(--color-input-background)',
                   color: 'var(--color-text)',
-                  borderColor: isCustomizable === 'mandatory' ? 'var(--color-secondary)' : 'var(--color-input-background)',
+                  borderColor: 'var(--color-input-background)',
                   '--focus-ring-color': 'var(--color-secondary)'
                 } as React.CSSProperties}
                 onFocus={(e) => e.target.style.boxShadow = `0 0 0 2px var(--color-secondary)`}
@@ -305,9 +299,6 @@ export function ProductCustomization({ customizable, isCustomizable, onChange, c
                   style={{ color: 'var(--color-text-muted)' }}
                 >
                   Add text that will be printed/engraved on your product
-                  {isCustomizable === 'mandatory' && (
-                    <span className="text-red-500 ml-1">*</span>
-                  )}
                 </p>
                 <span 
                   className="text-xs"

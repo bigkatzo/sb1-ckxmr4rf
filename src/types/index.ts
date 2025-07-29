@@ -71,7 +71,12 @@ export interface Product {
   };
   freeNotes?: string;
   rank?: number;
-  recommendedCa?: string | null; // Optional CA for recommended token
+  isCustomizable?: string;
+  customization?: {
+    text: boolean;
+    image: boolean;
+  };
+  baseCurrency?: string;
 }
 
 export interface SearchResult {

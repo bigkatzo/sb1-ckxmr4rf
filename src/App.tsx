@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { CurrencyProvider } from './contexts/CurrencyContext';
 import { WalletProvider } from './contexts/WalletContext';
 import { ModalProvider } from './contexts/ModalContext';
 import { HowItWorksProvider } from './contexts/HowItWorksContext';
@@ -190,15 +191,17 @@ export function App() {
           <WalletProvider>
             <CollectionProvider>
               <ThemeProvider>
-                <ModalProvider>
-                  <HowItWorksProvider>
-                    <AppMessagesProvider>
-                      <CartProvider>
-                        <AppContent />
-                      </CartProvider>
-                    </AppMessagesProvider>
-                  </HowItWorksProvider>
-                </ModalProvider>
+                <CurrencyProvider>
+                  <ModalProvider>
+                    <HowItWorksProvider>
+                      <AppMessagesProvider>
+                        <CartProvider>
+                          <AppContent />
+                        </CartProvider>
+                      </AppMessagesProvider>
+                    </HowItWorksProvider>
+                  </ModalProvider>
+                </CurrencyProvider>
               </ThemeProvider>
             </CollectionProvider>
           </WalletProvider>

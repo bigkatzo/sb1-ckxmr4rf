@@ -5,6 +5,7 @@ import { SearchBar } from '../search/SearchBar';
 import { Logo } from '../ui/Logo';
 import { WalletButton } from '../wallet/WalletButton';
 import { CartButton } from '../cart/CartButton';
+import { CurrencySelector } from '../ui/CurrencySelector';
 import { useHowItWorks } from '../../contexts/HowItWorksContext';
 import { useAppMessages } from '../../contexts/AppMessagesContext';
 
@@ -168,7 +169,8 @@ export default function Navbar() {
           {/* Right section */}
           <div className="flex items-center ml-auto">
             {/* Desktop Actions */}
-            <div className="hidden md:flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-3">
+              <CurrencySelector />
               <CartButton />
               <WalletButton />
               <button
@@ -181,6 +183,7 @@ export default function Navbar() {
 
             {/* Mobile Actions */}
             <div className="flex md:hidden items-center gap-2">
+              <CurrencySelector />
               <button
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
                 className="p-2 text-text-muted hover:text-text"

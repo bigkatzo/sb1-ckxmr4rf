@@ -184,7 +184,9 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
           collectionUserId: data.collection_user_id,
           collectionOwnerMerchantTier: collectionOwnerMerchantTier,
           freeNotes: freeNotesValue,
-          recommendedCa: data.recommended_ca || null, // Optional CA for recommended token
+          isCustomizable: data.is_customizable ?? "no",
+          customization: data.customization || {},
+          baseCurrency: data.base_currency || 'SOL',
         };
 
         // Cache the product data with preview mode awareness

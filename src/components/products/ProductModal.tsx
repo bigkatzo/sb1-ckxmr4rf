@@ -135,6 +135,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [customizationData, setCustomizationData] = useState<CustomizationData>({});
+  const [isCustomizationValid, setIsCustomizationValid] = useState(true);
   const [reviewStats, setReviewStats] = useState<ReviewStats | null>(product.reviewStats || null);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -243,6 +244,10 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
 
   const handleCustomizationChange = (data: CustomizationData) => {
     setCustomizationData(data);
+  };
+
+  const handleCustomizationValidationChange = (isValid: boolean) => {
+    setIsCustomizationValid(isValid);
   };
 
   // Touch handlers
@@ -455,9 +460,27 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     ? -(selectedImageIndex * 100) + (dragOffset * dampingFactor / (modalRef.current?.clientWidth || window.innerWidth) * 100)
     : -(selectedImageIndex * 100);
 
-  const allOptionsSelected = hasVariants
-    ? product.variants!.every((variant: { id: string }) => selectedOptions[variant.id])
-    : true;
+  // Filter out customization variants from regular variants
+  const customizationFields = ['Image Customization', 'Text Customization'];
+  const regularVariants = hasVariants 
+    ? product.variants!.filter((variant: { name: string }) => !customizationFields.includes(variant.name))
+    : [];
+
+  // Check if all regular variants are selected
+  const allRegularVariantsSelected = regularVariants.length === 0 || 
+    regularVariants.every((variant: { id: string }) => selectedOptions[variant.id]);
+
+  // Determine final allOptionsSelected based on customization requirements
+  let allOptionsSelected = allRegularVariantsSelected;
+  
+  if (product.isCustomizable === 'mandatory') {
+    // For mandatory customization, also require customization to be valid
+    allOptionsSelected = allRegularVariantsSelected && isCustomizationValid;
+  } else if (product.isCustomizable === 'optional') {
+    // For optional customization, only require regular variants
+    allOptionsSelected = allRegularVariantsSelected;
+  }
+  // For 'no' customization, only regular variants matter (already handled above)
 
   // Product state variables - extract at the component level
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
@@ -804,9 +827,10 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
 
                   {/* Product Customization Component */}
                   <ProductCustomization
-                    customizable={{image: true, text: true}}
+                    customization={product.customization || { image: false, text: false }}
+                    isCustomizable={product.isCustomizable || 'no'}
                     onChange={handleCustomizationChange}
-                    isCustomizable={"no"}
+                    onValidationChange={handleCustomizationValidationChange}
                   />
 
                   <ProductVariantPrice

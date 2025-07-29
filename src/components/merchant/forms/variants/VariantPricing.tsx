@@ -171,7 +171,7 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
   return (
     <div className="space-y-6">
       {/* Currency Selection */}
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
+      {/* <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
         <label htmlFor="baseCurrency" className="block text-sm font-medium text-white mb-2">
           Base Currency
         </label>
@@ -186,7 +186,7 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
         <p className="text-xs text-gray-400 mt-1">
           Select the currency for all product pricing
         </p>
-      </div>
+      </div> */}
 
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Variant Pricing</h3>
