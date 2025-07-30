@@ -649,7 +649,7 @@ export function TokenVerificationModal({
       updateProgressStep(2, 'error', undefined, error instanceof Error ? error.message : 'Transaction verification failed');
       
       // Still show success view even if verification fails
-      const displayOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
+      const displayOrderNumber = `SF-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
       setOrderDetails({
         amount: orderDetails?.amount || 0,
         orderNumber: displayOrderNumber,

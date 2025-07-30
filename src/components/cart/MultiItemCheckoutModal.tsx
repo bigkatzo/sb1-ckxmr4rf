@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, ChevronRight, Check, AlertTriangle } from 'lucide-react';
 import { useCart, CartItem } from '../../contexts/CartContext';
 import { OptimizedImage } from '../ui/OptimizedImage';
-import { formatPrice, formatPriceWithRate } from '../../utils/formatters';
+import { formatPriceWithRate } from '../../utils/formatters';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { toast } from 'react-toastify';
@@ -472,18 +472,17 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   const processSolanaPayment = async (batchOrderData: any) => {
     let cartId = batchOrderData.batchOrderId ?? '';
     const totalAmount = batchOrderData.totalPaymentAmount ?? 0;
-    const solAmount = batchOrderData.solAmount ?? 0;
     const receiverWallet = batchOrderData.receiverWallet ?? 'anonymous';
-    // const buyerAddress = walletAddress || 'anonymous';
     const tokenToProcess = paymentMethod?.defaultToken;
+    const baseCurrency = batchOrderData.baseCurrency ?? 'USDC';
 
     console.log('Processing Solana payment:', { totalAmount, cartId, receiverWallet, tokenToProcess });
 
     let success;
     let signature: string | undefined;
     if(paymentMethod?.type === 'default') {
-      if(tokenToProcess === 'sol') {
-        const { success: paymentSuccess, signature: txSignature } = await processPayment(solAmount, cartId, receiverWallet);
+      if(baseCurrency === 'sol') {
+        const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, cartId, receiverWallet);
         success = paymentSuccess;
         signature = txSignature;
       } else {
@@ -930,7 +929,8 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     onMethodChange={setPaymentMethod}
                     isConnected={isConnected}
                     disabled={processingPayment}
-                    usdAmount={finalPrice}
+                    totalAmount={finalPrice}
+                    currency={currency.toLocaleLowerCase() as ('sol' | 'usdc')}
                     onGetPriceQuote={undefined}
                     recommendedCAs={recommendedCas}
                     onTotalPriceChange={(price, symbol) => {

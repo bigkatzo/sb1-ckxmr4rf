@@ -41,7 +41,8 @@ interface PaymentMethodSelectorProps {
   onMethodChange: (method: PaymentMethod) => void;
   isConnected: boolean;
   disabled?: boolean;
-  usdAmount: number;
+  currency: 'sol' | 'usdc'; // Currency from useCurrency()
+  totalAmount: number; // Total amount in the base currency
   onGetPriceQuote?: (tokenAddress: string, chainId?: string) => Promise<PriceQuote>;
   onTotalPriceChange?: (totalPrice: string, tokenSymbol: string) => void;
   recommendedCAs?: string[]; // Array of token addresses
@@ -92,7 +93,8 @@ export function PaymentMethodSelector({
   onMethodChange, 
   isConnected, 
   disabled, 
-  usdAmount, 
+  currency,
+  totalAmount,
   onGetPriceQuote,
   onTotalPriceChange,
   recommendedCAs = []
@@ -109,6 +111,11 @@ export function PaymentMethodSelector({
   const [defaultTokenQuote, setDefaultTokenQuote] = useState<PriceQuote | null>(null);
   const [fetchedRecommendedCAs, setFetchedRecommendedCAs] = useState<RecommendedCA[]>([]);
   const [loadingRecommendedCAs, setLoadingRecommendedCAs] = useState(false);
+
+  // Set default token based on currency context
+  React.useEffect(() => {
+    setDefaultToken(currency);
+  }, [currency]);
 
   // Get the first available fetched recommended CA
   const firstRecommendedCA = fetchedRecommendedCAs && fetchedRecommendedCAs.length > 0 ? fetchedRecommendedCAs[0] : null;
@@ -239,12 +246,13 @@ export function PaymentMethodSelector({
     await new Promise(resolve => setTimeout(resolve, 800));
     
     try {
-      const outputMint = defaultToken === 'usdc' 
+      // Use the base currency for conversion
+      const outputMint = currency === 'usdc' 
         ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' // USDC
         : 'So11111111111111111111111111111111111111112'; // SOL
       
-      const outputDecimals = defaultToken === 'usdc' ? 6 : 9;
-      const outputAmount = Math.floor(usdAmount * Math.pow(10, outputDecimals));
+      const outputDecimals = currency === 'usdc' ? 6 : 9;
+      const outputAmount = Math.floor(totalAmount * Math.pow(10, outputDecimals));
       
       const quoteResponse = await fetch(
         `https://quote-api.jup.ag/v6/quote?inputMint=${outputMint}&outputMint=${tokenAddress}&amount=${outputAmount}&slippageBps=50`
@@ -259,13 +267,13 @@ export function PaymentMethodSelector({
       // Get token decimals - assume 6 for most SPL tokens, 9 for SOL
       const tokenDecimals = tokenAddress === 'So11111111111111111111111111111111111111112' ? 9 : 6;
       const tokenAmount = (parseFloat(quoteData.outAmount) / Math.pow(10, tokenDecimals)).toFixed(6);
-      const rate = parseFloat(tokenAmount) > 0 ? usdAmount / parseFloat(tokenAmount) : 0;
+      const rate = parseFloat(tokenAmount) > 0 ? totalAmount / parseFloat(tokenAmount) : 0;
       
       return {
         tokenAmount,
         tokenSymbol: tokenInfo?.symbol || 'TOKEN',
         tokenName: tokenInfo?.name || 'Custom Token',
-        usdValue: usdAmount.toFixed(2),
+        usdValue: totalAmount.toFixed(6),
         exchangeRate: (1 / rate).toFixed(6),
         loading: false
       };
@@ -278,13 +286,13 @@ export function PaymentMethodSelector({
       };
       
       const rate = mockRates[tokenAddress] || Math.random() * 100;
-      const tokenAmount = (usdAmount / rate).toFixed(6);
+      const tokenAmount = (totalAmount / rate).toFixed(6);
       
       return {
         tokenAmount,
         tokenSymbol: tokenInfo?.symbol || 'TOKEN',
         tokenName: tokenInfo?.name || 'Custom Token',
-        usdValue: usdAmount.toFixed(2),
+        usdValue: totalAmount.toFixed(6),
         exchangeRate: rate.toFixed(6),
         loading: false
       };
@@ -296,14 +304,14 @@ export function PaymentMethodSelector({
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     try {
-      const bridgeFee = usdAmount * 0.005; // 0.5% bridge fee
-      const totalAmount = usdAmount + bridgeFee;
+      const bridgeFee = totalAmount * 0.005; // 0.5% bridge fee
+      const totalAmountWithFee = totalAmount + bridgeFee;
       
       return {
-        tokenAmount: totalAmount.toFixed(6),
+        tokenAmount: totalAmountWithFee.toFixed(6),
         tokenSymbol: 'USDC',
         tokenName: 'USD Coin',
-        usdValue: usdAmount.toFixed(2),
+        usdValue: totalAmount.toFixed(6),
         exchangeRate: '1.000000',
         bridgeFee: bridgeFee.toFixed(6),
         loading: false
@@ -322,21 +330,21 @@ export function PaymentMethodSelector({
   };
 
   const fetchDefaultTokenQuote = async (targetToken: 'usdc' | 'sol' | 'merchant') => {
-    if (targetToken === 'usdc' || targetToken === 'merchant') {
-      // No conversion needed for USDC
-      const usdcQuote = {
-        tokenAmount: usdAmount.toFixed(6),
-        tokenSymbol: 'USDC',
-        tokenName: 'USD Coin',
-        usdValue: usdAmount.toFixed(2),
+    // If target token matches the base currency, no conversion needed
+    if (targetToken === currency || targetToken === 'merchant') {
+      const directQuote = {
+        tokenAmount: totalAmount.toFixed(6),
+        tokenSymbol: currency.toUpperCase(),
+        tokenName: currency === 'usdc' ? 'USD Coin' : 'Solana',
+        usdValue: totalAmount.toFixed(6),
         exchangeRate: '1.000000',
         loading: false
       };
-      setDefaultTokenQuote(usdcQuote);
+      setDefaultTokenQuote(directQuote);
       
       // Update total price display
       if (onTotalPriceChange) {
-        onTotalPriceChange(usdcQuote.tokenAmount, 'USDC');
+        onTotalPriceChange(directQuote.tokenAmount, currency.toUpperCase());
       }
       return;
     }
@@ -351,11 +359,12 @@ export function PaymentMethodSelector({
     });
 
     try {
-      if (targetToken === 'sol') {
-        // Get SOL price quote
+      // Convert between SOL and USDC
+      if (targetToken === 'sol' && currency === 'usdc') {
+        // Convert USDC to SOL
         const solMint = 'So11111111111111111111111111111111111111112';
         const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-        const usdcAmount = Math.floor(usdAmount * Math.pow(10, 6)); // USDC has 6 decimals
+        const usdcAmount = Math.floor(totalAmount * Math.pow(10, 6)); // USDC has 6 decimals
         
         const quoteResponse = await fetch(
           `https://quote-api.jup.ag/v6/quote?inputMint=${usdcMint}&outputMint=${solMint}&amount=${usdcAmount}&slippageBps=50`
@@ -364,13 +373,13 @@ export function PaymentMethodSelector({
         if (quoteResponse.ok) {
           const quoteData = await quoteResponse.json();
           const solAmount = (parseFloat(quoteData.outAmount) / Math.pow(10, 9)).toFixed(6); // SOL has 9 decimals
-          const rate = parseFloat(solAmount) > 0 ? usdAmount / parseFloat(solAmount) : 0;
+          const rate = parseFloat(solAmount) > 0 ? totalAmount / parseFloat(solAmount) : 0;
           
           const solQuote = {
             tokenAmount: solAmount,
             tokenSymbol: 'SOL',
             tokenName: 'Solana',
-            usdValue: usdAmount.toFixed(2),
+            usdValue: totalAmount.toFixed(6),
             exchangeRate: rate.toFixed(2),
             loading: false
           };
@@ -383,22 +392,51 @@ export function PaymentMethodSelector({
         } else {
           throw new Error('Failed to get SOL quote');
         }
-      } else if (targetToken === 'merchant') {
-        // Mock merchant token quote
-        // do nada...
+      } else if (targetToken === 'usdc' && currency === 'sol') {
+        // Convert SOL to USDC
+        const solMint = 'So11111111111111111111111111111111111111112';
+        const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+        const solAmount = Math.floor(totalAmount * Math.pow(10, 9)); // SOL has 9 decimals
+        
+        const quoteResponse = await fetch(
+          `https://quote-api.jup.ag/v6/quote?inputMint=${solMint}&outputMint=${usdcMint}&amount=${solAmount}&slippageBps=50`
+        );
+        
+        if (quoteResponse.ok) {
+          const quoteData = await quoteResponse.json();
+          const usdcAmount = (parseFloat(quoteData.outAmount) / Math.pow(10, 6)).toFixed(6); // USDC has 6 decimals
+          const rate = parseFloat(usdcAmount) > 0 ? totalAmount / parseFloat(usdcAmount) : 0;
+          
+          const usdcQuote = {
+            tokenAmount: usdcAmount,
+            tokenSymbol: 'USDC',
+            tokenName: 'USD Coin',
+            usdValue: totalAmount.toFixed(6),
+            exchangeRate: (1 / rate).toFixed(2),
+            loading: false
+          };
+          setDefaultTokenQuote(usdcQuote);
+          
+          // Update total price display
+          if (onTotalPriceChange) {
+            onTotalPriceChange(usdcQuote.tokenAmount, 'USDC');
+          }
+        } else {
+          throw new Error('Failed to get USDC quote');
+        }
       }
     } catch (error) {
-      console.error('Failed to get default token quote:', error);
+      console.error(`Failed to get ${targetToken} quote:`, error);
       // Fallback to mock data
-      const mockRates = { sol: 100, merchant: 0.5 };
+      const mockRates = { sol: 100, usdc: 1, merchant: 0.5 };
       const rate = mockRates[targetToken as keyof typeof mockRates];
-      const tokenAmount = (usdAmount / rate).toFixed(6);
+      const tokenAmount = (totalAmount / rate).toFixed(6);
       
       const fallbackQuote = {
         tokenAmount,
         tokenSymbol: targetToken.toUpperCase(),
-        tokenName: targetToken === 'sol' ? 'Solana' : 'Merchant Token',
-        usdValue: usdAmount.toFixed(2),
+        tokenName: targetToken === 'sol' ? 'Solana' : targetToken === 'usdc' ? 'USD Coin' : 'Merchant Token',
+        usdValue: totalAmount.toFixed(6),
         exchangeRate: rate.toFixed(6),
         loading: false,
         error: 'Using fallback rates'
@@ -471,7 +509,7 @@ export function PaymentMethodSelector({
     
     // Reset total price display when changing payment methods
     if (onTotalPriceChange && method.type !== 'default') {
-      onTotalPriceChange(usdAmount.toFixed(2), 'USD');
+      onTotalPriceChange(totalAmount.toFixed(6), currency.toUpperCase());
     }
   };
 
@@ -597,7 +635,7 @@ export function PaymentMethodSelector({
       <div className="space-y-3 mt-4 pt-4">
         <div className="flex justify-end">
           <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700 gap-1">
-            {/* USDC */}
+            {/* USDC - Show conversion quote if base currency is SOL */}
             <button
               type="button"
               onClick={async () => {
@@ -617,7 +655,7 @@ export function PaymentMethodSelector({
               USDC
             </button>
 
-            {/* SOL */}
+            {/* SOL - Show conversion quote if base currency is USDC */}
             <button
               type="button"
               onClick={async () => {
@@ -670,16 +708,16 @@ export function PaymentMethodSelector({
 
         <p className="text-[10px] text-gray-400 text-right">
           {selectedMethod?.defaultToken === 'usdc'
-            ? 'Pay with USDC (no swap)'
+            ? currency === 'usdc' ? 'Pay with USDC (no swap)' : 'Pay with USDC (converted from SOL)'
             : selectedMethod?.defaultToken === 'sol'
-            ? 'Pay with SOL (no swap)'
+            ? currency === 'sol' ? 'Pay with SOL (no swap)' : 'Pay with SOL (converted from USDC)'
             : hasMerchantToken && firstRecommendedCA
             ? `Pay with ${firstRecommendedCA.symbol} token (no swap)`
             : 'Pay with selected token (no swap)'}
         </p>
 
         {/* Default Token Price Quote Display */}
-        {defaultTokenQuote && selectedMethod?.defaultToken !== 'usdc' && (
+        {defaultTokenQuote && selectedMethod?.defaultToken !== currency && (
           <div className="bg-gray-700/50 rounded-lg overflow-hidden mt-3">
             <button
               type="button"
@@ -687,7 +725,9 @@ export function PaymentMethodSelector({
               className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
             >
               <div className="flex items-center gap-2">
-                <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
+                <h5 className="text-xs font-medium text-gray-300">
+                  Conversion Quote ({currency.toUpperCase()} → {selectedMethod?.defaultToken?.toUpperCase()})
+                </h5>
                 {defaultTokenQuote.loading && (
                   <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
                 )}
@@ -973,24 +1013,24 @@ export function PaymentMethodSelector({
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">USD Value:</span>
-                        <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
+                        <span className="text-sm text-gray-400">Equivalent to:</span>
+                        <span className="text-sm text-gray-300">{priceQuote.usdValue} {currency.toUpperCase()}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">Exchange Rate:</span>
                         <span className="text-xs text-gray-400">
-                          1 {tokenInfo?.symbol || priceQuote.tokenSymbol} = ${priceQuote.exchangeRate}
+                          1 {tokenInfo?.symbol || priceQuote.tokenSymbol} = {priceQuote.exchangeRate} {currency.toUpperCase()}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">Swapping to:</span>
                         <span className="text-xs text-gray-400">
-                          {defaultToken.toUpperCase()}
+                          {currency.toUpperCase()}
                         </span>
                       </div>
-                      {priceQuote.tokenSymbol !== defaultToken.toUpperCase() && (
+                      {priceQuote.tokenSymbol !== currency.toUpperCase() && (
                         <div className="text-xs text-blue-400 mt-2">
-                          Will be swapped to {defaultToken.toUpperCase()} via Jupiter
+                          Will be swapped to {currency.toUpperCase()} via Jupiter
                         </div>
                       )}
                     </div>
@@ -1121,8 +1161,8 @@ export function PaymentMethodSelector({
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">USD Value:</span>
-                        <span className="text-sm text-gray-300">${priceQuote.usdValue}</span>
+                        <span className="text-sm text-gray-400">Equivalent to:</span>
+                        <span className="text-sm text-gray-300">{priceQuote.usdValue} {currency.toUpperCase()}</span>
                       </div>
                       {priceQuote.bridgeFee && (
                         <div className="flex justify-between items-center">
