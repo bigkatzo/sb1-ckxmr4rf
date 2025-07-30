@@ -49,6 +49,7 @@ interface CustomizationData {
   image?: File | null;
   text?: string;
   imagePreview?: string;
+  imageBase64?: string;
 }
 
 interface ProductModalProps {
@@ -117,7 +118,6 @@ function ProductBuyButton({
       <AddToCartButton
         product={product}
         selectedOptions={selectedOptions}
-        // customizationData={customizationData}
         disabled={isDisabled}
         size="md"
         className="px-3 py-3"
@@ -233,7 +233,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
         URL.revokeObjectURL(customizationData.imagePreview);
       }
     };
-  }, [customizationData.imagePreview]);
+  }, []); // Only run on unmount
 
   const handleOptionChange = (variantId: string, value: string) => {
     setSelectedOptions(prev => ({
@@ -606,7 +606,6 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     // Allow a brief delay for images to load into the DOM
     const timer = setTimeout(() => {
       // Validate each image URL in the gallery
-      console.log('Validating gallery image URLs');
       images.forEach(imgUrl => validateImageUrl(imgUrl));
       
       // Also specifically check gallery image placeholders
@@ -829,6 +828,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                   <ProductCustomization
                     customization={product.customization || { image: false, text: false }}
                     isCustomizable={product.isCustomizable || 'no'}
+                    customizationData={customizationData}
                     onChange={handleCustomizationChange}
                     onValidationChange={handleCustomizationValidationChange}
                   />

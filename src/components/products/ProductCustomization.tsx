@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, Type, ImageIcon, ChevronDown } from 'lucide-react';
 
-interface CustomizationData {
+interface CustomizationData { 
   image?: File | null;
   text?: string;
   imagePreview?: string;
   wantsCustomization?: boolean;
+  imageBase64?: string; // Add base64 backup
 }
 
 interface ProductCustomizationProps {
@@ -14,13 +15,20 @@ interface ProductCustomizationProps {
     image?: boolean;
     text?: boolean;
   };
+  customizationData?: CustomizationData; // Add this prop to receive current state
   onChange: (data: CustomizationData) => void;
   className?: string;
   onValidationChange?: (isValid: boolean) => void;
 }
 
-export function ProductCustomization({ customization, isCustomizable, onChange, className, onValidationChange }: ProductCustomizationProps) {
-  const [customizationData, setCustomizationData] = useState<CustomizationData>({});
+export function ProductCustomization({ 
+  customization, 
+  isCustomizable, 
+  customizationData = {}, // Use external data directly
+  onChange, 
+  className, 
+  onValidationChange 
+}: ProductCustomizationProps) {
   const [showCustomization, setShowCustomization] = useState(isCustomizable === 'mandatory');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -31,17 +39,35 @@ export function ProductCustomization({ customization, isCustomizable, onChange, 
 
   // Initialize customization data for mandatory customization
   useEffect(() => {
-    if (isCustomizable === 'mandatory') {
+    if (isCustomizable === 'mandatory' && !customizationData.wantsCustomization) {
       const initialData = {
         wantsCustomization: true,
         image: null,
         text: '',
         imagePreview: undefined
       };
-      setCustomizationData(initialData);
       onChange(initialData);
     }
-  }, [isCustomizable, onChange]);
+  }, [isCustomizable, customizationData.wantsCustomization]); // Run when isCustomizable changes or when wantsCustomization is undefined
+
+  // Sync showCustomization with external data
+  useEffect(() => {
+    if (customizationData && typeof customizationData.wantsCustomization !== 'undefined') {
+      setShowCustomization(customizationData.wantsCustomization);
+    }
+  }, [customizationData?.wantsCustomization]);
+
+  // Ensure imagePreview URL is available when we have a File object
+  useEffect(() => {
+    if (customizationData.image && !customizationData.imagePreview) {
+      const previewUrl = URL.createObjectURL(customizationData.image);
+      const newData = {
+        ...customizationData,
+        imagePreview: previewUrl
+      };
+      onChange(newData);
+    }
+  }, [customizationData.image, customizationData.imagePreview, onChange]);
 
   // Validation effect for mandatory customization
   useEffect(() => {
@@ -78,10 +104,9 @@ export function ProductCustomization({ customization, isCustomizable, onChange, 
     const newData = {
       ...customizationData,
       wantsCustomization,
-      ...(wantsCustomization ? {} : { image: null, imagePreview: undefined, text: '' })
+      ...(wantsCustomization ? {} : { image: null, imagePreview: undefined, imageBase64: undefined, text: '' })
     };
     
-    setCustomizationData(newData);
     onChange(newData);
   };
 
@@ -103,14 +128,20 @@ export function ProductCustomization({ customization, isCustomizable, onChange, 
       // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       
-      const newData = {
-        ...customizationData,
-        image: file,
-        imagePreview: previewUrl
+      // Also create a base64 backup in case the File object is lost
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64Data = e.target?.result as string;
+        const newData = {
+          ...customizationData,
+          image: file,
+          imagePreview: previewUrl,
+          imageBase64: base64Data // Store as backup
+        };
+        
+        onChange(newData);
       };
-      
-      setCustomizationData(newData);
-      onChange(newData);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -123,10 +154,10 @@ export function ProductCustomization({ customization, isCustomizable, onChange, 
     const newData = {
       ...customizationData,
       image: null,
-      imagePreview: undefined
+      imagePreview: undefined,
+      imageBase64: undefined
     };
     
-    setCustomizationData(newData);
     onChange(newData);
 
     // Reset file input
@@ -142,7 +173,6 @@ export function ProductCustomization({ customization, isCustomizable, onChange, 
       text
     };
     
-    setCustomizationData(newData);
     onChange(newData);
   };
 
@@ -194,7 +224,7 @@ export function ProductCustomization({ customization, isCustomizable, onChange, 
                 Upload Your Image To Customize
               </label>
           
-              {customizationData.imagePreview ? (
+              {(customizationData.imagePreview || customizationData.imageBase64) ? (
                 <div 
                   className="relative rounded-lg border-2 border-dashed p-4"
                   style={{ 
@@ -204,9 +234,15 @@ export function ProductCustomization({ customization, isCustomizable, onChange, 
                 >
                   <div className="flex items-start gap-4">
                     <img
-                      src={customizationData.imagePreview}
+                      src={customizationData.imagePreview || customizationData.imageBase64}
                       alt="Customization preview"
                       className="w-20 h-20 object-cover rounded-lg"
+                      onError={(e) => {
+                        console.error('ProductCustomization: Image failed to load:', e);
+                      }}
+                      onLoad={() => {
+                        console.log('ProductCustomization: Image loaded successfully');
+                      }}
                     />
                     <div className="flex-1">
                       <p 
