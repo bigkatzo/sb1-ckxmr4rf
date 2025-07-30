@@ -443,7 +443,6 @@ exports.handler = async (event, context) => {
             status: isFreeOrder ? 'confirmed' : 'draft',
             quantity: quantity,
             totalItemsInBatch: processedItems.length,
-            solAmount,
             price: actualPrice,
             itemTotal: actualPrice * quantity,
             variantKey
