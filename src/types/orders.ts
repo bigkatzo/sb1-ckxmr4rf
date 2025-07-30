@@ -167,6 +167,13 @@ export interface Order {
   shipping_address: OrderAddress;
   status_history?: OrderStatus[];
   notes?: OrderNotes;
+  // Customization data
+  custom_data?: {
+    id: string;
+    customizable_image: string | null;
+    customizable_text: string | null;
+    created_at: string;
+  } | null;
 }
 
 // Type for the public order counts view

@@ -16,7 +16,8 @@ import {
   Tag,
   Search,
   PackageOpen,
-  Ban
+  Ban,
+  Palette
 } from 'lucide-react';
 import { formatDistanceToNow, subDays, isAfter, startOfDay, format, parseISO, isBefore, isEqual, subYears } from 'date-fns';
 import type { Order, OrderStatus, OrderVariant } from '../../types/orders';
@@ -37,6 +38,7 @@ import DeleteTrackingButton from '../tracking/DeleteTrackingButton';
 import { SensitiveInfo } from '../ui/SensitiveInfo';
 import { OrderShippingAddress } from '../OrderShippingAddress';
 import { RefreshButton } from '../ui/RefreshButton';
+import { CustomizationModal } from './CustomizationModal';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -90,6 +92,11 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   const [carrierSearchTerm, setCarrierSearchTerm] = useState('');
   const [showAllCarriers, setShowAllCarriers] = useState(false);
   
+  // Customization modal state
+  const [customizationModalOpen, setCustomizationModalOpen] = useState(false);
+  const [selectedOrderForCustomization, setSelectedOrderForCustomization] = useState<Order | null>(null);
+  const [customData, setCustomData] = useState<any | null>(null);
+  
   // Base URL for product and design links
   const BASE_URL = 'https://store.fun';
   
@@ -124,6 +131,25 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
     // Remove debug logging to reduce console spam
     if (!order.access_type) return false;
     return ['admin', 'owner', 'edit'].includes(order.access_type);
+  };
+
+  // Function to handle opening customization modal
+  const handleOpenCustomizationModal = async (order: Order) => {
+    setSelectedOrderForCustomization(order);
+    setCustomizationModalOpen(true);
+    setCustomData(order.custom_data);
+  };
+
+  // Function to close customization modal
+  const handleCloseCustomizationModal = () => {
+    setCustomizationModalOpen(false);
+    setSelectedOrderForCustomization(null);
+    setCustomData(null);
+  };
+
+  // Function to check if order has customization data (for UI indication)
+  const hasCustomizationData = (order: Order): boolean => {
+    return order.custom_data !== null && order.custom_data !== undefined;
   };
   
   // Update carrier data processing in the useEffect
@@ -1391,6 +1417,29 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                     {/* Tracking Number Section */}
                     {renderTrackingSection(order)}
 
+                    {/* Customization Section */}
+                    <div className="mt-4">
+                      <button
+                        onClick={() => handleOpenCustomizationModal(order)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                          hasCustomizationData(order)
+                            ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border border-purple-500/30'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700'
+                        }`}
+                        title={hasCustomizationData(order) ? 'View customization details' : 'No customization data'}
+                      >
+                        <Palette className="h-4 w-4" />
+                        <span>
+                          {hasCustomizationData(order) ? 'View Customization' : 'No Customization'}
+                        </span>
+                        {hasCustomizationData(order) && (
+                          <span className="ml-1 bg-purple-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    </div>
+
                     {/* Order Details */}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
                       {/* Shipping Info */}
@@ -1450,6 +1499,15 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           );
         })
       )}
+
+      {/* Customization Modal */}
+      <CustomizationModal
+        isOpen={customizationModalOpen}
+        onClose={handleCloseCustomizationModal}
+        customData={customData}
+        orderNumber={selectedOrderForCustomization?.order_number || ''}
+        productName={selectedOrderForCustomization?.product_name || ''}
+      />
     </div>
   );
 }
