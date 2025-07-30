@@ -46,6 +46,7 @@ interface PaymentMethodSelectorProps {
   onGetPriceQuote?: (tokenAddress: string, chainId?: string) => Promise<PriceQuote>;
   onTotalPriceChange?: (totalPrice: string, tokenSymbol: string) => void;
   recommendedCAs?: string[]; // Array of token addresses
+  solRate?: number; // Optional SOL rate for USD conversion
 }
 
 const POPULAR_TOKENS = [
@@ -97,6 +98,7 @@ export function PaymentMethodSelector({
   totalAmount,
   onGetPriceQuote,
   onTotalPriceChange,
+  solRate,
   recommendedCAs = []
 }: PaymentMethodSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -453,8 +455,7 @@ export function PaymentMethodSelector({
   // Simple USD conversion for credit card display
   const getUSDEquivalent = () => {
     if (currency === 'usdc') return totalAmount;
-    // Mock SOL to USD rate - in real app, this would come from an API
-    const solToUsdRate = 100; // Example: 1 SOL = $100
+    const solToUsdRate = solRate ?? 180; // Example: 1 SOL = $100
     return totalAmount * solToUsdRate;
   };
 

@@ -937,6 +937,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                       setTotalDisplayPrice(price);
                       setTotalDisplaySymbol(symbol);
                     }}
+                    solRate={solRate ?? 180}
                   />
 
                 {paymentMethod?.type === 'spl-tokens' || paymentMethod?.type === 'default' && !isConnected && (
