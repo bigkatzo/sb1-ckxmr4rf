@@ -299,7 +299,6 @@ async function verifyNonBlockChainDetails(signature, expectedDetails, isFreeOrde
     // For Stripe payments, validate the payment intent format
     if (signature.startsWith('pi_')) {
       log('info', 'Processing Stripe payment');
-      // In a real implementation, you would verify the payment with Stripe API
       const isValid = await verifyStripePaymentIntent(signature);
       
       return { 
@@ -554,7 +553,7 @@ exports.handler = async (event, context) => {
     }
 
     const details = {
-      amount: orderId ? allOrders[0].amount_sol : allOrders[0].total_amount_paid_for_batch,
+      amount: orderId ? allOrders[0].amount : allOrders[0].total_amount_paid_for_batch,
       buyer: allOrders[0].wallet_address,
       recipient: paymentMetadata.receiverWallet,
       tokenMint: paymentMetadata.defaultToken,

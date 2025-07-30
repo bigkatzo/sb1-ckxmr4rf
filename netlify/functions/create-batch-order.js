@@ -48,6 +48,8 @@ const getProductPrice = async (productId, selectedOptions) => {
       .eq('id', productId)
       .single();
 
+      console.log(`Fetching product price for ${productId} with options:`, product);
+
     if (error) {
       throw new Error(`Failed to fetch product ${productId}: ${error.message}`);
     }
@@ -60,7 +62,7 @@ const getProductPrice = async (productId, selectedOptions) => {
     if (!product.variants || !selectedOptions || Object.keys(selectedOptions).length === 0) {
       return {
         price: product.price,
-        baseCurrency: product.base_currency,
+        baseCurrency: product.base_currency ?? 'SOL',
         variantKey: null,
         variantSelections: []
       };
@@ -111,7 +113,7 @@ const getProductPrice = async (productId, selectedOptions) => {
     // If no variant price found, return base price
     return {
       price: product.price,
-      baseCurrency: product.base_currency,
+      baseCurrency: product.base_currency ?? 'SOL',
       variantKey: variantKey || null,
       variantSelections
     };
