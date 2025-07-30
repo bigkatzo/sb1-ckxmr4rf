@@ -23,6 +23,7 @@ interface AddToCartButtonProps {
   className?: string;
   showText?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  isCustomizationValid?: boolean; // Add this prop to match BuyButton validation
 }
 
 export function AddToCartButton({
@@ -32,7 +33,8 @@ export function AddToCartButton({
   disabled,
   className = '',
   showText = false,
-  size = 'md'
+  size = 'md',
+  isCustomizationValid = true
 }: AddToCartButtonProps) {
   const { addItem, toggleCart } = useCart();
   const { walletAddress } = useWallet();
@@ -51,9 +53,24 @@ export function AddToCartButton({
 
   // Function to check if all required options are selected
   const areAllOptionsSelected = (): boolean => {
-    if (!product.variants || product.variants.length === 0) return true;
+    // Filter out customization variants from regular variants
+    const customizationFields = ['Image Customization', 'Text Customization'];
+    const regularVariants = product.variants?.filter(variant => !customizationFields.includes(variant.name)) || [];
     
-    return product.variants.every(variant => selectedOptions[variant.id]);
+    // Check if all regular variants are selected
+    const allRegularVariantsSelected = regularVariants.length === 0 || 
+      regularVariants.every(variant => selectedOptions[variant.id]);
+    
+    // Determine final validation based on customization requirements
+    if (product.isCustomizable === 'mandatory') {
+      // For mandatory customization, also require customization to be valid
+      return allRegularVariantsSelected && isCustomizationValid;
+    } else if (product.isCustomizable === 'optional') {
+      // For optional customization, only require regular variants
+      return allRegularVariantsSelected;
+    }
+    // For 'no' customization, only regular variants matter
+    return allRegularVariantsSelected;
   };
   
   // Function to get price adjustments from variant options

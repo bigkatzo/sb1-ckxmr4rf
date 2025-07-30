@@ -67,7 +67,8 @@ function ProductBuyButton({
   hasVariants, 
   isUpcoming, 
   isSaleEnded, 
-  allOptionsSelected 
+  allOptionsSelected,
+  isCustomizationValid
 }: { 
   product: Product; 
   selectedOptions: Record<string, string>; 
@@ -76,6 +77,7 @@ function ProductBuyButton({
   isUpcoming: boolean; 
   isSaleEnded: boolean; 
   allOptionsSelected: boolean;
+  isCustomizationValid: boolean;
 }) {
   if (isUpcoming) {
     return (
@@ -122,6 +124,7 @@ function ProductBuyButton({
         disabled={isDisabled}
         size="md"
         className="px-3 py-3"
+        isCustomizationValid={isCustomizationValid}
       />
     </div>
   );
@@ -849,6 +852,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                       isUpcoming={!!isUpcoming}
                       isSaleEnded={!!isSaleEnded}
                       allOptionsSelected={!!allOptionsSelected}
+                      isCustomizationValid={isCustomizationValid}
                     />
                   </div>
 
@@ -946,6 +950,7 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                   isUpcoming={!!isUpcoming}
                   isSaleEnded={!!isSaleEnded}
                   allOptionsSelected={!!allOptionsSelected}
+                  isCustomizationValid={isCustomizationValid}
                 />
               </div>
             </div>

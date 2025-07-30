@@ -170,7 +170,9 @@ export default function Navbar() {
           <div className="flex items-center ml-auto">
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-3">
-              <CurrencySelector />
+              <div className="hidden lg:block">
+                <CurrencySelector />
+              </div>
               <CartButton />
               <WalletButton />
               <button
@@ -183,7 +185,6 @@ export default function Navbar() {
 
             {/* Mobile Actions */}
             <div className="flex md:hidden items-center gap-2">
-              <CurrencySelector />
               <button
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
                 className="p-2 text-text-muted hover:text-text"
