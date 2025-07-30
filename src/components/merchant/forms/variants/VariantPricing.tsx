@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import type { ProductVariant, VariantPricing } from '../../../../types/variants';
 
@@ -11,6 +11,9 @@ interface VariantPricingProps {
 
 export function VariantPricing({ variants, prices, basePrice, onPriceChange }: VariantPricingProps) {
   const { register, watch } = useFormContext();
+  
+  // Local state to manage input values during typing
+  const [localPrices, setLocalPrices] = useState<Record<string, string>>({});
   
   const baseCurrency = watch('baseCurrency') || 'sol';
   
@@ -78,6 +81,8 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
     combinations.forEach(({ key }) => {
       onPriceChange(key, basePrice);
     });
+    // Clear local state to show updated values
+    setLocalPrices({});
   };
 
   // Apply base price to specific section
@@ -85,6 +90,8 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
     sectionCombinations.forEach(({ key }) => {
       onPriceChange(key, basePrice);
     });
+    // Clear local state to show updated values
+    setLocalPrices({});
   };
 
   if (!variants.length) return null;
@@ -134,26 +141,42 @@ export function VariantPricing({ variants, prices, basePrice, onPriceChange }: V
                   <div className="flex justify-end">
                     <input
                       type="text"
-                      value={prices[key] ?? basePrice}
+                      value={localPrices[key] !== undefined ? localPrices[key] : (prices[key] ?? basePrice).toString()}
                       onChange={e => {
                         const value = e.target.value;
-                        // Allow intermediate states during typing
-                        if (value === '' || value === '.' || /^\d*\.?\d*$/.test(value)) {
-                          const numValue = parseFloat(value);
-                          if (!isNaN(numValue) && numValue >= 0) {
-                            onPriceChange(key, numValue);
-                          } else if (value === '' || value === '.') {
-                            // Keep the current value in state but allow empty input
-                            // The display will show the current stored value
-                          }
-                        }
+                        // Update local state immediately for smooth typing
+                        setLocalPrices(prev => ({
+                          ...prev,
+                          [key]: value
+                        }));
                       }}
                       onBlur={e => {
                         const value = e.target.value;
-                        if (value === '' || isNaN(parseFloat(value))) {
+                        const numValue = parseFloat(value);
+                        
+                        if (value === '' || isNaN(numValue) || numValue < 0) {
                           // Reset to base price if invalid
                           onPriceChange(key, basePrice);
+                          setLocalPrices(prev => ({
+                            ...prev,
+                            [key]: basePrice.toString()
+                          }));
+                        } else {
+                          // Update parent state with valid number
+                          onPriceChange(key, numValue);
+                          setLocalPrices(prev => ({
+                            ...prev,
+                            [key]: numValue.toString()
+                          }));
                         }
+                      }}
+                      onFocus={e => {
+                        // Initialize local state with current value when focusing
+                        const currentValue = prices[key] ?? basePrice;
+                        setLocalPrices(prev => ({
+                          ...prev,
+                          [key]: currentValue.toString()
+                        }));
                       }}
                       placeholder={basePrice.toString()}
                       className="w-32 bg-gray-800 rounded px-3 py-1 text-right focus:outline-none focus:ring-2 focus:ring-primary"
