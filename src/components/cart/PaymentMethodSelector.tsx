@@ -450,6 +450,14 @@ export function PaymentMethodSelector({
     }
   };
 
+  // Simple USD conversion for credit card display
+  const getUSDEquivalent = () => {
+    if (currency === 'usdc') return totalAmount;
+    // Mock SOL to USD rate - in real app, this would come from an API
+    const solToUsdRate = 100; // Example: 1 SOL = $100
+    return totalAmount * solToUsdRate;
+  };
+
   // Function to get price quote
   const fetchPriceQuote = async (tokenAddress?: string, chainId?: number) => {
     setPriceQuote({ 
@@ -848,6 +856,18 @@ export function PaymentMethodSelector({
             <p className="text-xs text-blue-400">
               Quick payment options.{hasMerchantToken && firstRecommendedCA ? ` Selecting ${firstRecommendedCA.symbol} will open up the recommended token by merchant.` : ''}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Credit Card USD Quote */}
+      {selectedMethod?.type === 'stripe' && currency === 'sol' && (
+        <div className="bg-gray-800/50 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-300">USD Equivalent:</span>
+            <span className="text-sm font-medium text-white">
+              ${getUSDEquivalent().toFixed(2)} USD
+            </span>
           </div>
         </div>
       )}
