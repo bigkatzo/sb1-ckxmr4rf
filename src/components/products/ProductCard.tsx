@@ -7,6 +7,9 @@ import { OptimizedImage } from '../ui/OptimizedImage';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { Card } from '../ui/Card';
 import type { Product } from '../../types/variants';
+import { formatPrice } from '../../utils/formatters';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { useSolanaPrice } from '../../utils/price-conversion';
 
 interface ProductCardProps {
   product: Product;
@@ -22,6 +25,22 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
   const cardRef = useRef<HTMLDivElement>(null);
   const { modifiedPrice } = useModifiedPrice({ product });
   
+  const { currency } = useCurrency();
+  const { price: solRate } = useSolanaPrice();
+  
+  const [displayPrice, setDisplayPrice] = useState<string>('');
+  
+    // ✅ Update displayPrice whenever currency or modifiedPrice changes
+  useEffect(() => {
+      let isMounted = true;
+      const updatePrice = async () => {
+        const formatted = await formatPrice(modifiedPrice, currency, product.baseCurrency, solRate);
+        if (isMounted) setDisplayPrice(formatted);
+      };
+      updatePrice();
+      return () => { isMounted = false; };
+    }, [currency, modifiedPrice]);
+
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
 
@@ -154,7 +173,8 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
         <h3 className="font-medium text-sm text-white line-clamp-1 group-hover:text-secondary transition-colors">{product.name}</h3>
         <div className="mt-1.5 flex items-center justify-between">
           <span className="text-sm font-semibold text-white">
-            {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
+            {displayPrice}
+            {/* {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL */}
           </span>
           <BuyButton 
             product={productWithExplicitSaleEnded}

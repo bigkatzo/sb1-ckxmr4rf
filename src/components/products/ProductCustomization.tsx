@@ -24,8 +24,6 @@ export function ProductCustomization({ customization, isCustomizable, onChange, 
   const [showCustomization, setShowCustomization] = useState(isCustomizable === 'mandatory');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  console.log('ProductCustomization mounted with customization:', customization, 'isCustomizable:', isCustomizable);
-
   // Don't render if product is not customizable
   if (isCustomizable === 'no' || (!customization.image && !customization.text)) {
     return null;
@@ -193,7 +191,7 @@ export function ProductCustomization({ customization, isCustomizable, onChange, 
                 style={{ color: 'var(--color-text)' }}
               >
                 <ImageIcon className="h-4 w-4" />
-                Upload Your Image
+                Upload Your Image To Customize
               </label>
           
               {customizationData.imagePreview ? (
@@ -275,7 +273,7 @@ export function ProductCustomization({ customization, isCustomizable, onChange, 
                 style={{ color: 'var(--color-text)' }}
               >
                 <Type className="h-4 w-4" />
-                Add Your Text
+                Add Your Text to customize
               </label>
               <textarea
                 value={customizationData.text || ''}

@@ -10,6 +10,7 @@ import type { Product } from '../../types/variants';
 import type { MerchantTier } from '../../types/collections';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { formatPrice } from '../../utils/formatters';
+import { useSolanaPrice } from '../../utils/price-conversion';
 interface ProductCardCompactProps {
   product: Product;
   onClick: (product: Product) => void;
@@ -34,6 +35,7 @@ export function ProductCardCompact({
   const [touchStartTime, setTouchStartTime] = useState<number | null>(null);
   const [touchStartPosition, setTouchStartPosition] = useState<{x: number, y: number} | null>(null);
   const { currency } = useCurrency();
+  const { price: solRate } = useSolanaPrice();
   
   const [displayPrice, setDisplayPrice] = useState<string>('');
 
@@ -41,7 +43,7 @@ export function ProductCardCompact({
   useEffect(() => {
     let isMounted = true;
     const updatePrice = async () => {
-      const formatted = await formatPrice(modifiedPrice, currency, product.baseCurrency);
+      const formatted = await formatPrice(modifiedPrice, currency, product.baseCurrency, solRate);
       if (isMounted) setDisplayPrice(formatted);
     };
     updatePrice();

@@ -6,9 +6,11 @@ import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { toast } from 'react-toastify';
 // @ts-ignore - These modules exist but TypeScript can't find them
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatPriceWithRate } from '../../utils/formatters';
 // @ts-ignore
 import { MultiItemCheckoutModal } from './MultiItemCheckoutModal';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { useSolanaPrice } from '../../utils/price-conversion';
 
 export function CartDrawer() {
   const { 
@@ -26,7 +28,9 @@ export function CartDrawer() {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   
   // Use the getTotalPrice function from the cart context
-  const totalPrice = getTotalPrice();
+  const { currency } = useCurrency();
+  const { price: solRate } = useSolanaPrice();
+  const totalPrice = getTotalPrice(currency, solRate ?? 180);
 
   const handleCheckout = () => {
     // Check if wallet is connected first
@@ -221,8 +225,8 @@ export function CartDrawer() {
                           </div>
                           
                           <div className="text-white">
-                            {formatPrice(
-                              (item.priceInfo?.modifiedPrice || item.product.price) * item.quantity
+                            {formatPriceWithRate(
+                              (item.priceInfo?.modifiedPrice || item.product.price) * item.quantity, currency, item.product.baseCurrency, solRate ?? 180
                             )}
                           </div>
                         </div>
@@ -237,7 +241,7 @@ export function CartDrawer() {
               <div className="p-4 border-t border-gray-800">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-gray-300">Total</span>
-                  <span className="text-xl font-medium text-white">{formatPrice(totalPrice)}</span>
+                  <span className="text-xl font-medium text-white">{formatPriceWithRate(totalPrice, currency, currency, solRate ?? 180)}</span>
                 </div>
                 
                 <button

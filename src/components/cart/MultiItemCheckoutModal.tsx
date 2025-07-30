@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, ChevronRight, Check, AlertTriangle } from 'lucide-react';
 import { useCart, CartItem } from '../../contexts/CartContext';
 import { OptimizedImage } from '../ui/OptimizedImage';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatPriceWithRate } from '../../utils/formatters';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { toast } from 'react-toastify';
@@ -21,6 +21,8 @@ import { PaymentMethodSelector, PaymentMethod, PriceQuote } from './PaymentMetho
 import { updateOrderTransactionSignature } from '../../services/orders.ts';
 import { usePayment } from '../../hooks/usePayment.ts';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice.ts';
+import { useSolanaPrice } from '../../utils/price-conversion.ts';
+import { useCurrency } from '../../contexts/CurrencyContext.tsx';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -82,10 +84,13 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   const [zipError, setZipError] = useState<string>('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
+  const { currency } = useCurrency();
+  const { price: solRate } = useSolanaPrice();
+
   // const recommendedCas: string[] = Array.from(
   //   new Set(
   //     items
-  //       .map(item => item.product?.recommendedCa)
+  //       .map(item => item.product.collection?.id)
   //       .filter((ca): ca is string => typeof ca === 'string' && !!ca)
   //   )
   // );
@@ -134,7 +139,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   // Payment method state - updated to use new PaymentMethod type
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>({
     type: 'default',
-    defaultToken: 'usdc'
+    defaultToken: currency === 'SOL' ? 'sol' : 'usdc',
   });
   const [processingPayment, setProcessingPayment] = useState(false);
   
@@ -327,21 +332,41 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     const price = item.priceInfo?.modifiedPrice || item.product.price;
     return (
       <div className="text-sm text-gray-200 mt-1">
-        {formatPrice(price)} × {item.quantity}
+        {formatPriceWithRate(price, currency, item.product.baseCurrency, solRate ?? 180)} × {item.quantity}
       </div>
     );
   };
 
   // Calculate subtotal before any discounts
-  const calculateSubtotal = () => {
-    return items.reduce((total, item) => {
-      const price = item.priceInfo?.modifiedPrice || item.product.price;
-      return total + (price * item.quantity);
-    }, 0);
-  };
+  // const calculateSubtotal = () => {
+  //   return items.reduce((total, item) => {
+  //     const price = item.priceInfo?.modifiedPrice || item.product.price;
+  //     return total + (price * item.quantity);
+  //   }, 0);
+  // };
+
+  const calculateSubtotal = (currency: string = 'SOL', solRate: number = 180): number => {
+  return items.reduce((total, item) => {
+    const itemPrice = item.priceInfo?.modifiedPrice || item.product.price;
+    const baseCurrency = item.product?.baseCurrency?.toUpperCase() ?? 'SOL'; // Default to SOL if not specified
+
+    let convertedPrice = itemPrice;
+
+    // Convert price if base currency differs from target currency
+    if (baseCurrency !== currency) {
+      if (baseCurrency === 'SOL' && currency === 'USDC') {
+        convertedPrice = itemPrice * solRate; // SOL → USDC
+      } else if (baseCurrency === 'USDC' && currency === 'SOL') {
+        convertedPrice = itemPrice / solRate; // USDC → SOL
+      }
+    }
+
+    return total + convertedPrice * item.quantity;
+  }, 0);
+};
   
   // Calculate total price of all items in cart
-  const totalPrice = calculateSubtotal();
+  const totalPrice = calculateSubtotal(currency, solRate ?? 180);
   
   // Calculate final price with coupon discount
   const finalPrice = appliedCoupon 
@@ -409,53 +434,6 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     setAppliedCoupon(null);
     setCouponCode('');
     toast.info("Coupon removed");
-  };
-
-  // Dummy function for price quotes - you can implement Jupiter/DeBridge APIs here
-  const handleGetPriceQuote = async (tokenAddress: string, chainId?: string) => {
-    // This is where you'll implement your actual Jupiter/DeBridge API calls
-    console.log('Getting price quote for:', { tokenAddress, chainId });
-    
-    if (chainId) {
-      // DeBridge API implementation for cross-chain USDC
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const bridgeFee = finalPrice * 0.005; // 0.5% bridge fee
-      const totalAmount = finalPrice + bridgeFee;
-      
-      return {
-        tokenAmount: totalAmount.toFixed(6),
-        tokenSymbol: 'USDC',
-        tokenName: 'USD Coin',
-        usdValue: finalPrice.toFixed(2),
-        exchangeRate: '1.000000',
-        bridgeFee: bridgeFee.toFixed(6),
-        loading: false
-      };
-    } else {
-      // Jupiter API implementation for SPL tokens
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Mock rates for demonstration
-      const mockRates: { [key: string]: number } = {
-        'So11111111111111111111111111111111111111112': 180.00, // SOL
-        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 1.00, // USDC
-        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1.00, // USDT
-        '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump': 0.85, // FARTCOIN
-      };
-      
-      const rate = mockRates[tokenAddress] || Math.random() * 100;
-      const tokenAmount = (finalPrice / rate).toFixed(6);
-      
-      return {
-        tokenAmount,
-        tokenSymbol: 'TOKEN',
-        tokenName: 'Custom Token',
-        usdValue: finalPrice.toFixed(2),
-        exchangeRate: rate.toFixed(6),
-        loading: false
-      };
-    }
   };
   
   const handleDefaultCryptoComplete = async (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => {
@@ -975,17 +953,20 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Subtotal</span>
-                      <span className="text-gray-300">{formatPrice(calculateSubtotal())}</span>
+                      <span className="text-gray-300">{formatPriceWithRate(calculateSubtotal(currency, solRate ?? 180), currency, currency, solRate ?? 180)}</span>
                     </div>
                     
                     {appliedCoupon && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Discount</span>
                         <span className="text-secondary">
-                          -{formatPrice(
+                          -{formatPriceWithRate(
                             appliedCoupon.discountPercentage 
                               ? calculateSubtotal() * (appliedCoupon.discountPercentage / 100) 
-                              : appliedCoupon.discountAmount
+                              : appliedCoupon.discountAmount,
+                            currency,
+                            currency,
+                            solRate ?? 180
                           )}
                         </span>
                       </div>
@@ -994,7 +975,15 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     <div className="flex justify-between font-medium pt-2">
                       <span className="text-gray-300">Total</span>
                       <span className="text-lg text-white">
-                        {totalDisplaySymbol === 'USD' ? '$' : ''}{totalDisplayPrice} {totalDisplaySymbol !== 'USD' ? totalDisplaySymbol : ''}
+                        {/* {totalDisplaySymbol === 'USD' ? '$' : ''}{totalDisplayPrice} {totalDisplaySymbol !== 'USD' ? totalDisplaySymbol : ''} */}
+                        {
+                          formatPriceWithRate(
+                            finalPrice,
+                            currency,
+                            currency,
+                            solRate ?? 180
+                          )
+                        }
                       </span>
                     </div>
                   </div>

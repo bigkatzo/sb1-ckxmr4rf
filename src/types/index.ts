@@ -73,8 +73,8 @@ export interface Product {
   rank?: number;
   isCustomizable?: string;
   customization?: {
-    text: boolean;
-    image: boolean;
+    text?: boolean;
+    image?: boolean;
   };
   baseCurrency?: string;
 }

@@ -44,7 +44,7 @@ const getProductPrice = async (productId, selectedOptions) => {
     // Fetch the product with its variants from Supabase
     const { data: product, error } = await supabase
       .from('products')
-      .select('price, variants', 'base_price')
+      .select('price, variants', 'base_currency')
       .eq('id', productId)
       .single();
 
@@ -60,7 +60,7 @@ const getProductPrice = async (productId, selectedOptions) => {
     if (!product.variants || !selectedOptions || Object.keys(selectedOptions).length === 0) {
       return {
         price: product.price,
-        basePrice: product.base_price,
+        baseCurrency: product.base_currency,
         variantKey: null,
         variantSelections: []
       };
@@ -111,7 +111,7 @@ const getProductPrice = async (productId, selectedOptions) => {
     // If no variant price found, return base price
     return {
       price: product.price,
-      basePrice: product.base_price,
+      baseCurrency: product.base_currency,
       variantKey: variantKey || null,
       variantSelections
     };
@@ -163,18 +163,18 @@ const getMerchantWallet = async (collectionId) => {
   }
 };
 
-const convertUsdcToSolWithCoinGeckoRate = async (usdAmount) => {
+const getSolanaRate = async () => {
   try {
     const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
     if (!response.ok) {
       throw new Error(`Failed to fetch SOL price: ${response.statusText}`);
     }
     const data = await response.json();
-    const solPrice = data.solana.usd;
-    return usdAmount / solPrice; // Convert USD to SOL
+    return data.solana.usd;
   } catch (error) {
     console.error('Error converting USDC to SOL:', error);
-    throw error;
+    // If there's an error, return a default rate
+    return 180;
   } 
 }
 
@@ -233,6 +233,9 @@ exports.handler = async (event, context) => {
     // Process each item to calculate pricing and merchant wallet amounts
     const processedItems = [];
     
+    const solRate = await getSolanaRate();
+    const currencyUnit = paymentMetadata?.paymentMethod.toUpperCase() === 'SOL' ? 'SOL' : 'USDC';
+
     for (const item of items) {
       const quantity = Math.max(1, Number(item.quantity) || 1);
       const product = item.product;
@@ -242,27 +245,32 @@ exports.handler = async (event, context) => {
         throw new Error(`Missing collectionId for product: ${product.name}`);
       }
 
-      // Get merchant wallet for this collection
       const merchantWallet = await getMerchantWallet(collectionId);
       
-      // Get actual price from Supabase
-      const { price, variantKey, variantSelections } = await getProductPrice(
+      const { price, variantKey, variantSelections, baseCurrency } = await getProductPrice(
         product.id,
         item.selectedOptions
       );
-      
-      // Calculate total for this item
-      const itemTotal = price * quantity;
-      
+
+      const itemTotalInBase = price * quantity;
+
+      let itemTotalInTarget;
+      if (baseCurrency.toUpperCase() === currencyUnit) {
+        itemTotalInTarget = itemTotalInBase;
+      } else if (baseCurrency.toUpperCase() === 'SOL' && currencyUnit === 'USDC') {
+        itemTotalInTarget = itemTotalInBase * solRate;
+      } else if (baseCurrency.toUpperCase() === 'USDC' && currencyUnit === 'SOL') {
+        itemTotalInTarget = itemTotalInBase / solRate;
+      }
+
       // Add to merchant wallet amounts
       if (!walletAmounts[merchantWallet]) {
         walletAmounts[merchantWallet] = 0;
       }
-      walletAmounts[merchantWallet] += itemTotal;
-      
-      // Add to total payment
-      totalPaymentForBatch += itemTotal;
-      
+      walletAmounts[merchantWallet] += itemTotalInTarget;
+
+      totalPaymentForBatch += itemTotalInTarget;
+
       // Store processed item data
       processedItems.push({
         ...item,
@@ -270,12 +278,17 @@ exports.handler = async (event, context) => {
         variantKey,
         variantSelections,
         merchantWallet,
-        itemTotal,
-        quantity
+        itemTotal: itemTotalInTarget,
+        quantity,
+        baseCurrency,
       });
-      
-      console.log(`Processed item: ${product.name}, Price: ${price}, Quantity: ${quantity}, Total: ${itemTotal}, Merchant: ${merchantWallet.substring(0, 6)}...`);
+
+      console.log(
+        `Processed item: ${product.name}, Base Price: ${price} ${baseCurrency}, Qty: ${quantity}, ` +
+        `Converted Total: ${itemTotalInTarget.toFixed(4)} ${currencyUnit}, Merchant: ${merchantWallet.substring(0, 6)}...`
+      );
     }
+
 
     console.log('Merchant wallet amounts:', 
       Object.entries(walletAmounts).map(([wallet, amount]) => 
@@ -322,13 +335,13 @@ exports.handler = async (event, context) => {
     const fee = (chargeFeeMethods.includes(paymentMethod)) && Object.keys(walletAmounts).length > 1 && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
     totalPaymentForBatch = isFreeOrder ? 0 : totalPaymentForBatch + fee - couponDiscount;
 
-    let solAmount = 0;
-    if(paymentMetadata?.paymentMethod === 'sol') {
-      // Convert USDC to SOL using CoinGecko rate
+    // let solAmount = 0;
+    // if(paymentMetadata?.paymentMethod === 'sol') {
+    //   // Convert USDC to SOL using CoinGecko rate
 
-      solAmount = await convertUsdcToSolWithCoinGeckoRate(totalPaymentForBatch);
-      console.log(`Converted total payment amount to SOL: ${solAmount}`);
-    }
+    //   solAmount = await getSolanaRate(totalPaymentForBatch);
+    //   console.log(`Converted total payment amount to SOL: ${solAmount}`);
+    // }
 
     let transactionSignature;
     if (isFreeOrder) {
@@ -352,7 +365,7 @@ exports.handler = async (event, context) => {
 
     for (let itemIndex = 0; itemIndex < processedItems.length; itemIndex++) {
       const processedItem = processedItems[itemIndex];
-      const { product, actualPrice, itemTotal, variantKey, variantSelections, quantity } = processedItem;
+      const { product, actualPrice, itemTotal, variantKey, variantSelections, quantity, baseCurrency } = processedItem;
       
       console.log(`Creating order for item: ${product.name}, Quantity: ${quantity}, Price: ${actualPrice}`);
       
@@ -369,12 +382,12 @@ exports.handler = async (event, context) => {
           totalItemsInBatch: processedItems.length,
           variantKey: variantKey || undefined,
           merchantWallet: processedItem.merchantWallet,
+          baseCurrency,
           actualPrice,
           itemTotal,
           couponDiscount,
           isFreeOrder,
           totalPaymentForBatch,
-          solAmount,
           fee,
           walletAmounts,
           originalPrice,
@@ -407,8 +420,8 @@ exports.handler = async (event, context) => {
               batch_order_id: batchOrderId,
               amount: itemTotal,
               total_amount_paid_for_batch: totalPaymentForBatch,
-              sol_amount: solAmount,
               quantity,
+              base_currency: baseCurrency,
               order_number: orderNumber,
               status: 'draft',
               item_index: itemIndex + 1,

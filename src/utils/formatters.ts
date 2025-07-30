@@ -11,17 +11,43 @@ import {getSolanaPrice} from './price-conversion'
 export async function formatPrice(
   price: number,
   paymentMethodType: string = 'SOL',
-  basePrice: string = 'SOL'
+  basePrice: string = 'SOL',
+  rate: number | null = null  // Optional conversion
 ): Promise<string> {
   let convertedPrice = price;
 
   if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
-      const solRate = await getSolanaPrice(); // USD value of 1 SOL
+      const solRate = rate ?? (await getSolanaPrice()); // USD value of 1 SOL
     if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
-      // Convert SOL → USDC
       convertedPrice = price * solRate;
     } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
-      // Convert USDC → SOL
+      convertedPrice = price / solRate;
+    }
+  }
+
+  const formattedValue = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 8,
+  }).format(convertedPrice);
+
+  console.log(`Formatted price: ${formattedValue} ${paymentMethodType.toUpperCase()}`);
+
+  return `${formattedValue} ${paymentMethodType.toUpperCase()}`;
+}
+
+export function formatPriceWithRate(
+  price: number,
+  paymentMethodType: string = 'SOL',
+  basePrice: string = 'SOL',
+  rate: number  // Optional conversion
+): string {
+  let convertedPrice = price;
+
+  if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
+      const solRate = rate; // USD value of 1 SOL
+    if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
+      convertedPrice = price * solRate;
+    } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
       convertedPrice = price / solRate;
     }
   }
