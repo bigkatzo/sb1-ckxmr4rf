@@ -82,7 +82,34 @@ export function VariantsSection({ variants: initialVariants, onChange, initialPr
     setLocalPrices(initialPrices);
   }, [initialVariants, initialPrices]);
 
-  // Memoize the combination generation function
+  // Memoize the combination generation function for all variants (including customization)
+  const getAllValidCombinationKeys = useCallback(() => {
+    const validKeys = new Set<string>();
+    
+    const generateCombinations = (current: string[], index: number) => {
+      if (index === (allVariants || localVariants).length) {
+        const key = (allVariants || localVariants)
+          .map((v, i) => `${v.id}:${current[i]}`)
+          .sort()
+          .join('|');
+        validKeys.add(key);
+        return;
+      }
+      
+      (allVariants || localVariants)[index].options.forEach(option => {
+        current[index] = option.value;
+        generateCombinations(current, index + 1);
+      });
+    };
+
+    if ((allVariants || localVariants).length > 0) {
+      generateCombinations(new Array((allVariants || localVariants).length), 0);
+    }
+
+    return validKeys;
+  }, [allVariants, localVariants]);
+
+  // Memoize the combination generation function for local variants only
   const getValidCombinationKeys = useCallback(() => {
     const validKeys = new Set<string>();
     
@@ -114,11 +141,14 @@ export function VariantsSection({ variants: initialVariants, onChange, initialPr
     if (!shouldNotifyParent) return;
 
     const validKeys = getValidCombinationKeys();
-    const newPrices: VariantPricingType = {};
+    const newPrices: VariantPricingType = { ...localPrices };
 
-    // Preserve existing prices for valid combinations
-    validKeys.forEach(key => {
-      newPrices[key] = localPrices[key] ?? basePrice;
+    // Preserve existing prices for all combinations (including customization)
+    const allValidKeys = getAllValidCombinationKeys();
+    allValidKeys.forEach(key => {
+      if (!newPrices[key]) {
+        newPrices[key] = basePrice;
+      }
     });
 
     // Only update if prices have changed
@@ -129,7 +159,7 @@ export function VariantsSection({ variants: initialVariants, onChange, initialPr
     // Notify parent of changes
     onChange(localVariants, newPrices);
     setShouldNotifyParent(false);
-  }, [localVariants, localPrices, getValidCombinationKeys, onChange, shouldNotifyParent, basePrice]);
+  }, [localVariants, localPrices, getValidCombinationKeys, getAllValidCombinationKeys, onChange, shouldNotifyParent, basePrice]);
 
   const addVariant = () => {
     const newVariant: ProductVariant = {

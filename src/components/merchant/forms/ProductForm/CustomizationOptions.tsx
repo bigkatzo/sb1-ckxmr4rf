@@ -26,7 +26,17 @@ export function CustomizationOptions() {
       // Clean up variant prices for customization variants
       const updatedPrices = { ...variantPrices };
       Object.keys(updatedPrices).forEach(key => {
-        if (key.includes('Image Customization') || key.includes('Text Customization')) {
+        const keyParts = key.split('|');
+        const hasCustomizationVariant = keyParts.some(part => {
+          const variantId = part.split(':')[0];
+          // Check if this variant ID corresponds to a customization variant
+          return variants.some((v: ProductVariant) => 
+            (v.name === 'Image Customization' || v.name === 'Text Customization') && 
+            v.id === variantId
+          );
+        });
+        
+        if (hasCustomizationVariant) {
           delete updatedPrices[key];
         }
       });
@@ -63,7 +73,13 @@ export function CustomizationOptions() {
       // Clean up prices for this variant
       const updatedPrices = { ...variantPrices };
       Object.keys(updatedPrices).forEach(key => {
-        if (key.includes(removedVariant.id)) {
+        const keyParts = key.split('|');
+        const hasRemovedVariant = keyParts.some(part => {
+          const variantId = part.split(':')[0];
+          return variantId === removedVariant.id;
+        });
+        
+        if (hasRemovedVariant) {
           delete updatedPrices[key];
         }
       });
@@ -97,7 +113,13 @@ export function CustomizationOptions() {
       // Clean up prices for this variant
       const updatedPrices = { ...variantPrices };
       Object.keys(updatedPrices).forEach(key => {
-        if (key.includes(removedVariant.id)) {
+        const keyParts = key.split('|');
+        const hasRemovedVariant = keyParts.some(part => {
+          const variantId = part.split(':')[0];
+          return variantId === removedVariant.id;
+        });
+        
+        if (hasRemovedVariant) {
           delete updatedPrices[key];
         }
       });

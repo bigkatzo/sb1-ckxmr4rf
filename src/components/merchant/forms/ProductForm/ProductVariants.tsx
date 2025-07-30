@@ -32,7 +32,33 @@ export function ProductVariants({ initialVariants = [], initialPrices = {} }: Pr
   
   const handleVariantsChange = (updatedVariants: ProductVariant[], updatedPrices: VariantPricing) => {
     setValue('variants', updatedVariants);
-    setValue('variantPrices', updatedPrices);
+    
+    // Preserve customization variant prices when updating
+    const currentPrices = watch('variantPrices') || {};
+    const preservedPrices = { ...currentPrices };
+    
+    // Get customization variant IDs
+    const customizationVariantIds = customizationVariants.map((v: ProductVariant) => v.id);
+    
+    // Keep prices for customization variants
+    Object.keys(preservedPrices).forEach(key => {
+      const keyParts = key.split('|');
+      const hasCustomizationVariant = keyParts.some(part => {
+        const variantId = part.split(':')[0];
+        return customizationVariantIds.includes(variantId);
+      });
+      
+      if (hasCustomizationVariant) {
+        // Keep this price as it contains customization variants
+      } else {
+        // Remove non-customization prices as they'll be replaced by updatedPrices
+        delete preservedPrices[key];
+      }
+    });
+    
+    // Merge with updated prices
+    const finalPrices = { ...preservedPrices, ...updatedPrices };
+    setValue('variantPrices', finalPrices);
   };
 
   // Separate variants for different purposes
