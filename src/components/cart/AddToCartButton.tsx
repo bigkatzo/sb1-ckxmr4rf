@@ -13,6 +13,12 @@ import { getVariantKey } from '../../utils/variant-helpers';
 interface AddToCartButtonProps {
   product: Product;
   selectedOptions: Record<string, string>;
+  customizationData?: {
+    image?: File | null;
+    text?: string;
+    imagePreview?: string;
+    imageBase64?: string;
+  };
   disabled?: boolean;
   className?: string;
   showText?: boolean;
@@ -22,6 +28,7 @@ interface AddToCartButtonProps {
 export function AddToCartButton({
   product,
   selectedOptions,
+  customizationData,
   disabled,
   className = '',
   showText = false,
@@ -110,7 +117,8 @@ export function AddToCartButton({
           1,
           () => setVisible(true), // Function to show wallet connection modal if needed
           priceInfo,
-          toggleCart  // Pass toggle cart function for the View link
+          toggleCart,  // Pass toggle cart function for the View link
+          customizationData
         );
       } catch (error) {
         console.error('Error verifying product access:', error);
@@ -129,7 +137,8 @@ export function AddToCartButton({
           1,
           () => setVisible(true),
           priceInfo,
-          toggleCart
+          toggleCart,
+          customizationData
         );
       } catch (error) {
         console.error('Error adding to cart:', error);

@@ -20,6 +20,7 @@ interface BuyButtonProps {
 export function BuyButton({ 
   product, 
   selectedOptions = {}, 
+  customizationData,
   disabled, 
   className = '', 
   onClick,
@@ -55,7 +56,7 @@ export function BuyButton({
       if (showModal) {
         // Handle payment logic here, e.g., open payment modal
       console.log('ModalProvider render', product);
-      showVerificationModal(product, selectedOptions);
+      showVerificationModal(product, selectedOptions, customizationData);
         
       } else if (onClick) {
         // If not in modal, trigger the onClick handler (to open modal)

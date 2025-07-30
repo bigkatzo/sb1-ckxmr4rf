@@ -7,6 +7,12 @@ interface ModalContextType {
   showVerificationModal: (
     product: Product, 
     selectedOptions: Record<string, string>,
+    customizationData?: {
+      image?: File | null;
+      text?: string;
+      imagePreview?: string;
+      imageBase64?: string;
+    },
     additionalData?: {
       shippingInfo?: any;
       paymentMetadata?: any;
@@ -25,6 +31,12 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     isOpen: boolean;
     product?: Product;
     selectedOptions: Record<string, string>;
+    customizationData?: {
+      image?: File | null;
+      text?: string;
+      imagePreview?: string;
+      imageBase64?: string;
+    };
     additionalData?: {
       shippingInfo?: any;
       paymentMetadata?: any;
@@ -37,13 +49,19 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const showVerificationModal = (
     product: Product, 
     selectedOptions: Record<string, string>,
+    customizationData?: {
+      image?: File | null;
+      text?: string;
+      imagePreview?: string;
+      imageBase64?: string;
+    },
     additionalData?: {
       shippingInfo?: any;
       paymentMetadata?: any;
     }
   ) => {
-    console.log('showVerificationModal', product, selectedOptions, additionalData);
-    setModalState({ isOpen: true, product, selectedOptions, additionalData });
+    console.log('showVerificationModal', product, selectedOptions, customizationData, additionalData);
+    setModalState({ isOpen: true, product, selectedOptions, customizationData, additionalData });
   };
 
   const hideVerificationModal = () => {
@@ -57,12 +75,18 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
         <MultiItemCheckoutModal
         onClose={hideVerificationModal}
         isSingle={true}
-        singleItem={[{ product: modalState.product, selectedOptions: modalState.selectedOptions, quantity: 1, priceInfo: {
-          modifiedPrice: 0, // Placeholder, will be calculated in the modal
-          basePrice: 0,
-          variantKey: null,
-          variantPriceAdjustments: 0
-        } }]} // Assuming single item checkout
+        singleItem={[{ 
+          product: modalState.product, 
+          selectedOptions: modalState.selectedOptions, 
+          quantity: 1, 
+          priceInfo: {
+            modifiedPrice: 0, // Placeholder, will be calculated in the modal
+            basePrice: 0,
+            variantKey: null,
+            variantPriceAdjustments: 0
+          },
+          customizationData: modalState.customizationData
+        }]} // Assuming single item checkout
         />
       )}
     </ModalContext.Provider>

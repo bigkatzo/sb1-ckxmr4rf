@@ -15,6 +15,12 @@ export interface CartItem {
   selectedOptions: Record<string, string>;
   quantity: number;
   priceInfo: CartItemPriceInfo;
+  customizationData?: {
+    image?: File | null;
+    text?: string;
+    imagePreview?: string;
+    imageBase64?: string;
+  };
   verificationStatus?: {
     verified: boolean;
     timestamp: number;
@@ -29,7 +35,13 @@ interface CartContextType {
     selectedOptions: Record<string, string>, 
     quantity?: number, 
     verified?: boolean,
-    priceInfo?: CartItemPriceInfo
+    priceInfo?: CartItemPriceInfo,
+    customizationData?: {
+      image?: File | null;
+      text?: string;
+      imagePreview?: string;
+      imageBase64?: string;
+    }
   ) => void;
   removeItem: (itemIndex: number) => void;
   updateQuantity: (itemIndex: number, quantity: number) => void;
@@ -141,7 +153,13 @@ const getTotalPrice = (currency: string = 'SOL', solRate: number = 180): number 
     selectedOptions: Record<string, string>, 
     quantity = 1,
     verified = false,
-    priceInfo?: CartItemPriceInfo
+    priceInfo?: CartItemPriceInfo,
+    customizationData?: {
+      image?: File | null;
+      text?: string;
+      imagePreview?: string;
+      imageBase64?: string;
+    }
   ) => {
     setItems(prevItems => {
       // Check if this exact product + options combination already exists in cart
@@ -208,7 +226,8 @@ const getTotalPrice = (currency: string = 'SOL', solRate: number = 180): number 
               verified: true,
               timestamp: Date.now()
             }
-          })
+          }),
+          customizationData
         };
         return [...prevItems, newItem];
       }

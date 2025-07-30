@@ -91,16 +91,17 @@ async function verifyRule(rule: CategoryRule, walletAddress: string): Promise<{ 
 export async function verifyAndAddToCart(
   product: any,
   walletAddress: string | null,
-  addToCartFn: (product: any, selectedOptions: Record<string, string>, quantity: number, verified: boolean, priceInfo?: CartItemPriceInfo) => void,
+  addToCartFn: (product: any, selectedOptions: Record<string, string>, quantity: number, verified: boolean, priceInfo?: CartItemPriceInfo, customizationData?: any) => void,
   selectedOptions: Record<string, string>,
   quantity: number = 1,
   showConnectWalletFn?: () => void,
   priceInfo?: CartItemPriceInfo,
-  toggleCartFn?: () => void
+  toggleCartFn?: () => void,
+  customizationData?: any
 ): Promise<boolean> {
   // Skip verification for products without access rules
   if (!product.category?.eligibilityRules?.groups?.length) {
-    addToCartFn(product, selectedOptions, quantity, true, priceInfo);
+    addToCartFn(product, selectedOptions, quantity, true, priceInfo, customizationData);
     
     // Show success toast with View link
     if (toggleCartFn) {
@@ -125,7 +126,7 @@ export async function verifyAndAddToCart(
   const result = await verifyProductAccess(product, walletAddress);
   
   if (result.isValid) {
-    addToCartFn(product, selectedOptions, quantity, true, priceInfo);
+    addToCartFn(product, selectedOptions, quantity, true, priceInfo, customizationData);
     
     // Show success toast with View link
     if (toggleCartFn) {

@@ -155,23 +155,11 @@ export function CartDrawer() {
                         {/* Show selected options */}
                         {Object.keys(item.selectedOptions).length > 0 && (
                           <div className="mt-1 text-xs text-gray-400">
-                            {/* Debug output */}
-                            {(() => {
-                              console.log(`Rendering selected options for ${item.product.name}:`, item.selectedOptions);
-                              console.log(`Product variants:`, item.product.variants);
-                              return null;
-                            })()}
-                            
                             {Object.entries(item.selectedOptions).map(([variantId, optionValue]) => {
-                              // Debug output
-                              console.log(`Processing variant ${variantId} with selected value ${optionValue}`);
-                              
                               // Find the variant name
                               const variant = item.product.variants?.find(v => v.id === variantId);
-                              console.log(`Found variant object:`, variant);
                               
                               if (!variant) {
-                                console.warn(`Variant with ID ${variantId} not found in product`, item.product);
                                 return (
                                   <div key={variantId} className="flex">
                                     <span className="font-medium">Option:</span>
@@ -182,10 +170,8 @@ export function CartDrawer() {
                               
                               // Find the option label
                               const option = variant.options?.find(o => o.value === optionValue);
-                              console.log(`Found option object:`, option);
                               
                               if (!option) {
-                                console.warn(`Option with value ${optionValue} not found in variant ${variant.name}`, variant);
                                 return (
                                   <div key={variantId} className="flex">
                                     <span className="font-medium">{variant.name}:</span>
@@ -201,6 +187,24 @@ export function CartDrawer() {
                                 </div>
                               );
                             })}
+                          </div>
+                        )}
+                        
+                        {/* Show customization data */}
+                        {item.customizationData && (
+                          <div className="mt-1 text-xs text-blue-400">
+                            {item.customizationData.text && (
+                              <div className="flex">
+                                <span className="font-medium">Custom Text:</span>
+                                <span className="ml-1 truncate">{item.customizationData.text}</span>
+                              </div>
+                            )}
+                            {item.customizationData.image && (
+                              <div className="flex">
+                                <span className="font-medium">Custom Image:</span>
+                                <span className="ml-1">✓ Added</span>
+                              </div>
+                            )}
                           </div>
                         )}
                         

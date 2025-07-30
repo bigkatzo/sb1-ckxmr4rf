@@ -97,6 +97,29 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
 
   const recommendedCas = ["7PagSBusvxQ252fuBFnhipMZwd4T4jGikLeuwrDibonk"];
 
+  // Utility function to convert customization data to variantId:value format
+  const convertCustomizationDataToVariantFormat = (item: CartItem) => {
+    const customizationVariants: Record<string, string> = {};
+    
+    if (item.customizationData) {
+      // Find customization variants in the product
+      const imageCustomizationVariant = item.product.variants?.find(v => v.name === 'Image Customization');
+      const textCustomizationVariant = item.product.variants?.find(v => v.name === 'Text Customization');
+      
+      // Add image customization if present
+      if (item.customizationData.image && imageCustomizationVariant) {
+        customizationVariants[imageCustomizationVariant.id] = 'Yes';
+      }
+      
+      // Add text customization if present
+      if (item.customizationData.text && textCustomizationVariant) {
+        customizationVariants[textCustomizationVariant.id] = item.customizationData.text;
+      }
+    }
+    
+    return customizationVariants;
+  };
+
   // Get states for the selected country
   const availableStates = useMemo(() => {
     const countryCode = countries.find(c => c.name === shipping.country)?.code;
@@ -566,11 +589,23 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          items: items.map(item => ({
-            product: item.product,
-            selectedOptions: item.selectedOptions,
-            quantity: item.quantity
-          })),
+          items: items.map(item => {
+            // Convert customization data to variant format
+            const customizationVariants = convertCustomizationDataToVariantFormat(item);
+            
+            // Merge selected options with customization variants
+            const allSelectedOptions = {
+              ...item.selectedOptions,
+              ...customizationVariants
+            };
+            
+            return {
+              product: item.product,
+              selectedOptions: allSelectedOptions,
+              quantity: item.quantity,
+              customizationData: item.customizationData
+            };
+          }),
           shippingInfo: formattedShippingInfo,
           walletAddress: walletAddress || 'anonymous',
           paymentMetadata: {
@@ -876,6 +911,23 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                             })}
                           </div>
                         )}
+                        
+                        {/* Show customization data */}
+                        {item.customizationData && (
+                          <div className="mt-1 text-xs text-blue-400">
+                            {item.customizationData.text && (
+                              <div>
+                                Custom Text: {item.customizationData.text}
+                              </div>
+                            )}
+                            {item.customizationData.image && (
+                              <div>
+                                Custom Image: ✓ Added
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
                         {renderItemPrice(item)}
                       </div>
                     </div>

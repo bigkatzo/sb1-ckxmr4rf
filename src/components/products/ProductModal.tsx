@@ -118,6 +118,7 @@ function ProductBuyButton({
       <AddToCartButton
         product={product}
         selectedOptions={selectedOptions}
+        customizationData={customizationData}
         disabled={isDisabled}
         size="md"
         className="px-3 py-3"
