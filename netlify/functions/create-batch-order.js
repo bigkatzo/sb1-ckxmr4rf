@@ -246,8 +246,6 @@ exports.handler = async (event, context) => {
       if (!collectionId) {
         throw new Error(`Missing collectionId for product: ${product.name}`);
       }
-
-      const merchantWallet = await getMerchantWallet(collectionId);
       
       const { price, variantKey, variantSelections, baseCurrency } = await getProductPrice(
         product.id,
@@ -257,6 +255,7 @@ exports.handler = async (event, context) => {
       const itemTotalInBase = price * quantity;
 
       let itemTotalInTarget;
+      
       if (baseCurrency.toUpperCase() === currencyUnit) {
         itemTotalInTarget = itemTotalInBase;
       } else if (baseCurrency.toUpperCase() === 'SOL' && currencyUnit === 'USDC') {
@@ -264,6 +263,8 @@ exports.handler = async (event, context) => {
       } else if (baseCurrency.toUpperCase() === 'USDC' && currencyUnit === 'SOL') {
         itemTotalInTarget = itemTotalInBase / solRate;
       }
+
+      const merchantWallet = await getMerchantWallet(collectionId);
 
       // Add to merchant wallet amounts
       if (!walletAmounts[merchantWallet]) {
@@ -297,11 +298,14 @@ exports.handler = async (event, context) => {
         `${wallet.substring(0, 6)}...: ${amount}`
       )
     );
+
+    // Log total payment amount for the batch
     console.log('Total payment amount:', totalPaymentForBatch);
 
     // Verify and apply discount
     const couponCode = paymentMetadata?.couponCode;
-    let couponDiscount = 0; 
+    let couponDiscount = 0;
+
     if (couponCode) {
       try {
         const { data: coupon, error } = await supabase
@@ -336,14 +340,6 @@ exports.handler = async (event, context) => {
     const chargeFeeMethods = ['usdc', 'sol', 'spl-tokens'];
     const fee = (chargeFeeMethods.includes(paymentMethod)) && Object.keys(walletAmounts).length > 1 && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
     totalPaymentForBatch = isFreeOrder ? 0 : totalPaymentForBatch + fee - couponDiscount;
-
-    // let solAmount = 0;
-    // if(paymentMetadata?.paymentMethod === 'sol') {
-    //   // Convert USDC to SOL using CoinGecko rate
-
-    //   solAmount = await getSolanaRate(totalPaymentForBatch);
-    //   console.log(`Converted total payment amount to SOL: ${solAmount}`);
-    // }
 
     let transactionSignature;
     if (isFreeOrder) {
