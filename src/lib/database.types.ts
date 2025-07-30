@@ -64,6 +64,38 @@ export interface Database {
           updated_at?: string
         }
       }
+      custom_data: {
+        Row: {
+          id: string
+          order_id: string
+          product_id: string
+          wallet_address: string
+          customizable_image: string | null
+          customizable_text: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          product_id: string
+          wallet_address: string
+          customizable_image?: string | null
+          customizable_text?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          product_id?: string
+          wallet_address?: string
+          customizable_image?: string | null
+          customizable_text?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Functions: {
       list_users: {

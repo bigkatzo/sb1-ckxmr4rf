@@ -4,6 +4,7 @@
  * Server-side function for creating batch orders from the cart
  * Uses service role credentials to access database functions
  * Modified to create single orders with quantity field instead of splitting into individual orders
+ * Enhanced to handle customization data per item
  */
 const { createClient } = require('@supabase/supabase-js');
 const { v4: uuidv4 } = require('uuid');
@@ -14,6 +15,18 @@ const ENV = {
   SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 };
+
+// Storage bucket for customization images
+const CUSTOMIZATION_BUCKET = 'customization-images';
+
+// Allowed MIME types for customization images
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg', 
+  'image/png',
+  'image/webp',
+  'image/gif'
+];
 
 // Initialize Supabase with service role credentials
 let supabase;
@@ -35,6 +48,166 @@ const generateOrderNumber = () => {
   const day = now.getDate();
   return `SF-${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
 };
+
+/**
+ * Generate a safe filename for customization images
+ */
+function generateCustomizationFilename(originalName, orderId, productId) {
+  const timestamp = Date.now();
+  const randomId = uuidv4().substring(0, 8);
+  const extension = originalName.split('.').pop()?.toLowerCase() || 'jpg';
+  
+  // Sanitize the filename
+  const sanitizedName = originalName
+    .replace(/[^a-zA-Z0-9.-]/g, '_')
+    .substring(0, 50);
+  
+  return `customization_${orderId}_${productId}_${timestamp}_${randomId}.${extension}`;
+}
+
+/**
+ * Upload customization image from base64 to S3
+ */
+async function uploadCustomizationImage(imageBase64, originalName, orderId, productId) {
+  try {
+    // Extract content type from base64 data
+    const base64Match = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+    if (!base64Match) {
+      throw new Error('Invalid base64 format');
+    }
+
+    const contentType = base64Match[1];
+    const base64Data = base64Match[2];
+
+    console.log(`Processing customization image upload: ${originalName} (${contentType})`);
+
+    // Validate MIME type
+    if (!ALLOWED_MIME_TYPES.includes(contentType)) {
+      throw new Error(`MIME type ${contentType} is not supported`);
+    }
+
+    // Convert base64 to buffer
+    const fileData = Buffer.from(base64Data, 'base64');
+    
+    if (fileData.length === 0) {
+      throw new Error('Empty file');
+    }
+
+    // Ensure bucket exists
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    if (bucketsError) {
+      console.error('Error listing buckets:', bucketsError);
+      throw new Error('Error listing buckets');
+    }
+
+    const bucketExists = buckets?.some(b => b.name === CUSTOMIZATION_BUCKET);
+    if (!bucketExists) {
+      console.log(`Creating bucket: ${CUSTOMIZATION_BUCKET}`);
+      const { error: createError } = await supabase.storage.createBucket(CUSTOMIZATION_BUCKET, {
+        public: true,
+        fileSizeLimit: 5242880, // 5MB
+        allowedMimeTypes: ALLOWED_MIME_TYPES
+      });
+      
+      if (createError) {
+        console.error('Failed to create bucket:', createError);
+        throw new Error('Failed to create bucket');
+      }
+    }
+
+    // Generate safe filename
+    const fileName = generateCustomizationFilename(originalName, orderId, productId);
+
+    // Upload file
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(CUSTOMIZATION_BUCKET)
+      .upload(fileName, fileData, {
+        contentType,
+        upsert: false,
+        cacheControl: '3600'
+      });
+
+    if (uploadError) {
+      console.error('Upload failed:', uploadError);
+      throw new Error('Upload failed');
+    }
+
+    // Get public URL
+    const { data: urlData } = await supabase.storage
+      .from(CUSTOMIZATION_BUCKET)
+      .getPublicUrl(fileName);
+
+    if (!urlData || !urlData.publicUrl) {
+      throw new Error('Failed to get public URL');
+    }
+
+    console.log(`Customization image uploaded successfully: ${urlData.publicUrl}`);
+    return urlData.publicUrl;
+
+  } catch (error) {
+    console.error('Error uploading customization image:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create custom_data entry for an order item
+ */
+async function createCustomDataEntry(orderId, productId, walletAddress, customizationData) {
+  try {
+    let customizableImage = null;
+    let customizableText = null;
+
+    // Handle image upload if present
+    if (customizationData?.imageBase64) {
+      try {
+        const originalName = customizationData.image?.name || 'customization.jpg';
+        customizableImage = await uploadCustomizationImage(
+          customizationData.imageBase64,
+          originalName,
+          orderId,
+          productId
+        );
+      } catch (uploadError) {
+        console.error(`Failed to upload customization image for order ${orderId}:`, uploadError);
+        // Continue without the image
+      }
+    }
+
+    // Handle text if present
+    if (customizationData?.text) {
+      customizableText = customizationData.text;
+    }
+
+    // Only create entry if there's actual customization data
+    if (customizableImage || customizableText) {
+      const { data, error } = await supabase
+        .from('custom_data')
+        .insert({
+          order_id: orderId,
+          product_id: productId,
+          wallet_address: walletAddress,
+          customizable_image: customizableImage,
+          customizable_text: customizableText
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error(`Error creating custom_data entry for order ${orderId}:`, error);
+        throw error;
+      }
+
+      console.log(`Custom data entry created for order ${orderId}:`, data);
+      return data;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error creating custom data entry for order ${orderId}:`, error);
+    throw error;
+  }
+}
 
 /**
  * Get the actual price for a product variant from Supabase
@@ -466,6 +639,49 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // Process customization data for each order item
+    console.log('Processing customization data for orders...');
+    const customDataResults = [];
+    
+    for (let itemIndex = 0; itemIndex < processedItems.length; itemIndex++) {
+      const processedItem = processedItems[itemIndex];
+      const { product } = processedItem;
+      const orderId = allOrderIds[itemIndex];
+      
+      // Check if this item has customization data
+      if (processedItem.customizationData) {
+        console.log(`Processing customization data for order ${orderId}, product ${product.name}`);
+        
+        try {
+          const customDataEntry = await createCustomDataEntry(
+            orderId,
+            product.id,
+            walletAddress || 'anonymous',
+            processedItem.customizationData
+          );
+          
+          if (customDataEntry) {
+            customDataResults.push({
+              orderId,
+              productId: product.id,
+              productName: product.name,
+              customDataId: customDataEntry.id,
+              hasImage: !!customDataEntry.customizable_image,
+              hasText: !!customDataEntry.customizable_text
+            });
+            console.log(`Custom data created for order ${orderId}:`, customDataEntry);
+          }
+        } catch (customDataError) {
+          console.error(`Failed to create custom data for order ${orderId}:`, customDataError);
+          // Continue processing other items even if one fails
+        }
+      } else {
+        console.log(`No customization data for order ${orderId}, product ${product.name}`);
+      }
+    }
+
+    console.log(`Customization data processing complete. Created ${customDataResults.length} custom data entries.`);
+
     // Final batch summary logging
     console.log(`Batch order creation complete:`, {
       batchOrderId,
@@ -478,6 +694,7 @@ exports.handler = async (event, context) => {
       couponDiscount,
       originalPrice,
       merchantWallets: Object.keys(walletAmounts).length,
+      customDataEntries: customDataResults.length
     });
 
     return {
@@ -496,7 +713,8 @@ exports.handler = async (event, context) => {
         totalPaymentAmount: totalPaymentForBatch,
         couponDiscount,
         originalPrice,
-        walletAmounts
+        walletAmounts,
+        customDataResults
       })
     };
   } catch (error) {
