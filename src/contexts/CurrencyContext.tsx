@@ -14,7 +14,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     // Try to load from localStorage on initialization
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('preferred-currency');
-      return (saved === 'USDC' || saved === 'SOL') ? saved : 'USDC';
+      return (saved === 'USDC' || saved === 'SOL') ? saved : 'SOL';
     }
     return 'SOL';
   });
