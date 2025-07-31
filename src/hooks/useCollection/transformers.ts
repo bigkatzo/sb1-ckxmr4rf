@@ -110,6 +110,7 @@ export function transformCollection(data: Partial<DatabaseCollection>): Collecti
     x_url: data.x_url || '',
     telegram_url: data.telegram_url || '',
     dexscreener_url: data.dexscreener_url || '',
+    ca: data.ca || '',
     pumpfun_url: data.pumpfun_url || '',
     website_url: data.website_url || '',
     free_notes: data.free_notes || '',

@@ -382,18 +382,30 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   // };
 
   const calculateSubtotal = (): number => {
-    // Let the backend handle all currency conversions
-    // Frontend should just sum the base prices in their original currency
+    // Convert each item's price from its base currency to the target currency before summing
     return items.reduce((total, item) => {
       const itemPrice = item.priceInfo?.modifiedPrice || item.product.price;
-      return total + (itemPrice * item.quantity);
+      const itemBaseCurrency = item.product.baseCurrency?.toUpperCase() || 'SOL';
+      
+      let convertedPrice = itemPrice;
+      
+      // Convert price if base currency differs from target currency
+      if (itemBaseCurrency !== currency.toUpperCase()) {
+        if (itemBaseCurrency === 'SOL' && currency.toUpperCase() === 'USDC') {
+          convertedPrice = itemPrice * (solRate ?? 180); // SOL → USDC
+        } else if (itemBaseCurrency === 'USDC' && currency.toUpperCase() === 'SOL') {
+          convertedPrice = itemPrice / (solRate ?? 180); // USDC → SOL
+        }
+      }
+      
+      return total + (convertedPrice * item.quantity);
     }, 0);
   };
   
-  // Calculate total price of all items in cart (in base currency)
+  // Calculate total price of all items in cart (converted to target currency)
   const totalPrice = calculateSubtotal();
   
-  // Calculate final price with coupon discount (in base currency)
+  // Calculate final price with coupon discount (in target currency)
   const finalPrice = appliedCoupon 
     ? appliedCoupon.discountPercentage 
       ? totalPrice * (1 - appliedCoupon.discountPercentage / 100) 
@@ -404,9 +416,9 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   useEffect(() => {
     if (!totalDisplayPrice) {
       setTotalDisplayPrice(finalPrice.toFixed(2));
-      setTotalDisplaySymbol('USD');
+      setTotalDisplaySymbol(currency.toUpperCase());
     }
-  }, [finalPrice, totalDisplayPrice]);
+  }, [finalPrice, totalDisplayPrice, currency]);
   
   // Handle coupon application
   const handleApplyCoupon = async () => {

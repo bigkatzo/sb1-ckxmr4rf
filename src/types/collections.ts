@@ -27,6 +27,7 @@ export interface DatabaseCollection {
   pumpfun_url?: string;
   website_url?: string;
   free_notes?: string;
+  ca?: string;
   // Theme-related fields
   theme_primary_color?: string | null;
   theme_secondary_color?: string | null;
