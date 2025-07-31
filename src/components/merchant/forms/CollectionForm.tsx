@@ -90,8 +90,11 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const [recommendedToken, setRecommendedToken] = useState(collection?.ca || '');
   const [strictToken, setStrictToken] = useState(collection?.strict_token || '');
   const [tokenName, setTokenName] = useState('');
+  const [strictTokenName, setStrictTokenName] = useState('');
   const [loadingToken, setLoadingToken] = useState(false);
+  const [loadingStrictToken, setLoadingStrictToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const [strictTokenError, setStrictTokenError] = useState<string | null>(null);
   
   // Initialize launch date with proper error handling
   const [launchDate, setLaunchDate] = useState(() => {
@@ -260,6 +263,36 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
     }
   };
 
+  const loadStrictTokenInfo = async () => {
+    if (!strictToken.trim()) {
+      setStrictTokenError('Please enter a contract address');
+      return;
+    }
+
+    setLoadingStrictToken(true);
+    setStrictTokenError(null);
+    setStrictTokenName('');
+
+    try {
+      // Use the new token service to extract and validate the contract address
+      const contractAddress = tokenService.extractContractAddress(strictToken);
+      
+      if (!tokenService.isValidAddress(contractAddress)) {
+        throw new Error('Invalid contract address format');
+      }
+
+      // Fetch token information using the new service
+      const tokenInfo = await tokenService.getTokenInfo(contractAddress);
+      
+      setStrictTokenName(`${tokenInfo.name} (${tokenInfo.symbol})`);
+    } catch (error) {
+      console.error('Error loading strict token info:', error);
+      setStrictTokenError('Failed to load token information. Please check the contract address.');
+    } finally {
+      setLoadingStrictToken(false);
+    }
+  };
+
   const saveTheme = async () => {
     try {
       const formData = new FormData();
@@ -324,6 +357,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       formData.append('website_url', websiteUrl || '');
       formData.append('free_notes', freeNotes || '');
       formData.append('ca', recommendedToken || '');
+      formData.append('strict_token', strictToken || '');
 
       await onSubmit(formData);
       
@@ -768,21 +802,50 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                   </div>
                   
                   <div>
-                    <label htmlFor="strict_token" className="block text-xs text-gray-400 mb-1">
+                    <label htmlFor="strict_token" className="block text-sm font-semibold text-white mb-2">
                       Strict Token
                     </label>
-                    <input
-                      type="text"
-                      id="strict_token"
-                      name="strict_token"
-                      value={strictToken}
-                      onChange={(e) => setStrictToken(e.target.value)}
-                      className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
-                      placeholder="Enter strict token (e.g., 0x123...)"
-                    />
-                    <p className="mt-1 text-xs text-gray-400">
-                      If provided, this token must be the only one in the collection.
-                    </p>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          id="strict_token"
+                          name="strict_token"
+                          value={strictToken}
+                          onChange={(e) => {
+                            setStrictToken(e.target.value);
+                            setStrictTokenError(null);
+                            setStrictTokenName('');
+                          }}
+                          className="flex-1 rounded-lg bg-gray-800 border-gray-700 px-4 py-3 text-base text-white placeholder-gray-400 font-medium"
+                          placeholder="Enter contract address or token URL"
+                        />
+                        <button
+                          type="button"
+                          onClick={loadStrictTokenInfo}
+                          disabled={loadingStrictToken || !strictToken.trim()}
+                          className="px-4 py-3 bg-primary hover:bg-primary/80 disabled:bg-gray-700 disabled:text-gray-400 text-white rounded-lg transition-colors text-base font-medium"
+                        >
+                          {loadingStrictToken ? 'Loading...' : 'Load Token'}
+                        </button>
+                      </div>
+                      
+                      {strictTokenError && (
+                        <div className="text-red-400 text-xs bg-red-900/20 border border-red-500/30 rounded px-2 py-1">
+                          {strictTokenError}
+                        </div>
+                      )}
+                      
+                      {strictTokenName && (
+                        <div className="text-green-400 text-xs bg-green-900/20 border border-green-500/30 rounded px-2 py-1">
+                          <span className="font-medium">Token found:</span> {strictTokenName}
+                        </div>
+                      )}
+                      
+                      <p className="text-sm text-gray-400 font-medium">
+                        Any product under this collection will only allow payments in {strictTokenName || strictToken || "this"} coin
+                      </p>
+                    </div>
                   </div>
                   
                   <div>

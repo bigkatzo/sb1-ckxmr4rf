@@ -166,8 +166,6 @@ export function HomePage() {
   const hasLatestCollections = !latestLoading && latestCollections.length > 0;
   const hasBestSellers = !bestSellersLoading && bestSellerProducts.length > 0;
 
-  console.log(bestSellerProducts, 'Best Sellers Products');
-
   return (
     <div className="scroll-smooth space-y-6 sm:space-y-8 md:space-y-12">
       {/* Default SEO for homepage */}

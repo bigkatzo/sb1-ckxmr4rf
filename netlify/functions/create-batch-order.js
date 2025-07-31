@@ -422,8 +422,9 @@ exports.handler = async (event, context) => {
     } else if (paymentMetadata?.paymentMethod === 'stripe') {
       currencyUnit = 'USDC'; // Stripe payments are always in USDC
     } else if (paymentMetadata?.paymentMethod === 'spl-tokens') {
-      // For SPL tokens, check if it's a strict token payment
-      if (paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol) {
+      // For SPL tokens, check if any product has a strict token requirement
+      const hasStrictTokenProduct = items.some(item => item.product.collectionStrictToken);
+      if (hasStrictTokenProduct && paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol) {
         // This is a strict token payment - merchant receives the token, not converted to USDC
         currencyUnit = paymentMetadata.tokenSymbol.toUpperCase();
       } else {
@@ -456,8 +457,9 @@ exports.handler = async (event, context) => {
       let itemTotalInTarget;
       
       // Check if this is a strict token payment
-      const isStrictTokenPayment = paymentMetadata?.paymentMethod === 'spl-tokens' && 
-        paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol;
+      const isStrictTokenPayment = product.collectionStrictToken && 
+        paymentMetadata?.paymentMethod === 'spl-tokens' && 
+        paymentMetadata?.tokenAddress === product.collectionStrictToken;
       
       if (isStrictTokenPayment) {
         // For strict token payments, use the base currency price directly
@@ -628,8 +630,9 @@ exports.handler = async (event, context) => {
           receiverWallet,
           currencyUnit, // Add the target currency unit
           // Add strict token information
-          isStrictTokenPayment: paymentMetadata?.paymentMethod === 'spl-tokens' && 
-            paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol,
+          isStrictTokenPayment: product.collectionStrictToken && 
+            paymentMetadata?.paymentMethod === 'spl-tokens' && 
+            paymentMetadata?.tokenAddress === product.collectionStrictToken,
           strictTokenAddress: paymentMetadata?.tokenAddress,
           strictTokenSymbol: paymentMetadata?.tokenSymbol,
           strictTokenName: paymentMetadata?.tokenName,

@@ -12,6 +12,7 @@ interface PublicProduct {
   name: string;
   description: string;
   price: number;
+  base_currency?: string;
   images: string[];
   quantity: number;
   minimum_order_quantity: number;
@@ -139,6 +140,7 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
             name: product.name,
             description: product.description,
             price: product.price,
+            baseCurrency: product.base_currency || 'sol',
             imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
             images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
             categoryId: product.category_id,

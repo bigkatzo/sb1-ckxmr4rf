@@ -51,6 +51,7 @@ interface PaymentMethodSelectorProps {
   recommendedCAs?: string[]; // Array of token addresses
   solRate?: number; // Optional SOL rate for USD conversion
   hasStrictTokenRestriction?: boolean; // Whether to restrict to specific tokens only
+  collectionStrictToken?: string; // The specific token address required for payment
 }
 
 const POPULAR_TOKENS = [
@@ -104,7 +105,8 @@ export function PaymentMethodSelector({
   onTotalPriceChange,
   solRate,
   recommendedCAs = [],
-  hasStrictTokenRestriction
+  hasStrictTokenRestriction,
+  collectionStrictToken
 }: PaymentMethodSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [customTokenAddress, setCustomTokenAddress] = useState('');
@@ -173,18 +175,31 @@ export function PaymentMethodSelector({
     }
   }, [recommendedCAs]);
 
-  // Effect to automatically select the strict token when restriction is enabled
-  React.useEffect(() => {
-    if (hasStrictTokenRestriction && fetchedRecommendedCAs.length > 0) {
-      const strictToken = fetchedRecommendedCAs[0];
+  // Auto-select strict token payment method when restriction is enabled
+  useEffect(() => {
+    if (hasStrictTokenRestriction && collectionStrictToken) {
       onMethodChange({
         type: 'spl-tokens',
-        tokenAddress: strictToken.address,
-        tokenSymbol: strictToken.symbol,
-        tokenName: strictToken.name
+        tokenAddress: collectionStrictToken
       });
     }
-  }, [hasStrictTokenRestriction, fetchedRecommendedCAs, onMethodChange]);
+  }, [hasStrictTokenRestriction, collectionStrictToken, onMethodChange]);
+
+  // Auto-fetch price quote for strict token
+  useEffect(() => {
+    if (hasStrictTokenRestriction && firstRecommendedCA && selectedMethod?.type === 'spl-tokens') {
+      // Set the strict token as selected
+      setCustomTokenAddress(firstRecommendedCA.address);
+      setTokenInfo({
+        name: firstRecommendedCA.name,
+        symbol: firstRecommendedCA.symbol,
+        logoUrl: firstRecommendedCA.logoUrl
+      });
+      
+      // Fetch price quote automatically
+      fetchPriceQuote(firstRecommendedCA.address);
+    }
+  }, [hasStrictTokenRestriction, firstRecommendedCA, selectedMethod?.type]);
 
   const paymentOptions = [
     {
@@ -215,7 +230,7 @@ export function PaymentMethodSelector({
       icon: Link,
       available: !hasStrictTokenRestriction
     }
-  ];
+  ].filter(option => !hasStrictTokenRestriction || option.type === 'spl-tokens');
 
   // Function to fetch token info using the new token service
   const fetchTokenInfo = async (tokenAddress: string) => {
@@ -849,51 +864,126 @@ export function PaymentMethodSelector({
       {selectedMethod?.type === 'spl-tokens' && (
         <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-white">Select SPL Token</h4>
+            <h4 className="text-sm font-medium text-white">
+              {hasStrictTokenRestriction ? 'Collection Token' : 'Select SPL Token'}
+            </h4>
           </div>
           
-          {/* Token Selection Grid */}
-          <div>
-            <div className="grid grid-cols-2 gap-3">
-              {POPULAR_TOKENS.slice(0, 3).map((token) => (
+          {/* Token Selection Grid - Only show if not strict token restriction */}
+          {!hasStrictTokenRestriction && (
+            <div>
+              <div className="grid grid-cols-2 gap-3">
+                {POPULAR_TOKENS.slice(0, 3).map((token) => (
+                  <button
+                    key={token.address}
+                    type="button"
+                    onClick={() => handlePopularTokenSelect(token)}
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                      selectedMethod.tokenAddress === token.address
+                        ? 'border-secondary bg-secondary/10'
+                        : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
+                    }`}
+                  >
+                    <TokenIcon symbol={token.symbol} size="sm" />
+                    <div className="text-left flex-1 min-w-0">
+                      <div className="text-sm font-medium text-white truncate">{token.symbol}</div>
+                      <div className="text-xs text-gray-400 truncate">{token.name}</div>
+                    </div>
+                  </button>
+                ))}
+                
+                {/* Custom Token Button */}
                 <button
-                  key={token.address}
                   type="button"
-                  onClick={() => handlePopularTokenSelect(token)}
+                  onClick={() => setShowCustomTokenInput(!showCustomTokenInput)}
                   className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                    selectedMethod.tokenAddress === token.address
+                    showCustomTokenInput
                       ? 'border-secondary bg-secondary/10'
                       : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
                   }`}
                 >
-                  <TokenIcon symbol={token.symbol} size="sm" />
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center">
+                    <span className="text-xs font-bold text-white">+</span>
+                  </div>
                   <div className="text-left flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white truncate">{token.symbol}</div>
-                    <div className="text-xs text-gray-400 truncate">{token.name}</div>
+                    <div className="text-sm font-medium text-white">Custom</div>
+                    <div className="text-xs text-gray-400">Enter token address</div>
                   </div>
                 </button>
-              ))}
-              
-              {/* Custom Token Button */}
-              <button
-                type="button"
-                onClick={() => setShowCustomTokenInput(!showCustomTokenInput)}
-                className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                  showCustomTokenInput
-                    ? 'border-secondary bg-secondary/10'
-                    : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
-                }`}
-              >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white">+</span>
-                </div>
-                <div className="text-left flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white">Custom</div>
-                  <div className="text-xs text-gray-400">Enter token address</div>
-                </div>
-              </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Strict Token Display - Show when hasStrictTokenRestriction is true */}
+          {hasStrictTokenRestriction && firstRecommendedCA && (
+            <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
+              <div className="flex items-center gap-3 mb-3">
+                <TokenIcon symbol={firstRecommendedCA.symbol} size="sm" logoUrl={firstRecommendedCA.logoUrl} />
+                <div>
+                  <div className="text-sm font-medium text-white">{firstRecommendedCA.name}</div>
+                  <div className="text-xs text-gray-400">{firstRecommendedCA.symbol} selected</div>
+                </div>
+              </div>
+              
+              {/* Price Quote Display for Strict Token */}
+              {/* {priceQuote && (
+                <div className="bg-gray-700/50 rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowPriceDetails(!showPriceDetails)}
+                    className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <h5 className="text-xs font-medium text-gray-300">Price Quote</h5>
+                      {priceQuote.loading && (
+                        <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!priceQuote.loading && !priceQuote.error && (
+                        <span className="text-sm font-medium text-white flex items-center gap-1">
+                          {formatPriceQuote(priceQuote.tokenAmount, tokenInfo?.name || priceQuote.tokenName)}
+                        </span>
+                      )}
+                      <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
+                    </div>
+                  </button>
+                  
+                  {showPriceDetails && (
+                    <div className="px-3 pb-3 space-y-2 border-t border-gray-600/50">
+                      {priceQuote.loading ? (
+                        <div className="flex items-center gap-2 py-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                          <span className="text-sm text-gray-400">Fetching {priceQuote.tokenSymbol} price...</span>
+                        </div>
+                      ) : priceQuote.error ? (
+                        <div className="text-sm text-red-400 py-2">{priceQuote.error}</div>
+                      ) : (
+                        <div className="space-y-1 pt-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-400">You'll pay:</span>
+                            <span className="text-sm font-medium text-white">
+                              {formatPriceQuote(priceQuote.tokenAmount, tokenInfo?.name || priceQuote.tokenName)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-400">Equivalent to:</span>
+                            <span className="text-sm text-gray-300">{priceQuote.usdValue} {currency.toUpperCase()}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-400">Exchange Rate:</span>
+                            <span className="text-xs text-gray-400">
+                              1 {tokenInfo?.symbol || priceQuote.tokenSymbol} = {priceQuote.exchangeRate} {currency.toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )} */}
+            </div>
+          )}
 
           {/* Custom Token Input */}
           {(showCustomTokenInput || (firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol)) && (
@@ -946,16 +1036,18 @@ export function PaymentMethodSelector({
               )}
               
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  onClick={handleCustomTokenSubmit}
-                  variant="outline"
-                  size="sm"
-                  disabled={!customTokenAddress.trim() || loadingTokenInfo}
-                  className="flex-1"
-                >
-                  {loadingTokenInfo ? 'Loading...' : 'Use This Token'}
-                </Button>
+                {!hasStrictTokenRestriction && (
+                  <Button
+                    type="button"
+                    onClick={handleCustomTokenSubmit}
+                    variant="outline"
+                    size="sm"
+                    disabled={!customTokenAddress.trim() || loadingTokenInfo}
+                    className="flex-1"
+                  >
+                    {loadingTokenInfo ? 'Loading...' : 'Use This Token'}
+                  </Button>
+                )}
                 
                 {/* <Button
                   type="button"
@@ -1193,13 +1285,13 @@ export function PaymentMethodSelector({
       )}
 
       {/* Strict Token Restriction Notice */}
-      {hasStrictTokenRestriction && (
+      {/* {hasStrictTokenRestriction && (
         <div className="bg-purple-500/10 border border-purple-500/20 rounded-md p-3">
           <p className="text-xs text-purple-400">
             This collection requires payment with a specific token. Only the collection's designated token can be used for payment.
           </p>
         </div>
-      )}
+      )} */}
 
       {/* Connection Warning */}
       {(selectedMethod?.type === 'default' || selectedMethod?.type === 'spl-tokens') && !isConnected && (

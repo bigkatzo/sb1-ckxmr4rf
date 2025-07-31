@@ -751,7 +751,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
           buyer: walletAddress || '',
           recipient: receiverWallet || "",
           // Add strict token information for verification
-          isStrictTokenPayment: hasStrictTokenRestriction && collectionStrictToken,
+          isStrictTokenPayment: Boolean(collectionStrictToken),
           strictTokenAddress: collectionStrictToken,
           strictTokenSymbol: paymentMethod?.tokenSymbol,
           strictTokenName: paymentMethod?.tokenName
@@ -1029,6 +1029,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     onGetPriceQuote={undefined}
                     recommendedCAs={recommendedCas}
                     hasStrictTokenRestriction={hasStrictTokenRestriction}
+                    collectionStrictToken={collectionStrictToken}
                     onTotalPriceChange={(price, symbol) => {
                       setTotalDisplayPrice(price);
                       setTotalDisplaySymbol(symbol);
@@ -1049,7 +1050,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                   {hasStrictTokenRestriction && !hasMixedStrictTokens && (
                     <div className="mt-2 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
                       <p className="text-purple-400 text-sm">
-                        This collection requires payment with <strong>{paymentMethod?.tokenSymbol || 'the collection token'}</strong>. 
+                        This collection requires payment with <strong>{paymentMethod?.tokenName || 'the collection token'}</strong>. 
                         You will pay in this token and the merchant will receive payment in this token.
                       </p>
                     </div>

@@ -259,6 +259,7 @@ export function useCollection(slug: string) {
             collectionStrictToken: collectionData.strict_token || '',
             slug: product.slug || '',
             variants: product.variants || [],
+            baseCurrency: product.base_currency || 'sol',
             // Add created_at timestamp if available
             createdAt: product.created_at || null,
           };
