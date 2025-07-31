@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface TokenIconProps {
   symbol: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  logoUrl?: string; // Allow passing custom logo URL
 }
 
 // Token logo URLs - using trusted sources
@@ -41,42 +42,42 @@ const TOKEN_COLORS: Record<string, string> = {
 
 // Size mappings
 const SIZE_CLASSES = {
-  sm: 'w-4 h-4',
-  md: 'w-6 h-6',
-  lg: 'w-8 h-8',
+  sm: 'w-4 h-4 text-xs',
+  md: 'w-6 h-6 text-sm',
+  lg: 'w-8 h-8 text-base',
 };
 
-export function TokenIcon({ symbol, size = 'md', className = '' }: TokenIconProps) {
+export function TokenIcon({ symbol, size = 'md', className = '', logoUrl }: TokenIconProps) {
+  const [imageError, setImageError] = useState(false);
   const normalizedSymbol = symbol.toUpperCase();
-  const logoUrl = TOKEN_LOGOS[normalizedSymbol];
+  const defaultLogoUrl = TOKEN_LOGOS[normalizedSymbol];
+  const finalLogoUrl = logoUrl || defaultLogoUrl;
   const fallbackColor = TOKEN_COLORS[normalizedSymbol] || 'bg-gray-500';
   const sizeClass = SIZE_CLASSES[size];
 
-  if (logoUrl) {
+  // If we have a logo URL and no image error, try to show the image
+  if (finalLogoUrl && !imageError) {
     return (
       <img
-        src={logoUrl}
+        src={finalLogoUrl}
         alt={`${symbol} logo`}
         className={`${sizeClass} rounded-full object-cover ${className}`}
-        onError={(e) => {
-          // Fallback to colored circle if image fails to load
-          const target = e.target as HTMLImageElement;
-          target.style.display = 'none';
-          const fallback = target.nextElementSibling as HTMLElement;
-          if (fallback) {
-            fallback.style.display = 'flex';
-          }
-        }}
+        onError={() => setImageError(true)}
       />
     );
   }
 
-  // Fallback colored circle with first letter
+  // Fallback colored circle with token symbol (first 2-3 characters)
+  const displayText = normalizedSymbol.length <= 3 
+    ? normalizedSymbol 
+    : normalizedSymbol.substring(0, 3);
+
   return (
     <div
-      className={`${sizeClass} ${fallbackColor} rounded-full flex items-center justify-center text-white font-bold text-xs ${className}`}
+      className={`${sizeClass} ${fallbackColor} rounded-full flex items-center justify-center text-white font-bold ${className}`}
+      title={symbol}
     >
-      {normalizedSymbol.charAt(0)}
+      {displayText}
     </div>
   );
 }

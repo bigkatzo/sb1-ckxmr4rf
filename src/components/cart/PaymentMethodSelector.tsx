@@ -37,6 +37,7 @@ export interface RecommendedCA {
   symbol: string;
   name: string;
   decimals?: number;
+  logoUrl?: string;
 }
 interface PaymentMethodSelectorProps {
   selectedMethod: PaymentMethod | null;
@@ -108,7 +109,7 @@ export function PaymentMethodSelector({
   const [selectedChain, setSelectedChain] = useState(SUPPORTED_CHAINS[0]);
   const [priceQuote, setPriceQuote] = useState<PriceQuote | null>(null);
   const [loadingTokenInfo, setLoadingTokenInfo] = useState(false);
-  const [tokenInfo, setTokenInfo] = useState<{ name: string; symbol: string } | null>(null);
+  const [tokenInfo, setTokenInfo] = useState<{ name: string; symbol: string; logoUrl?: string } | null>(null);
   const [showPriceDetails, setShowPriceDetails] = useState(false);
   const [defaultToken, setDefaultToken] = useState<'usdc' | 'sol' | 'merchant'>('usdc');
   const [showCustomTokenInput, setShowCustomTokenInput] = useState(false);
@@ -141,7 +142,8 @@ export function PaymentMethodSelector({
         address: addresses[index],
         name: tokenInfo.name,
         symbol: tokenInfo.symbol,
-        decimals: tokenInfo.decimals || 6
+        decimals: tokenInfo.decimals || 6,
+        logoUrl: tokenInfo.logoURI
       }));
 
       setFetchedRecommendedCAs(results);
@@ -193,25 +195,18 @@ export function PaymentMethodSelector({
     }
   ];
 
-  // Function to fetch token info from Jupiter API
+  // Function to fetch token info using the new token service
   const fetchTokenInfo = async (tokenAddress: string) => {
     if (!tokenAddress.trim()) return;
     
     setLoadingTokenInfo(true);
     try {
-      const response = await fetch(`https://tokens.jup.ag/token/${tokenAddress}`);
-      if (response.ok) {
-        const tokenData = await response.json();
-        setTokenInfo({
-          name: tokenData.name || 'Unknown Token',
-          symbol: tokenData.symbol || 'TOKEN'
-        });
-      } else {
-        setTokenInfo({
-          name: 'Custom Token',
-          symbol: 'TOKEN'
-        });
-      }
+      const tokenInfo = await tokenService.getTokenInfo(tokenAddress);
+      setTokenInfo({
+        name: tokenInfo.name,
+        symbol: tokenInfo.symbol,
+        logoUrl: tokenInfo.logoURI
+      });
     } catch (error) {
       console.error('Failed to fetch token info:', error);
       setTokenInfo({
@@ -512,7 +507,8 @@ export function PaymentMethodSelector({
     const merchantTokenAddress = firstRecommendedCA.address;
     const merchantTokenInfo = {
       name: firstRecommendedCA.name,
-      symbol: firstRecommendedCA.symbol
+      symbol: firstRecommendedCA.symbol,
+      logoUrl: firstRecommendedCA.logoUrl
     };
     
     setCustomTokenAddress(merchantTokenAddress);
@@ -619,153 +615,153 @@ export function PaymentMethodSelector({
 
   // Render default token selection buttons
   const renderDefaultTokenButtons = () => {
-  return (
-    selectedMethod?.type === 'default' && (
-      <div className="space-y-3 mt-4 pt-4">
-        <div className="flex justify-end">
-          <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700 gap-1">
-            {/* USDC - Show conversion quote if base currency is SOL */}
-            <button
-              type="button"
-              onClick={async () => {
-                setDefaultToken('usdc');
-                onMethodChange({ type: 'default', defaultToken: 'usdc' });
-                await fetchDefaultTokenQuote('usdc');
-              }}
-              className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
-                selectedMethod?.defaultToken === 'usdc'
-                  ? 'bg-secondary text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <TokenIcon symbol="USDC" />
-              USDC
-            </button>
+    return (
+      selectedMethod?.type === 'default' && (
+        <div className="space-y-4 mt-4 pt-4">
+          <div className="flex justify-center">
+            <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700 gap-1">
+              {/* USDC - Show conversion quote if base currency is SOL */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setDefaultToken('usdc');
+                  onMethodChange({ type: 'default', defaultToken: 'usdc' });
+                  await fetchDefaultTokenQuote('usdc');
+                }}
+                className={`px-4 py-2 rounded-full transition-colors text-sm flex items-center gap-2 ${
+                  selectedMethod?.defaultToken === 'usdc'
+                    ? 'bg-secondary text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <TokenIcon symbol="USDC" size="sm" />
+                USDC
+              </button>
 
-            {/* SOL - Show conversion quote if base currency is USDC */}
-            <button
-              type="button"
-              onClick={async () => {
-                setDefaultToken('sol');
-                onMethodChange({ type: 'default', defaultToken: 'sol' });
-                await fetchDefaultTokenQuote('sol');
-              }}
-              className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
-                selectedMethod?.defaultToken === 'sol'
-                  ? 'bg-secondary text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <TokenIcon symbol="SOL" />
-              SOL
-            </button>
+              {/* SOL - Show conversion quote if base currency is USDC */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setDefaultToken('sol');
+                  onMethodChange({ type: 'default', defaultToken: 'sol' });
+                  await fetchDefaultTokenQuote('sol');
+                }}
+                className={`px-4 py-2 rounded-full transition-colors text-sm flex items-center gap-2 ${
+                  selectedMethod?.defaultToken === 'sol'
+                    ? 'bg-secondary text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <TokenIcon symbol="SOL" size="sm" />
+                SOL
+              </button>
 
-            {/* MERCHANT - Only show if we have a recommended CA */}
-            {hasMerchantToken && !loadingRecommendedCAs && (
-            <button
-              type="button"
-              onClick={async () => {
-                await fetchDefaultTokenQuote('merchant');
-                handleMerchantTokenSelect();
-              }}
-              className={`px-3 py-1 rounded-full transition-colors text-xs flex items-center gap-1 ${
-                selectedMethod?.defaultToken === 'merchant'
-                  ? 'bg-secondary text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <TokenIcon symbol={firstRecommendedCA.symbol} />
-              {firstRecommendedCA.symbol}
-            </button>
-            )}
+              {/* MERCHANT - Only show if we have a recommended CA */}
+              {hasMerchantToken && !loadingRecommendedCAs && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await fetchDefaultTokenQuote('merchant');
+                    handleMerchantTokenSelect();
+                  }}
+                  className={`px-4 py-2 rounded-full transition-colors text-sm flex items-center gap-2 ${
+                    selectedMethod?.defaultToken === 'merchant'
+                      ? 'bg-secondary text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <TokenIcon symbol={firstRecommendedCA.symbol} size="sm" />
+                  {firstRecommendedCA.symbol}
+                </button>
+              )}
 
-            {/* Loading state for recommended CAs */}
-            {loadingRecommendedCAs && recommendedCAs && recommendedCAs.length > 0 && (
-              <div className="px-3 py-1 rounded-full bg-gray-700 flex items-center gap-1">
-                <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
-                <span className="text-xs text-gray-400">Loading...</span>
-              </div>
-            )}
+              {/* Loading state for recommended CAs */}
+              {loadingRecommendedCAs && recommendedCAs && recommendedCAs.length > 0 && (
+                <div className="px-4 py-2 rounded-full bg-gray-700 flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b border-secondary"></div>
+                  <span className="text-sm text-gray-400">Loading...</span>
+                </div>
+              )}
+            </div>
           </div>
+
+          <p className="text-xs text-gray-400 text-center">
+            {selectedMethod?.defaultToken === 'usdc'
+              ? currency === 'usdc' ? 'Pay with USDC (no swap)' : 'Pay with USDC (converted from SOL)'
+              : selectedMethod?.defaultToken === 'sol'
+              ? currency === 'sol' ? 'Pay with SOL (no swap)' : 'Pay with SOL (converted from USDC)'
+              : hasMerchantToken && firstRecommendedCA
+              ? `Pay with ${firstRecommendedCA.symbol} token (no swap)`
+              : 'Pay with selected token (no swap)'}
+          </p>
+
+          {/* Default Token Price Quote Display */}
+          {defaultTokenQuote && selectedMethod?.defaultToken !== currency && (
+            <div className="bg-gray-700/50 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowPriceDetails(!showPriceDetails)}
+                className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <h5 className="text-sm font-medium text-gray-300">
+                    Conversion Quote ({currency.toUpperCase()} → {selectedMethod?.defaultToken?.toUpperCase()})
+                  </h5>
+                  {defaultTokenQuote.loading && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b border-secondary"></div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {!defaultTokenQuote.loading && !defaultTokenQuote.error && (
+                    <span className="text-sm font-medium text-white flex items-center gap-2">
+                      {defaultTokenQuote.tokenAmount} 
+                      <TokenIcon symbol={defaultTokenQuote.tokenSymbol} size="sm" />
+                      {defaultTokenQuote.tokenSymbol}
+                    </span>
+                  )}
+                  <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
+                </div>
+              </button>
+              
+              {showPriceDetails && (
+                <div className="px-3 pb-3 space-y-2 border-t border-gray-600/50">
+                  {defaultTokenQuote.loading ? (
+                    <div className="flex items-center gap-2 py-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                      <span className="text-sm text-gray-400">Fetching {defaultTokenQuote.tokenSymbol} price...</span>
+                    </div>
+                  ) : defaultTokenQuote.error ? (
+                    <div className="text-sm text-red-400 py-2">{defaultTokenQuote.error}</div>
+                  ) : (
+                    <div className="space-y-2 pt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">You'll pay:</span>
+                        <span className="text-sm font-medium text-white flex items-center gap-2">
+                          {defaultTokenQuote.tokenAmount} 
+                          <TokenIcon symbol={defaultTokenQuote.tokenSymbol} size="sm" />
+                          {defaultTokenQuote.tokenSymbol}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">USD Value:</span>
+                        <span className="text-sm text-gray-300">${defaultTokenQuote.usdValue}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400">Current Rate:</span>
+                        <span className="text-xs text-gray-400">
+                          1 {defaultTokenQuote.tokenSymbol} = ${defaultTokenQuote.exchangeRate}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-
-        <p className="text-[10px] text-gray-400 text-right">
-          {selectedMethod?.defaultToken === 'usdc'
-            ? currency === 'usdc' ? 'Pay with USDC (no swap)' : 'Pay with USDC (converted from SOL)'
-            : selectedMethod?.defaultToken === 'sol'
-            ? currency === 'sol' ? 'Pay with SOL (no swap)' : 'Pay with SOL (converted from USDC)'
-            : hasMerchantToken && firstRecommendedCA
-            ? `Pay with ${firstRecommendedCA.symbol} token (no swap)`
-            : 'Pay with selected token (no swap)'}
-        </p>
-
-        {/* Default Token Price Quote Display */}
-        {defaultTokenQuote && selectedMethod?.defaultToken !== currency && (
-          <div className="bg-gray-700/50 rounded-lg overflow-hidden mt-3">
-            <button
-              type="button"
-              onClick={() => setShowPriceDetails(!showPriceDetails)}
-              className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <h5 className="text-xs font-medium text-gray-300">
-                  Conversion Quote ({currency.toUpperCase()} → {selectedMethod?.defaultToken?.toUpperCase()})
-                </h5>
-                {defaultTokenQuote.loading && (
-                  <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {!defaultTokenQuote.loading && !defaultTokenQuote.error && (
-                  <span className="text-sm font-medium text-white flex items-center gap-1">
-                    {defaultTokenQuote.tokenAmount} 
-                    <TokenIcon symbol={defaultTokenQuote.tokenSymbol} size="sm" />
-                    {defaultTokenQuote.tokenSymbol}
-                  </span>
-                )}
-                <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
-              </div>
-            </button>
-            
-            {showPriceDetails && (
-              <div className="px-3 pb-3 space-y-2 border-t border-gray-600/50">
-                {defaultTokenQuote.loading ? (
-                  <div className="flex items-center gap-2 py-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                    <span className="text-sm text-gray-400">Fetching {defaultTokenQuote.tokenSymbol} price...</span>
-                  </div>
-                ) : defaultTokenQuote.error ? (
-                  <div className="text-sm text-red-400 py-2">{defaultTokenQuote.error}</div>
-                ) : (
-                  <div className="space-y-1 pt-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-400">You'll pay:</span>
-                      <span className="text-sm font-medium text-white flex items-center gap-1">
-                        {defaultTokenQuote.tokenAmount} 
-                        <TokenIcon symbol={defaultTokenQuote.tokenSymbol} size="sm" />
-                        {defaultTokenQuote.tokenSymbol}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-400">USD Value:</span>
-                      <span className="text-sm text-gray-300">${defaultTokenQuote.usdValue}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-400">Current Rate:</span>
-                      <span className="text-xs text-gray-400">
-                        1 {defaultTokenQuote.tokenSymbol} = ${defaultTokenQuote.exchangeRate}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    )
-  );
-};
+      )
+    );
+  };
 
   return (
     <div className="space-y-4 border-t border-gray-800 mt-4 pt-4">
@@ -858,33 +854,33 @@ export function PaymentMethodSelector({
             <h4 className="text-sm font-medium text-white">Select SPL Token</h4>
           </div>
           
-        {/* Token Selection Grid */}
+          {/* Token Selection Grid */}
           <div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {POPULAR_TOKENS.slice(0, 3).map((token) => (
                 <button
                   key={token.address}
                   type="button"
                   onClick={() => handlePopularTokenSelect(token)}
-                  className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
                     selectedMethod.tokenAddress === token.address
                       ? 'border-secondary bg-secondary/10'
                       : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
                   }`}
                 >
-                  <TokenIcon symbol={token.symbol} />
-                  <div className="text-left">
-                    <div className="text-sm font-medium text-white">{token.symbol}</div>
-                    <div className="text-xs text-gray-400">{token.name}</div>
+                  <TokenIcon symbol={token.symbol} size="sm" />
+                  <div className="text-left flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white truncate">{token.symbol}</div>
+                    <div className="text-xs text-gray-400 truncate">{token.name}</div>
                   </div>
                 </button>
               ))}
               
-              {/* Others Button */}
+              {/* Custom Token Button */}
               <button
                 type="button"
                 onClick={() => setShowCustomTokenInput(!showCustomTokenInput)}
-                className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
+                className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
                   showCustomTokenInput
                     ? 'border-secondary bg-secondary/10'
                     : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
@@ -893,24 +889,30 @@ export function PaymentMethodSelector({
                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center">
                   <span className="text-xs font-bold text-white">+</span>
                 </div>
-                <div className="text-left">
-                  <div className="text-sm font-medium text-white">Others</div>
-                  <div className="text-xs text-gray-400">Custom token</div>
+                <div className="text-left flex-1 min-w-0">
+                  <div className="text-sm font-medium text-white">Custom</div>
+                  <div className="text-xs text-gray-400">Enter token address</div>
                 </div>
               </button>
             </div>
           </div>
 
-          {/* Custom Token Input - Show when "Others" is clicked OR when merchant token is auto-selected */}
+          {/* Custom Token Input */}
           {(showCustomTokenInput || (firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol)) && (
-            <div className="space-y-2">
+            <div className="space-y-3 p-3 bg-gray-700/30 rounded-lg border border-gray-600">
               <label className="block text-xs font-medium text-gray-300">
-                {firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol ? `${firstRecommendedCA.name} Selected` : 'Enter Custom Token'}
+                {firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol 
+                  ? `${firstRecommendedCA.name} Selected` 
+                  : 'Enter Custom Token Address'
+                }
               </label>
               <div className="relative">
                 <input
                   type="text"
-                  placeholder={firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol ? `${firstRecommendedCA.name} token address` : 'Paste token contract address'}
+                  placeholder={firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol 
+                    ? `${firstRecommendedCA.name} token address` 
+                    : 'Paste token contract address'
+                  }
                   value={customTokenAddress}
                   onChange={(e) => setCustomTokenAddress(e.target.value)}
                   readOnly={!!(firstRecommendedCA && selectedMethod.tokenSymbol === firstRecommendedCA.symbol)}
@@ -936,9 +938,12 @@ export function PaymentMethodSelector({
               )}
               
               {tokenInfo && customTokenAddress && !loadingTokenInfo && (
-                <div className="bg-gray-700/50 rounded-md p-2">
-                  <div className="text-sm text-white font-medium">{tokenInfo.name}</div>
-                  <div className="text-xs text-gray-400">{tokenInfo.symbol}</div>
+                <div className="bg-gray-700/50 rounded-md p-3 flex items-center gap-3">
+                  <TokenIcon symbol={tokenInfo.symbol} size="sm" logoUrl={tokenInfo.logoUrl} />
+                  <div>
+                    <div className="text-sm text-white font-medium">{tokenInfo.name}</div>
+                    <div className="text-xs text-gray-400">{tokenInfo.symbol}</div>
+                  </div>
                 </div>
               )}
               
@@ -984,8 +989,10 @@ export function PaymentMethodSelector({
                 </div>
                 <div className="flex items-center gap-2">
                   {!priceQuote.loading && !priceQuote.error && (
-                    <span className="text-sm font-medium text-white">
-                      {priceQuote.tokenAmount} {tokenInfo?.symbol || priceQuote.tokenSymbol}
+                    <span className="text-sm font-medium text-white flex items-center gap-1">
+                      {priceQuote.tokenAmount} 
+                      <TokenIcon symbol={tokenInfo?.symbol || priceQuote.tokenSymbol} size="sm" logoUrl={tokenInfo?.logoUrl} />
+                      {tokenInfo?.symbol || priceQuote.tokenSymbol}
                     </span>
                   )}
                   <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
@@ -1005,8 +1012,10 @@ export function PaymentMethodSelector({
                     <div className="space-y-1 pt-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">You'll pay:</span>
-                        <span className="text-sm font-medium text-white">
-                          {priceQuote.tokenAmount} {tokenInfo?.symbol || priceQuote.tokenSymbol}
+                        <span className="text-sm font-medium text-white flex items-center gap-1">
+                          {priceQuote.tokenAmount} 
+                          <TokenIcon symbol={tokenInfo?.symbol || priceQuote.tokenSymbol} size="sm" logoUrl={tokenInfo?.logoUrl} />
+                          {tokenInfo?.symbol || priceQuote.tokenSymbol}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
