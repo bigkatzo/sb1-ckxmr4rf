@@ -1,16 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ImageIcon, Ban, Pin } from 'lucide-react';
+import { Card } from '../ui/Card';
+import { OptimizedImage } from '../ui/OptimizedImage';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
-
-import { OptimizedImage } from '../ui/OptimizedImage';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
-import { Card } from '../ui/Card';
-import type { Product } from '../../types/variants';
-import { formatPrice, formatPriceWithIcon } from '../../utils/formatters';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useSolanaPrice } from '../../utils/price-conversion';
-import { TokenIcon } from '../ui/TokenIcon';
+import { formatPrice, formatPriceWithIcon } from '../../utils/formatters';
+import type { Product } from '../../types/variants';
 
 interface ProductCardProps {
   product: Product;
@@ -178,8 +176,7 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
       <div className="px-2.5 py-2">
         <h3 className="font-medium text-sm text-white line-clamp-1 group-hover:text-secondary transition-colors">{product.name}</h3>
         <div className="mt-1.5 flex items-center justify-between">
-          <span className="text-sm font-semibold text-white flex items-center gap-1">
-            {priceInfo && <TokenIcon symbol={priceInfo.symbol} size="sm" />}
+          <span className="text-sm font-semibold text-white">
             {displayPrice}
             {/* {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL */}
           </span>

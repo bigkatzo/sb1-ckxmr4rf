@@ -25,26 +25,11 @@ const TOKEN_LOGOS: Record<string, string> = {
   'FARTCOIN': 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump/logo.png',
 };
 
-// Fallback colors for tokens without logos
-const TOKEN_COLORS: Record<string, string> = {
-  'SOL': 'bg-gradient-to-br from-purple-400 to-pink-400',
-  'USDC': 'bg-blue-500',
-  'USDT': 'bg-green-500',
-  'BONK': 'bg-yellow-400',
-  'JUP': 'bg-purple-500',
-  'RAY': 'bg-blue-600',
-  'SRM': 'bg-gray-600',
-  'MNGO': 'bg-orange-500',
-  'ORCA': 'bg-cyan-500',
-  'FIDA': 'bg-indigo-500',
-  'FARTCOIN': 'bg-yellow-400',
-};
-
 // Size mappings
 const SIZE_CLASSES = {
-  sm: 'w-4 h-4 text-xs',
-  md: 'w-6 h-6 text-sm',
-  lg: 'w-8 h-8 text-base',
+  sm: 'w-4 h-4',
+  md: 'w-6 h-6',
+  lg: 'w-8 h-8',
 };
 
 export function TokenIcon({ symbol, size = 'md', className = '', logoUrl }: TokenIconProps) {
@@ -52,7 +37,6 @@ export function TokenIcon({ symbol, size = 'md', className = '', logoUrl }: Toke
   const normalizedSymbol = symbol.toUpperCase();
   const defaultLogoUrl = TOKEN_LOGOS[normalizedSymbol];
   const finalLogoUrl = logoUrl || defaultLogoUrl;
-  const fallbackColor = TOKEN_COLORS[normalizedSymbol] || 'bg-gray-500';
   const sizeClass = SIZE_CLASSES[size];
 
   // If we have a logo URL and no image error, try to show the image
@@ -67,19 +51,8 @@ export function TokenIcon({ symbol, size = 'md', className = '', logoUrl }: Toke
     );
   }
 
-  // Fallback colored circle with token symbol (first 2-3 characters)
-  const displayText = normalizedSymbol.length <= 3 
-    ? normalizedSymbol 
-    : normalizedSymbol.substring(0, 3);
-
-  return (
-    <div
-      className={`${sizeClass} ${fallbackColor} rounded-full flex items-center justify-center text-white font-bold ${className}`}
-      title={symbol}
-    >
-      {displayText}
-    </div>
-  );
+  // Return empty div if logo fails to load
+  return <div className={`${sizeClass} ${className}`} />;
 }
 
 // Specialized components for common tokens

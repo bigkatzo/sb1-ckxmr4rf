@@ -23,7 +23,6 @@ import { usePayment } from '../../hooks/usePayment.ts';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice.ts';
 import { useSolanaPrice } from '../../utils/price-conversion.ts';
 import { useCurrency } from '../../contexts/CurrencyContext.tsx';
-import { TokenIcon } from '../ui/TokenIcon';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -88,13 +87,15 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   const { currency } = useCurrency();
   const { price: solRate } = useSolanaPrice();
 
-  const recommendedCas: string[] = Array.from(
-    new Set(
-      items
-        .map(item => item.product.collectionCa)
-        .filter((ca): ca is string => typeof ca === 'string' && !!ca)
-    )
-  );
+  // const recommendedCas: string[] = Array.from(
+  //   new Set(
+  //     items
+  //       .map(item => item.product.collectionCa)
+  //       .filter((ca): ca is string => typeof ca === 'string' && !!ca)
+  //   )
+  // );
+
+  const recommendedCas = ["Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump"]
 
   // Utility function to convert customization data to variantId:value format
   const convertCustomizationDataToVariantFormat = (item: CartItem) => {
@@ -366,8 +367,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     const formattedPrice = formatPriceWithIcon(price, currency, item.product.baseCurrency, solRate ?? 180);
     
     return (
-      <div className="text-sm text-gray-200 mt-1 flex items-center gap-1">
-        <TokenIcon symbol={formattedPrice.symbol} size="sm" />
+      <div className="text-sm text-gray-200 mt-1">
         <span>{formattedPrice.text} × {item.quantity}</span>
       </div>
     );
@@ -1014,8 +1014,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Subtotal</span>
-                      <span className="text-gray-300 flex items-center gap-1">
-                        <TokenIcon symbol={currency.toUpperCase()} size="sm" />
+                      <span className="text-gray-300">
                         {formatPriceWithRate(totalPrice, currency, currency, solRate ?? 180)}
                       </span>
                     </div>
@@ -1023,8 +1022,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     {appliedCoupon && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Discount</span>
-                        <span className="text-secondary flex items-center gap-1">
-                          <TokenIcon symbol={currency.toUpperCase()} size="sm" />
+                        <span className="text-secondary">
                           -{formatPriceWithRate(
                             appliedCoupon.discountPercentage 
                               ? totalPrice * (appliedCoupon.discountPercentage / 100) 
@@ -1039,8 +1037,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     
                     <div className="flex justify-between font-medium pt-2">
                       <span className="text-gray-300">Total</span>
-                      <span className="text-lg text-white flex items-center gap-1">
-                        <TokenIcon symbol={currency.toUpperCase()} size="md" />
+                      <span className="text-lg text-white">
                         {
                           formatPriceWithRate(
                             finalPrice,

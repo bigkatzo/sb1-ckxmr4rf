@@ -1,17 +1,14 @@
-import { useState } from 'react';
-import { X, Trash2, Plus, Minus, ChevronRight, ShoppingCart, Wallet } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Minus, Wallet, ChevronRight, ShoppingCart, Trash2 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { OptimizedImage } from '../ui/OptimizedImage';
-import { toast } from 'react-toastify';
-// @ts-ignore - These modules exist but TypeScript can't find them
-import { formatPrice, formatPriceWithRate } from '../../utils/formatters';
-// @ts-ignore
-import { MultiItemCheckoutModal } from './MultiItemCheckoutModal';
+import { formatPriceWithRate } from '../../utils/formatters';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useSolanaPrice } from '../../utils/price-conversion';
-import { TokenIcon } from '../ui/TokenIcon';
+import { MultiItemCheckoutModal } from './MultiItemCheckoutModal';
+import { OptimizedImage } from '../ui/OptimizedImage';
+import { toast } from 'react-toastify';
 
 export function CartDrawer() {
   const { 
@@ -229,8 +226,7 @@ export function CartDrawer() {
                             </button>
                           </div>
                           
-                          <div className="text-white flex items-center gap-1">
-                            <TokenIcon symbol={currency.toUpperCase()} size="sm" />
+                          <div className="text-white">
                             {formatPriceWithRate(
                               (item.priceInfo?.modifiedPrice || item.product.price) * item.quantity, currency, item.product.baseCurrency, solRate ?? 180
                             )}
@@ -247,8 +243,7 @@ export function CartDrawer() {
               <div className="p-4 border-t border-gray-800">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-gray-300">Total</span>
-                  <span className="text-xl font-medium text-white flex items-center gap-1">
-                    <TokenIcon symbol={currency.toUpperCase()} size="md" />
+                  <span className="text-xl font-medium text-white">
                     {formatPriceWithRate(totalPrice, currency, currency, solRate ?? 180)}
                   </span>
                 </div>

@@ -624,10 +624,10 @@ export function PaymentMethodSelector({
   const renderDefaultTokenButtons = () => {
     return (
       selectedMethod?.type === 'default' && (
-        <div className="space-y-4 mt-4 pt-4">
-          <div className="flex justify-center">
+        <div className="mt-4 pt-4">
+          <div className="flex justify-end">
             <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700 gap-1">
-              {/* USDC - Show conversion quote if base currency is SOL */}
+              {/* USDC */}
               <button
                 type="button"
                 onClick={async () => {
@@ -635,7 +635,7 @@ export function PaymentMethodSelector({
                   onMethodChange({ type: 'default', defaultToken: 'usdc' });
                   await fetchDefaultTokenQuote('usdc');
                 }}
-                className={`px-4 py-2 rounded-full transition-colors text-sm flex items-center gap-2 ${
+                className={`px-3 py-1.5 rounded-full transition-colors text-xs flex items-center gap-1.5 ${
                   selectedMethod?.defaultToken === 'usdc'
                     ? 'bg-secondary text-white'
                     : 'text-gray-400 hover:text-white'
@@ -645,7 +645,7 @@ export function PaymentMethodSelector({
                 USDC
               </button>
 
-              {/* SOL - Show conversion quote if base currency is USDC */}
+              {/* SOL */}
               <button
                 type="button"
                 onClick={async () => {
@@ -653,7 +653,7 @@ export function PaymentMethodSelector({
                   onMethodChange({ type: 'default', defaultToken: 'sol' });
                   await fetchDefaultTokenQuote('sol');
                 }}
-                className={`px-4 py-2 rounded-full transition-colors text-sm flex items-center gap-2 ${
+                className={`px-3 py-1.5 rounded-full transition-colors text-xs flex items-center gap-1.5 ${
                   selectedMethod?.defaultToken === 'sol'
                     ? 'bg-secondary text-white'
                     : 'text-gray-400 hover:text-white'
@@ -671,7 +671,7 @@ export function PaymentMethodSelector({
                     await fetchDefaultTokenQuote('merchant');
                     handleMerchantTokenSelect();
                   }}
-                  className={`px-4 py-2 rounded-full transition-colors text-sm flex items-center gap-2 ${
+                  className={`px-3 py-1.5 rounded-full transition-colors text-xs flex items-center gap-1.5 ${
                     selectedMethod?.defaultToken === 'merchant'
                       ? 'bg-secondary text-white'
                       : 'text-gray-400 hover:text-white'
@@ -684,27 +684,17 @@ export function PaymentMethodSelector({
 
               {/* Loading state for recommended CAs */}
               {loadingRecommendedCAs && recommendedCAs && recommendedCAs.length > 0 && (
-                <div className="px-4 py-2 rounded-full bg-gray-700 flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b border-secondary"></div>
-                  <span className="text-sm text-gray-400">Loading...</span>
+                <div className="px-3 py-1.5 rounded-full bg-gray-700 flex items-center gap-1.5">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b border-secondary"></div>
+                  <span className="text-xs text-gray-400">Loading...</span>
                 </div>
               )}
             </div>
           </div>
 
-          <p className="text-xs text-gray-400 text-center">
-            {selectedMethod?.defaultToken === 'usdc'
-              ? currency === 'usdc' ? 'Pay with USDC (no swap)' : 'Pay with USDC (converted from SOL)'
-              : selectedMethod?.defaultToken === 'sol'
-              ? currency === 'sol' ? 'Pay with SOL (no swap)' : 'Pay with SOL (converted from USDC)'
-              : hasMerchantToken && firstRecommendedCA
-              ? `Pay with ${firstRecommendedCA.symbol} token (no swap)`
-              : 'Pay with selected token (no swap)'}
-          </p>
-
           {/* Default Token Price Quote Display */}
           {defaultTokenQuote && selectedMethod?.defaultToken !== currency && (
-            <div className="bg-gray-700/50 rounded-lg overflow-hidden">
+            <div className="mt-3 bg-gray-700/50 rounded-lg overflow-hidden">
               <button
                 type="button"
                 onClick={() => setShowPriceDetails(!showPriceDetails)}
@@ -823,18 +813,8 @@ export function PaymentMethodSelector({
 
       {/* Default Payment Method Selection */}
       {selectedMethod?.type === 'default' && (
-        <div className="bg-gray-800/50 rounded-lg p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-white">Select Default Token</h4>
-          </div>
-          
+        <div className="bg-gray-800/50 rounded-lg p-4">
           {renderDefaultTokenButtons()}
-          
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
-            <p className="text-xs text-blue-400">
-              Quick payment options.{hasMerchantToken && firstRecommendedCA ? ` Selecting ${firstRecommendedCA.symbol} will open up the recommended token by merchant.` : ''}
-            </p>
-          </div>
         </div>
       )}
 
@@ -962,7 +942,7 @@ export function PaymentMethodSelector({
                   {loadingTokenInfo ? 'Loading...' : 'Use This Token'}
                 </Button>
                 
-                <Button
+                {/* <Button
                   type="button"
                   onClick={() => fetchPriceQuote(customTokenAddress)}
                   variant="ghost"
@@ -971,7 +951,7 @@ export function PaymentMethodSelector({
                   className="flex-1"
                 >
                   {priceQuote?.loading ? 'Getting Quote...' : 'Get Price Quote'}
-                </Button>
+                </Button> */}
               </div>
             </div>
           )}
