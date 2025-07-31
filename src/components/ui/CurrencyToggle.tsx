@@ -1,6 +1,5 @@
 import { useCurrency, Currency } from '../../contexts/CurrencyContext';
 import { Toggle } from './Toggle';
-import { TokenIcon } from './TokenIcon';
 
 const currencies: { value: Currency; label: string; symbol: string }[] = [
   { value: 'SOL', label: 'SOL', symbol: 'SOL' },
@@ -25,7 +24,6 @@ export function CurrencyToggle() {
       {/* Currency labels */}
       <div className="flex items-center gap-2">
         <div className={`flex items-center gap-1 ${!isSolSelected ? 'text-text' : 'text-text-muted'}`}>
-          <TokenIcon symbol="USDC" size="sm" />
           <span className="text-xs font-medium">USDC</span>
         </div>
         
@@ -38,7 +36,6 @@ export function CurrencyToggle() {
         />
         
         <div className={`flex items-center gap-1 ${isSolSelected ? 'text-text' : 'text-text-muted'}`}>
-          <TokenIcon symbol="SOL" size="sm" />
           <span className="text-xs font-medium">SOL</span>
         </div>
       </div>

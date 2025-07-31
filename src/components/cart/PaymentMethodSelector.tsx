@@ -3,7 +3,6 @@ import { Coins, CreditCard, Wallet, Link, Search, Copy, Check, AlertTriangle, Ch
 // Import from App.tsx temporarily - you should move these to proper UI components
 import { Button } from '../ui/Button';
 import { toast } from 'react-toastify';
-import { TokenIcon } from '../ui/TokenIcon';
 import { tokenService } from '../../services/tokenService';
 
 export interface PaymentMethod {
@@ -675,7 +674,6 @@ export function PaymentMethodSelector({
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
-                <TokenIcon symbol="USDC" size="sm" />
                 USDC
               </button>
 
@@ -693,7 +691,6 @@ export function PaymentMethodSelector({
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
-                <TokenIcon symbol="SOL" size="sm" />
                 SOL
               </button>
 
@@ -711,7 +708,6 @@ export function PaymentMethodSelector({
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  <TokenIcon symbol={firstRecommendedCA.symbol} size="sm" />
                   {firstRecommendedCA.symbol}
                 </button>
               )}
@@ -888,7 +884,9 @@ export function PaymentMethodSelector({
                         : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
                     }`}
                   >
-                    <TokenIcon symbol={token.symbol} size="sm" />
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center">
+                      <span className="text-xs font-bold text-white">{token.symbol.charAt(0)}</span>
+                    </div>
                     <div className="text-left flex-1 min-w-0">
                       <div className="text-sm font-medium text-white truncate">{token.symbol}</div>
                       <div className="text-xs text-gray-400 truncate">{token.name}</div>
@@ -922,7 +920,6 @@ export function PaymentMethodSelector({
           {hasStrictTokenRestriction && firstRecommendedCA && (
             <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
               <div className="flex items-center gap-3 mb-3">
-                <TokenIcon symbol={firstRecommendedCA.symbol} size="sm" logoUrl={firstRecommendedCA.logoUrl} />
                 <div>
                   <div className="text-sm font-medium text-white">{firstRecommendedCA.name}</div>
                   <div className="text-xs text-gray-400">{firstRecommendedCA.symbol} selected</div>
@@ -1031,7 +1028,6 @@ export function PaymentMethodSelector({
               
               {tokenInfo && customTokenAddress && !loadingTokenInfo && (
                 <div className="bg-gray-700/50 rounded-md p-3 flex items-center gap-3">
-                  <TokenIcon symbol={tokenInfo.symbol} size="sm" logoUrl={tokenInfo.logoUrl} />
                   <div>
                     <div className="text-sm text-white font-medium">{tokenInfo.name}</div>
                     <div className="text-xs text-gray-400">{tokenInfo.symbol}</div>
