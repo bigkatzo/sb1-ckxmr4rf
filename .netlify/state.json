@@ -1,3 +1,21 @@
 {
-	"siteId": "d59a3fdf-63d7-457d-a899-84eb46321e20"
+	"siteId": "d59a3fdf-63d7-457d-a899-84eb46321e20",
+	"promptVSCodeSettings": true,
+	"geolocation": {
+		"data": {
+			"city": "Lagos",
+			"country": {
+				"code": "NG",
+				"name": "Nigeria"
+			},
+			"subdivision": {
+				"code": "LA",
+				"name": "Lagos"
+			},
+			"timezone": "Africa/Lagos",
+			"latitude": 6.4474,
+			"longitude": 3.3903
+		},
+		"timestamp": 1752991939506
+	}
 }

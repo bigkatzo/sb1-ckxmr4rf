@@ -22,6 +22,15 @@ export function transformProduct(product: any, collectionData: any): Product | n
     return null;
   }
 
+  // Debug: Log collection data to see what's available
+  console.log('transformProduct - collectionData:', {
+    id: collectionData.id,
+    name: collectionData.name,
+    strict_token: collectionData.strict_token,
+    strict_token_type: typeof collectionData.strict_token,
+    ca: collectionData.ca
+  });
+
   return {
     id: product.id,
     sku: product.sku || '',
@@ -36,6 +45,8 @@ export function transformProduct(product: any, collectionData: any): Product | n
     collectionId: collectionData.id,
     collectionName: collectionData.name || '',
     collectionSlug: collectionData.slug,
+    collectionCa: collectionData.ca || '',
+    collectionStrictToken: collectionData.strict_token || '',
     slug: product.slug,
     stock: product.quantity,
     minimumOrderQuantity: product.minimum_order_quantity || 50,
@@ -59,6 +70,15 @@ export function transformCollection(data: Partial<DatabaseCollection>): Collecti
     console.warn('Invalid collection data:', data);
     return null;
   }
+
+  // Debug: Log the raw collection data to see what's coming from the database
+  console.log('transformCollection - raw data:', {
+    id: data.id,
+    name: data.name,
+    strict_token: data.strict_token,
+    strict_token_type: typeof data.strict_token,
+    ca: data.ca
+  });
 
   const categories = (Array.isArray(data.categories) ? data.categories : [])
     .map(transformCategory)
@@ -110,6 +130,8 @@ export function transformCollection(data: Partial<DatabaseCollection>): Collecti
     x_url: data.x_url || '',
     telegram_url: data.telegram_url || '',
     dexscreener_url: data.dexscreener_url || '',
+    ca: data.ca || '',
+    strict_token: data.strict_token || '',
     pumpfun_url: data.pumpfun_url || '',
     website_url: data.website_url || '',
     free_notes: data.free_notes || '',

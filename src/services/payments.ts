@@ -40,8 +40,10 @@ export async function getCollectionWallet(collectionId: string): Promise<string>
       return mainWallet.address;
     }
 
-    if (!data?.wallet?.address) throw new Error('No wallet found for collection');
-    return data.wallet.address;
+    // If wallet is an array, get the first address
+    const walletAddress = Array.isArray(data?.wallet) ? data.wallet[0]?.address : data?.wallet?.address;
+    if (!walletAddress) throw new Error('No wallet found for collection');
+    return walletAddress;
   } catch (error) {
     console.error('Error getting collection wallet:', error);
     throw error;
@@ -51,11 +53,11 @@ export async function getCollectionWallet(collectionId: string): Promise<string>
 export async function createSolanaPayment(
   amount: number,
   buyerAddress: string,
-  collectionId: string
+  merchantWalletAddress: string
 ): Promise<Transaction> {
   try {
     // Get the appropriate merchant wallet for this collection
-    const merchantWalletAddress = await getCollectionWallet(collectionId);
+    // const merchantWalletAddress = await getCollectionWallet(collectionId);
     
     if (!merchantWalletAddress || !buyerAddress) {
       throw new Error('Invalid wallet addresses');

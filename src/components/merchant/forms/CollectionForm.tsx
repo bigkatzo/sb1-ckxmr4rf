@@ -12,6 +12,7 @@ import { useSiteSettings } from '../../../hooks/useSiteSettings';
 import { cacheManager } from '../../../lib/cache';
 import { useCollectionContext } from '../../../contexts/CollectionContext';
 import { createPortal } from 'react-dom';
+import { tokenService } from '../../../services/tokenService';
 
 export interface CollectionFormProps {
   collection?: Partial<Collection & { tags?: string[]; launch_date?: string }>;
@@ -86,6 +87,14 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const [dexscreenerUrl, setDexscreenerUrl] = useState(collection?.dexscreener_url || '');
   const [pumpfunUrl, setPumpfunUrl] = useState(collection?.pumpfun_url || '');
   const [websiteUrl, setWebsiteUrl] = useState(collection?.website_url || '');
+  const [recommendedToken, setRecommendedToken] = useState(collection?.ca || '');
+  const [strictToken, setStrictToken] = useState(collection?.strict_token || '');
+  const [tokenName, setTokenName] = useState('');
+  const [strictTokenName, setStrictTokenName] = useState('');
+  const [loadingToken, setLoadingToken] = useState(false);
+  const [loadingStrictToken, setLoadingStrictToken] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [strictTokenError, setStrictTokenError] = useState<string | null>(null);
   
   // Initialize launch date with proper error handling
   const [launchDate, setLaunchDate] = useState(() => {
@@ -224,6 +233,66 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
     setShowImageTooltip(false);
   };
 
+  const loadTokenInfo = async () => {
+    if (!recommendedToken.trim()) {
+      setTokenError('Please enter a contract address');
+      return;
+    }
+
+    setLoadingToken(true);
+    setTokenError(null);
+    setTokenName('');
+
+    try {
+      // Use the new token service to extract and validate the contract address
+      const contractAddress = tokenService.extractContractAddress(recommendedToken);
+      
+      if (!tokenService.isValidAddress(contractAddress)) {
+        throw new Error('Invalid contract address format');
+      }
+
+      // Fetch token information using the new service
+      const tokenInfo = await tokenService.getTokenInfo(contractAddress);
+      
+      setTokenName(`${tokenInfo.name} (${tokenInfo.symbol})`);
+    } catch (error) {
+      console.error('Error loading token info:', error);
+      setTokenError('Failed to load token information. Please check the contract address.');
+    } finally {
+      setLoadingToken(false);
+    }
+  };
+
+  const loadStrictTokenInfo = async () => {
+    if (!strictToken.trim()) {
+      setStrictTokenError('Please enter a contract address');
+      return;
+    }
+
+    setLoadingStrictToken(true);
+    setStrictTokenError(null);
+    setStrictTokenName('');
+
+    try {
+      // Use the new token service to extract and validate the contract address
+      const contractAddress = tokenService.extractContractAddress(strictToken);
+      
+      if (!tokenService.isValidAddress(contractAddress)) {
+        throw new Error('Invalid contract address format');
+      }
+
+      // Fetch token information using the new service
+      const tokenInfo = await tokenService.getTokenInfo(contractAddress);
+      
+      setStrictTokenName(`${tokenInfo.name} (${tokenInfo.symbol})`);
+    } catch (error) {
+      console.error('Error loading strict token info:', error);
+      setStrictTokenError('Failed to load token information. Please check the contract address.');
+    } finally {
+      setLoadingStrictToken(false);
+    }
+  };
+
   const saveTheme = async () => {
     try {
       const formData = new FormData();
@@ -287,6 +356,8 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       formData.append('pumpfun_url', pumpfunUrl || '');
       formData.append('website_url', websiteUrl || '');
       formData.append('free_notes', freeNotes || '');
+      formData.append('ca', recommendedToken || '');
+      formData.append('strict_token', strictToken || '');
 
       await onSubmit(formData);
       
@@ -358,6 +429,8 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       formData.append('dexscreener_url', dexscreenerUrl || '');
       formData.append('pumpfun_url', pumpfunUrl || '');
       formData.append('website_url', websiteUrl || '');
+      formData.append('ca', recommendedToken || '');
+      formData.append('strict_token', strictToken || '');
 
       // Add theme data - preserve existing theme data if not changed in theme modal
       if (themeData.theme_use_custom) {
@@ -679,6 +752,100 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                       className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
                       placeholder="https://pump.fun/example"
                     />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="ca" className="block text-xs text-gray-400 mb-1">
+                      Recommended Token
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          id="ca"
+                          name="ca"
+                          value={recommendedToken}
+                          onChange={(e) => {
+                            setRecommendedToken(e.target.value);
+                            setTokenError(null);
+                            setTokenName('');
+                          }}
+                          className="flex-1 rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                          placeholder="Enter contract address or token URL"
+                        />
+                        <button
+                          type="button"
+                          onClick={loadTokenInfo}
+                          disabled={loadingToken || !recommendedToken.trim()}
+                          className="px-4 py-2 bg-primary hover:bg-primary/80 disabled:bg-gray-700 disabled:text-gray-400 text-white rounded-lg transition-colors text-sm font-medium"
+                        >
+                          {loadingToken ? 'Loading...' : 'Load Token'}
+                        </button>
+                      </div>
+                      
+                      {tokenError && (
+                        <div className="text-red-400 text-xs bg-red-900/20 border border-red-500/30 rounded px-2 py-1">
+                          {tokenError}
+                        </div>
+                      )}
+                      
+                      {tokenName && (
+                        <div className="text-green-400 text-xs bg-green-900/20 border border-green-500/30 rounded px-2 py-1">
+                          <span className="font-medium">Token found:</span> {tokenName}
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-gray-500">
+                        Enter a contract address, DexScreener URL, or PumpFun URL to automatically load token information
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="strict_token" className="block text-sm font-semibold text-white mb-2">
+                      Strict Token
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          id="strict_token"
+                          name="strict_token"
+                          value={strictToken}
+                          onChange={(e) => {
+                            setStrictToken(e.target.value);
+                            setStrictTokenError(null);
+                            setStrictTokenName('');
+                          }}
+                          className="flex-1 rounded-lg bg-gray-800 border-gray-700 px-4 py-3 text-base text-white placeholder-gray-400 font-medium"
+                          placeholder="Enter contract address or token URL"
+                        />
+                        <button
+                          type="button"
+                          onClick={loadStrictTokenInfo}
+                          disabled={loadingStrictToken || !strictToken.trim()}
+                          className="px-4 py-3 bg-primary hover:bg-primary/80 disabled:bg-gray-700 disabled:text-gray-400 text-white rounded-lg transition-colors text-base font-medium"
+                        >
+                          {loadingStrictToken ? 'Loading...' : 'Load Token'}
+                        </button>
+                      </div>
+                      
+                      {strictTokenError && (
+                        <div className="text-red-400 text-xs bg-red-900/20 border border-red-500/30 rounded px-2 py-1">
+                          {strictTokenError}
+                        </div>
+                      )}
+                      
+                      {strictTokenName && (
+                        <div className="text-green-400 text-xs bg-green-900/20 border border-green-500/30 rounded px-2 py-1">
+                          <span className="font-medium">Token found:</span> {strictTokenName}
+                        </div>
+                      )}
+                      
+                      <p className="text-sm text-gray-400 font-medium">
+                        Any product under this collection will only allow payments in {strictTokenName || strictToken || "this"} coin
+                      </p>
+                    </div>
                   </div>
                   
                   <div>

@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { X, Trash2, Plus, Minus, ChevronRight, ShoppingCart, Wallet } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Minus, Wallet, ChevronRight, ShoppingCart, Trash2 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { formatPriceWithRate } from '../../utils/formatters';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { useSolanaPrice } from '../../utils/price-conversion';
+import { MultiItemCheckoutModal } from './MultiItemCheckoutModal';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { toast } from 'react-toastify';
-// @ts-ignore - These modules exist but TypeScript can't find them
-import { formatPrice } from '../../utils/formatters';
-// @ts-ignore
-import { MultiItemCheckoutModal } from './MultiItemCheckoutModal';
 
 export function CartDrawer() {
   const { 
@@ -26,7 +26,9 @@ export function CartDrawer() {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   
   // Use the getTotalPrice function from the cart context
-  const totalPrice = getTotalPrice();
+  const { currency } = useCurrency();
+  const { price: solRate } = useSolanaPrice();
+  const totalPrice = getTotalPrice(currency, solRate ?? 180);
 
   const handleCheckout = () => {
     // Check if wallet is connected first
@@ -151,23 +153,11 @@ export function CartDrawer() {
                         {/* Show selected options */}
                         {Object.keys(item.selectedOptions).length > 0 && (
                           <div className="mt-1 text-xs text-gray-400">
-                            {/* Debug output */}
-                            {(() => {
-                              console.log(`Rendering selected options for ${item.product.name}:`, item.selectedOptions);
-                              console.log(`Product variants:`, item.product.variants);
-                              return null;
-                            })()}
-                            
                             {Object.entries(item.selectedOptions).map(([variantId, optionValue]) => {
-                              // Debug output
-                              console.log(`Processing variant ${variantId} with selected value ${optionValue}`);
-                              
                               // Find the variant name
                               const variant = item.product.variants?.find(v => v.id === variantId);
-                              console.log(`Found variant object:`, variant);
                               
                               if (!variant) {
-                                console.warn(`Variant with ID ${variantId} not found in product`, item.product);
                                 return (
                                   <div key={variantId} className="flex">
                                     <span className="font-medium">Option:</span>
@@ -178,10 +168,8 @@ export function CartDrawer() {
                               
                               // Find the option label
                               const option = variant.options?.find(o => o.value === optionValue);
-                              console.log(`Found option object:`, option);
                               
                               if (!option) {
-                                console.warn(`Option with value ${optionValue} not found in variant ${variant.name}`, variant);
                                 return (
                                   <div key={variantId} className="flex">
                                     <span className="font-medium">{variant.name}:</span>
@@ -197,6 +185,24 @@ export function CartDrawer() {
                                 </div>
                               );
                             })}
+                          </div>
+                        )}
+                        
+                        {/* Show customization data */}
+                        {item.customizationData && (
+                          <div className="mt-1 text-xs text-blue-400">
+                            {item.customizationData.text && (
+                              <div className="flex">
+                                <span className="font-medium">Custom Text:</span>
+                                <span className="ml-1 truncate">{item.customizationData.text}</span>
+                              </div>
+                            )}
+                            {item.customizationData.image && (
+                              <div className="flex">
+                                <span className="font-medium">Custom Image:</span>
+                                <span className="ml-1">✓ Added</span>
+                              </div>
+                            )}
                           </div>
                         )}
                         
@@ -221,8 +227,8 @@ export function CartDrawer() {
                           </div>
                           
                           <div className="text-white">
-                            {formatPrice(
-                              (item.priceInfo?.modifiedPrice || item.product.price) * item.quantity
+                            {formatPriceWithRate(
+                              (item.priceInfo?.modifiedPrice || item.product.price) * item.quantity, currency, item.product.baseCurrency, solRate ?? 180
                             )}
                           </div>
                         </div>
@@ -237,7 +243,9 @@ export function CartDrawer() {
               <div className="p-4 border-t border-gray-800">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-gray-300">Total</span>
-                  <span className="text-xl font-medium text-white">{formatPrice(totalPrice)}</span>
+                  <span className="text-xl font-medium text-white">
+                    {formatPriceWithRate(totalPrice, currency, currency, solRate ?? 180)}
+                  </span>
                 </div>
                 
                 <button
@@ -266,6 +274,8 @@ export function CartDrawer() {
       {isCheckoutModalOpen && (
         <MultiItemCheckoutModal
           onClose={() => setIsCheckoutModalOpen(false)}
+          isSingle={false}
+          singleItem={[]}
         />
       )}
     </>

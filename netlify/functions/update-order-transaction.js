@@ -106,9 +106,7 @@ exports.handler = async (event, context) => {
     const {
       orderId: targetOrderId,
       transactionSignature,
-      amountSol,
       batchOrderId: targetBatchOrderId,
-      isFreeOrder = false
     } = requestBody;
 
     // Validate essential parameters
@@ -131,65 +129,19 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Format amount correctly
-    const amountSolFloat = parseFloat(amountSol || 0);
-
     log('info', 'Request params:', {
       orderId: targetOrderId || 'none',
       batchOrderId: targetBatchOrderId || 'none',
       transactionSignature: transactionSignature ? transactionSignature.substring(0, 8) + '...' : 'none',
-      amountSol: amountSolFloat,
-      isFreeOrder
     });
 
     // Determine if we're dealing with a batch order
     let batchOrderId = targetBatchOrderId;
-    
-    // If orderId is provided, check if it's part of a batch
-    if (targetOrderId && !batchOrderId) {
-      log('info', `Checking if order ${targetOrderId} is part of a batch`);
-      
-      try {
-        const { data: orderData, error: orderError } = await supabase
-          .from('orders')
-          .select('id, status, batch_order_id, payment_metadata')
-          .eq('id', targetOrderId)
-          .single();
 
-        if (orderError) {
-          log('error', 'Error fetching order data:', orderError);
-          return {
-            statusCode: 404,
-            headers,
-            body: JSON.stringify({ error: 'Order not found' })
-          };
-        }
-
-        // Check if order is part of a batch
-        if (orderData.batch_order_id) {
-          batchOrderId = orderData.batch_order_id;
-          log('info', `Order ${targetOrderId} is part of batch ${batchOrderId}`);
-        } else if (orderData.payment_metadata?.batchOrderId) {
-          batchOrderId = orderData.payment_metadata.batchOrderId;
-          log('info', `Order ${targetOrderId} has batch ID in metadata: ${batchOrderId}`);
-        }
-      } catch (error) {
-        log('error', 'Exception checking order batch status:', error);
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({ error: 'Failed to check order status' })
-        };
-      }
-    }
-
-    // If we have a batch order ID, process as batch
     if (batchOrderId) {
       return await updateBatchOrderTransaction(
         batchOrderId,
         transactionSignature,
-        amountSolFloat,
-        isFreeOrder,
         headers
       );
     }
@@ -204,8 +156,7 @@ exports.handler = async (event, context) => {
           .from('orders')
           .update({
             transaction_signature: transactionSignature,
-            amount_sol: amountSolFloat,
-            status: isFreeOrder ? 'confirmed' : 'pending_payment',
+            status: 'pending_payment',
             updated_at: new Date().toISOString()
           })
           .eq('id', targetOrderId);
@@ -226,8 +177,6 @@ exports.handler = async (event, context) => {
             p_status: 'pending',
             p_details: {
               orderId: targetOrderId,
-              amountSol: amountSolFloat,
-              isFreeOrder,
               timestamp: new Date().toISOString()
             }
           });
@@ -248,8 +197,6 @@ exports.handler = async (event, context) => {
             data: {
               orderId: targetOrderId,
               transactionSignature,
-              amountSol: amountSolFloat,
-              isFreeOrder
             }
           })
         };
@@ -282,65 +229,25 @@ exports.handler = async (event, context) => {
 /**
  * Helper function to update a batch of orders with transaction signature
  */
-async function updateBatchOrderTransaction(batchOrderId, transactionSignature, amountSolFloat, isFreeOrder, headers) {
+async function updateBatchOrderTransaction(batchOrderId, transactionSignature, headers) {
   log('info', `Processing batch order transaction update for batch: ${batchOrderId}`, {
     transactionSignature: transactionSignature ? `${transactionSignature.substring(0, 8)}...` : 'none',
-    amountSol: amountSolFloat,
-    isFreeOrder
   });
 
   try {
     // Check if any orders in this batch already have the transaction signature
-    const { data: existingTx, error: existingError } = await supabase
-      .from('orders')
-      .select('id, status')
-      .eq('batch_order_id', batchOrderId)
-      .eq('transaction_signature', transactionSignature);
-      
-    if (!existingError && existingTx && existingTx.length > 0) {
-      log('info', `${existingTx.length} orders in batch already have this transaction signature`);
-      
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          success: true, 
-          data: { 
-            batchOrderId,
-            transactionSignature, 
-            amountSol: amountSolFloat,
-            isBatchOrder: true,
-            ordersUpdated: existingTx.length,
-            message: 'Orders already have this transaction signature'
-          } 
-        })
-      };
-    }
-  
-    // Find ALL orders related to this batch
+
     const { data: batchOrders, error: batchError } = await supabase
       .from('orders')
       .select('id, status, order_number, payment_metadata, batch_order_id')
       .eq('batch_order_id', batchOrderId);
 
-    if (batchError) {
+    if (batchError || !batchOrders || batchOrders.length === 0) {
       log('error', 'Error fetching batch orders:', batchError);
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: 'Failed to fetch batch orders' })
-      };
-    }
-
-    if (!batchOrders || batchOrders.length === 0) {
-      log('error', `No orders found for batch: ${batchOrderId}`);
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ 
-          error: 'No orders found for batch',
-          batchOrderId 
-        })
+        body: JSON.stringify({ error: 'Failed to fetch batch orders' })
       };
     }
     
@@ -374,60 +281,20 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
         })
       };
     }
-
-    // Calculate individual order amounts
-    const totalOrders = ordersToUpdate.length;
-    const updateResults = [];
     
-    for (const order of ordersToUpdate) {
-      try {
-        // Calculate amount for this order
-        let orderAmount = amountSolFloat / totalOrders; // Default: equal split
+    // Update the order
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        transaction_signature: transactionSignature,
+        status: 'pending_payment',
+        updated_at: new Date().toISOString()
+      })
+      .eq('batch_order_id', batchOrderId);
         
-        // Try to get variant-specific pricing from metadata
-        const metadata = order.payment_metadata || {};
-        const variantKey = metadata.variantKey;
-        const variantPrices = metadata.variantPrices;
-        
-        if (variantKey && variantPrices && variantPrices[variantKey]) {
-          orderAmount = parseFloat(variantPrices[variantKey]);
-          log('debug', `Using variant price for order ${order.id}: ${orderAmount} SOL`);
-        }
-        
-        // Update the order
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({
-            transaction_signature: transactionSignature,
-            amount_sol: orderAmount,
-            status: isFreeOrder ? 'confirmed' : 'pending_payment',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', order.id);
-          
-        if (updateError) {
-          log('error', `Error updating order ${order.id}:`, updateError);
-          updateResults.push({
-            orderId: order.id,
-            success: false,
-            error: updateError.message
-          });
-        } else {
-          log('info', `Successfully updated order ${order.id} with amount ${orderAmount}`);
-          updateResults.push({
-            orderId: order.id,
-            success: true,
-            amount: orderAmount
-          });
-        }
-      } catch (error) {
-        log('error', `Exception updating order ${order.id}:`, error);
-        updateResults.push({
-          orderId: order.id,
-          success: false,
-          error: error.message
-        });
-      }
+    if (updateError) {
+      log('error', `Error updating order ${order.id}:`, updateError);
+      throw new Error("Unable to update orders to pending!"); 
     }
     
     // Update the transaction log
@@ -438,9 +305,6 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
         p_details: {
           batchOrderId,
           orderCount: batchOrders.length,
-          updatedOrders: updateResults.filter(r => r.success).length,
-          amountSol: amountSolFloat,
-          isFreeOrder,
           timestamp: new Date().toISOString()
         }
       });
@@ -452,9 +316,7 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
       log('warn', 'Exception updating transaction log:', error);
     }
     
-    const successfulUpdates = updateResults.filter(r => r.success).length;
-    
-    log('info', `Batch order transaction update completed: ${successfulUpdates}/${ordersToUpdate.length} orders updated successfully`);
+    log('info', `Batch order transaction update completed`);
     
     return {
       statusCode: 200,
@@ -464,12 +326,8 @@ async function updateBatchOrderTransaction(batchOrderId, transactionSignature, a
         data: { 
           batchOrderId,
           transactionSignature, 
-          amountSol: amountSolFloat,
           isBatchOrder: true,
           totalOrders: batchOrders.length,
-          ordersUpdated: successfulUpdates,
-          updateDetails: updateResults,
-          isFreeOrder
         } 
       })
     };

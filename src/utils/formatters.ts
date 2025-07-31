@@ -1,17 +1,100 @@
+import {getSolanaPrice} from './price-conversion'
+
 /**
- * Format a price as SOL
- * @param price Price in SOL
- * @returns Formatted price as string
+ * Format a price with currency conversion.
+ * @param price Price in base currency (basePrice).
+ * @param paymentMethodType Target currency for display ('SOL' or 'USDC').
+ * @param basePrice The currency the price is currently in ('SOL' or 'USDC').
+ * @returns Formatted price as string in the target payment method.
  */
-export function formatPrice(price: number): string {
-  // Format as number with up to 4 decimal places
+export async function formatPrice(
+  price: number,
+  paymentMethodType: string = 'SOL',
+  basePrice: string = 'SOL',
+  rate: number | null = null  // Optional conversion
+): Promise<string> {
+  let convertedPrice = price;
+
+  if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
+      const solRate = rate ?? (await getSolanaPrice()); // USD value of 1 SOL
+    if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
+      convertedPrice = Math.ceil((price * solRate) * 100) / 100;
+    } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
+      convertedPrice = Math.ceil((price / solRate) * 100) / 100;
+    }
+  }
+
   const formattedValue = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4
-  }).format(price);
-  
-  // Add SOL suffix
-  return `${formattedValue} SOL`;
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(convertedPrice);
+
+  console.log(`Formatted price: ${formattedValue} ${paymentMethodType.toUpperCase()}`);
+
+  return `${formattedValue} ${paymentMethodType.toUpperCase()}`;
+}
+
+export function formatPriceWithRate(
+  price: number,
+  paymentMethodType: string = 'SOL',
+  basePrice: string = 'SOL',
+  rate: number  // Optional conversion
+): string {
+  let convertedPrice = price;
+
+  if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
+      const solRate = rate; // USD value of 1 SOL
+    if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
+      convertedPrice = Math.ceil((price * solRate) * 100) / 100;
+    } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
+      convertedPrice = Math.ceil((price / solRate) * 100) / 100;
+    }
+  }
+
+  const formattedValue = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(convertedPrice);
+
+  console.log(`Formatted price: ${formattedValue} ${paymentMethodType.toUpperCase()}`);
+
+  return `${formattedValue} ${paymentMethodType.toUpperCase()}`;
+}
+
+/**
+ * Format a price with token icon - returns an object with formatted text and icon info
+ * @param price Price in base currency
+ * @param paymentMethodType Target currency for display
+ * @param basePrice The currency the price is currently in
+ * @param rate Conversion rate
+ * @returns Object with formatted text and token symbol for icon display
+ */
+export function formatPriceWithIcon(
+  price: number,
+  paymentMethodType: string = 'SOL',
+  basePrice: string = 'SOL',
+  rate: number
+): { text: string; symbol: string; amount: number } {
+  let convertedPrice = price;
+
+  if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
+    if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
+      convertedPrice = Math.ceil((price * rate) * 100) / 100;
+    } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
+      convertedPrice = Math.ceil((price / rate) * 100) / 100;
+    }
+  }
+
+  const formattedValue = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(convertedPrice);
+
+  return {
+    text: `${formattedValue} ${paymentMethodType.toUpperCase()}`,
+    symbol: paymentMethodType.toUpperCase(),
+    amount: convertedPrice
+  };
 }
 
 /**

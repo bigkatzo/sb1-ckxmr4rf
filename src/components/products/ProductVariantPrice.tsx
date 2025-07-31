@@ -1,6 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { useOrderStats } from '../../hooks/useOrderStats';
 import type { Product } from '../../types/variants';
+import { formatPrice, formatPriceWithRate } from '../../utils/formatters';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { useSolanaPrice } from '../../utils/price-conversion';
 
 interface ProductVariantPriceProps {
   product: Product;
@@ -10,6 +14,22 @@ interface ProductVariantPriceProps {
 export function ProductVariantPrice({ product, selectedOptions }: ProductVariantPriceProps) {
   const { modifiedPrice, loading: priceLoading } = useModifiedPrice({ product, selectedOptions });
   const { currentOrders, loading: ordersLoading } = useOrderStats(product.id);
+  const { currency } = useCurrency();
+  const { price: solRate } = useSolanaPrice();
+
+  // Update displayPrice whenever currency or modifiedPrice changes
+  const [displayPrice, setDisplayPrice] = useState<string>('');
+  
+    // ✅ Update displayPrice whenever currency or modifiedPrice changes
+    useEffect(() => {
+      let isMounted = true;
+      const updatePrice = () => {
+        const formatted = formatPriceWithRate(modifiedPrice, currency, product.baseCurrency, solRate ?? 180);
+        if (isMounted) setDisplayPrice(formatted);
+      };
+      updatePrice();
+      return () => { isMounted = false; };
+    }, [currency, modifiedPrice, product.baseCurrency, solRate]);
 
   // Calculate stock availability and status
   const isUnlimited = product.stock === null;
@@ -25,7 +45,8 @@ export function ProductVariantPrice({ product, selectedOptions }: ProductVariant
           className="text-2xl font-bold"
           style={{ color: 'var(--color-text)' }}
         >
-          {modifiedPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
+          {displayPrice}
+          {/* {modifiedPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL */}
         </span>
         {priceLoading && (
           <span 

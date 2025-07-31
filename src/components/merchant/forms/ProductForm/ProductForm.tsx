@@ -11,6 +11,7 @@ import type { Category } from '../../../../types/index';
 import type { Product } from '../../../../types/variants';
 import { Toggle } from '../../../ui/Toggle';
 import { Loader2 } from 'lucide-react';
+import { CustomizationOptions } from './CustomizationOptions';
 
 export interface ProductFormProps {
   categories: Category[];
@@ -62,7 +63,13 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
     removedImages: [],
     designFiles: [],
     existingDesignFiles: initialData?.designFiles || [],
-    removedDesignFiles: []
+    removedDesignFiles: [],
+    isCustomizable: initialData?.isCustomizable || 'no',
+    customization: {
+      image: initialData?.customization?.image || false,
+      text: initialData?.customization?.text || false,
+    },
+    baseCurrency: initialData?.baseCurrency || 'sol' // Currency selection
   }), [initialData]);
   
   // Set up react-hook-form with zod validation
@@ -90,7 +97,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
         technique: initialData?.technique ?? '',
         noteForSupplier: initialData?.noteForSupplier ?? '',
         notes: notesForReset,
-        freeNotes: initialData?.freeNotes ?? ''
+        freeNotes: initialData?.freeNotes ?? '',
+        baseCurrency: initialData?.baseCurrency || 'sol'
       });
       
       initializedRef.current = true;
@@ -123,7 +131,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
             key !== 'designFiles' &&
             key !== 'existingDesignFiles' &&
             key !== 'removedDesignFiles' &&
-            key !== 'notes') {
+            key !== 'notes' &&
+            key !== 'customization') {
           
           formData.append(key, val.toString());
         }
@@ -187,6 +196,14 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       // Add variant data
       formData.append('variants', JSON.stringify(data.variants || []));
       formData.append('variantPrices', JSON.stringify(data.variantPrices || {}));
+
+      formData.append('is_customizable', data?.isCustomizable ? 'true' : 'false');
+      formData.append('customization.image', data.customization?.image ? 'true' :
+        'false');
+      formData.append('customization.text', data.customization?.text ? 'true' :
+        'false');
+      formData.append('baseCurrency', data.baseCurrency || 'sol');
+    
 
       // Submit to the appropriate endpoint
       await onSubmit(formData);
@@ -253,6 +270,8 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
               categories={categories}
             />
 
+            <CustomizationOptions />
+
             <div>
               <label className="block text-sm font-medium text-white mb-1">
                 Product Visibility
@@ -301,4 +320,4 @@ export function ProductForm({ categories, initialData, onClose, onSubmit, isLoad
       </ProductImagesContext.Provider>
     </FormProvider>
   );
-} 
+}

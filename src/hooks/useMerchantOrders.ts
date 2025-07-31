@@ -74,7 +74,24 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
         // Batch order information
         batch_order_id: order.batch_order_id || undefined,
         item_index: order.item_index || undefined,
-        total_items_in_batch: order.total_items_in_batch || undefined
+        total_items_in_batch: order.total_items_in_batch || undefined,
+        // Customization data
+        custom_data: order.custom_data || null,
+        // Required properties with default values
+        user_id: order.user_id || '',
+        items: order.items || [],
+        total: order.total || 0,
+        created_at: order.created_at,
+        updated_at: order.updated_at,
+        shipping_address: order.shipping_address || {
+          name: '',
+          email: '',
+          address1: '',
+          city: '',
+          state: '',
+          postal_code: '',
+          country: ''
+        }
       }));
 
       setOrders(transformedOrders);

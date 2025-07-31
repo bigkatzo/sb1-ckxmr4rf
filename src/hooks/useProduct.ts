@@ -98,7 +98,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
                 launch_date,
                 sale_ended,
                 visible,
-                user_id
+                user_id,
+                recommended_ca,
               )
             `)
             .eq('slug', productSlug)
@@ -113,6 +114,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
         }
         
         const { data, error } = await productQuery.single();
+
+        console.log('Fetched product data:', data);
 
         if (error) throw error;
         if (!data) throw new Error('Product not found');
@@ -166,6 +169,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
           collectionLaunchDate: data.collection_launch_date ? new Date(data.collection_launch_date) : (data.collections?.launch_date ? new Date(data.collections.launch_date) : undefined),
           collectionSaleEnded: data.collection_sale_ended ?? data.collections?.sale_ended ?? false,
           categorySaleEnded: data.category_sale_ended ?? data.categories?.sale_ended ?? false,
+          collectionCa: data.collection_ca ?? data.collections?.ca,
+          collectionStrictToken: data.collection_strict_token ?? data.collections?.strict_token,
           slug: data.slug || '',
           stock: data.quantity,
           minimumOrderQuantity: data.minimum_order_quantity || 50,
@@ -182,7 +187,10 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
           notes: hasValidNotes ? data.notes : undefined,
           collectionUserId: data.collection_user_id,
           collectionOwnerMerchantTier: collectionOwnerMerchantTier,
-          freeNotes: freeNotesValue
+          freeNotes: freeNotesValue,
+          isCustomizable: data.is_customizable ?? "no",
+          customization: data.customization || {},
+          baseCurrency: data.base_currency || 'SOL',
         };
 
         // Cache the product data with preview mode awareness

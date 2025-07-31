@@ -1,11 +1,18 @@
 import React, { createContext, useContext, useState } from 'react';
 import { TokenVerificationModal } from '../components/products/TokenVerificationModal';
 import type { Product } from '../types/variants';
+import { MultiItemCheckoutModal } from '../components/cart';
 
 interface ModalContextType {
   showVerificationModal: (
     product: Product, 
-    selectedOptions?: Record<string, string>,
+    selectedOptions: Record<string, string>,
+    customizationData?: {
+      image?: File | null;
+      text?: string;
+      imagePreview?: string;
+      imageBase64?: string;
+    },
     additionalData?: {
       shippingInfo?: any;
       paymentMetadata?: any;
@@ -23,43 +30,63 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     product?: Product;
-    selectedOptions?: Record<string, string>;
+    selectedOptions: Record<string, string>;
+    customizationData?: {
+      image?: File | null;
+      text?: string;
+      imagePreview?: string;
+      imageBase64?: string;
+    };
     additionalData?: {
       shippingInfo?: any;
       paymentMetadata?: any;
     };
   }>({
-    isOpen: false
+    isOpen: false,
+    selectedOptions: {},
   });
 
   const showVerificationModal = (
     product: Product, 
-    selectedOptions?: Record<string, string>,
+    selectedOptions: Record<string, string>,
+    customizationData?: {
+      image?: File | null;
+      text?: string;
+      imagePreview?: string;
+      imageBase64?: string;
+    },
     additionalData?: {
       shippingInfo?: any;
       paymentMetadata?: any;
     }
   ) => {
-    setModalState({ isOpen: true, product, selectedOptions, additionalData });
+    console.log('showVerificationModal', product, selectedOptions, customizationData, additionalData);
+    setModalState({ isOpen: true, product, selectedOptions, customizationData, additionalData });
   };
 
   const hideVerificationModal = () => {
-    setModalState({ isOpen: false });
+    setModalState({ isOpen: false, selectedOptions: {} });
   };
 
   return (
     <ModalContext.Provider value={{ showVerificationModal, hideVerificationModal }}>
       {children}
       {modalState.isOpen && modalState.product && (
-        <TokenVerificationModal
-          product={modalState.product}
-          selectedOption={modalState.selectedOptions}
-          onClose={hideVerificationModal}
-          onSuccess={() => {
-            hideVerificationModal();
-          }}
-          shippingInfo={modalState.additionalData?.shippingInfo}
-          paymentMetadata={modalState.additionalData?.paymentMetadata}
+        <MultiItemCheckoutModal
+        onClose={hideVerificationModal}
+        isSingle={true}
+        singleItem={[{ 
+          product: modalState.product, 
+          selectedOptions: modalState.selectedOptions, 
+          quantity: 1, 
+          priceInfo: {
+            modifiedPrice: 0, // Placeholder, will be calculated in the modal
+            basePrice: 0,
+            variantKey: null,
+            variantPriceAdjustments: 0
+          },
+          customizationData: modalState.customizationData
+        }]} // Assuming single item checkout
         />
       )}
     </ModalContext.Provider>

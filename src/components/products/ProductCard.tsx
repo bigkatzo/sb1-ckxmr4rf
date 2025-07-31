@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ImageIcon, Ban, Pin } from 'lucide-react';
+import { Card } from '../ui/Card';
+import { OptimizedImage } from '../ui/OptimizedImage';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { BuyButton } from './BuyButton';
-
-import { OptimizedImage } from '../ui/OptimizedImage';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
-import { Card } from '../ui/Card';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { useSolanaPrice } from '../../utils/price-conversion';
+import { formatPrice, formatPriceWithRate, formatPriceWithIcon } from '../../utils/formatters';
 import type { Product } from '../../types/variants';
 
 interface ProductCardProps {
@@ -22,6 +24,27 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
   const cardRef = useRef<HTMLDivElement>(null);
   const { modifiedPrice } = useModifiedPrice({ product });
   
+  const { currency } = useCurrency();
+  const { price: solRate } = useSolanaPrice();
+  
+  const [displayPrice, setDisplayPrice] = useState<string>('');
+  const [priceInfo, setPriceInfo] = useState<{ text: string; symbol: string; amount: number } | null>(null);
+  
+    // ✅ Update displayPrice whenever currency or modifiedPrice changes
+  useEffect(() => {
+      let isMounted = true;
+      const updatePrice = () => {
+        const formatted = formatPriceWithRate(modifiedPrice, currency, product.baseCurrency, solRate ?? 180);
+        const priceWithIcon = formatPriceWithIcon(modifiedPrice, currency, product.baseCurrency, solRate ?? 180);
+        if (isMounted) {
+          setDisplayPrice(formatted);
+          setPriceInfo(priceWithIcon);
+        }
+      };
+      updatePrice();
+      return () => { isMounted = false; };
+    }, [currency, modifiedPrice, product.baseCurrency, solRate]);
+
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
 
@@ -154,7 +177,8 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
         <h3 className="font-medium text-sm text-white line-clamp-1 group-hover:text-secondary transition-colors">{product.name}</h3>
         <div className="mt-1.5 flex items-center justify-between">
           <span className="text-sm font-semibold text-white">
-            {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
+            {displayPrice}
+            {/* {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL */}
           </span>
           <BuyButton 
             product={productWithExplicitSaleEnded}

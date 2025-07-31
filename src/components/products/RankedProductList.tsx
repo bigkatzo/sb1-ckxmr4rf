@@ -7,6 +7,9 @@ import { CategoryDiamond } from '../collections/CategoryDiamond';
 import { CollectionBadge } from '../ui/CollectionBadge';
 import { BuyButton } from './BuyButton';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { useSolanaPrice } from '../../utils/price-conversion';
+import { formatPriceWithRate } from '../../utils/formatters';
 import type { Product } from '../../types/index';
 import type { Product as VariantsProduct } from '../../types/variants';
 
@@ -127,12 +130,21 @@ function RankedProductItem({
   // Convert to VariantsProduct type for useModifiedPrice
   const variantsProduct: VariantsProduct = {
     ...product,
-    visible: product.visible !== undefined ? product.visible : true
+    visible: product.visible === undefined ? true : product.visible
   };
   
   const { modifiedPrice } = useModifiedPrice({ product: variantsProduct });
+  const { currency } = useCurrency();
+  const { price: solRate } = useSolanaPrice();
+  const [displayPrice, setDisplayPrice] = useState<string>('');
   const itemRef = useRef<HTMLDivElement>(null);
-  
+
+  // Update displayPrice whenever currency or modifiedPrice changes
+  useEffect(() => {
+    const formatted = formatPriceWithRate(modifiedPrice, currency, product.baseCurrency, solRate ?? 180);
+    setDisplayPrice(formatted);
+  }, [currency, modifiedPrice, product.baseCurrency, solRate]);
+
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
 
@@ -307,7 +319,7 @@ function RankedProductItem({
       {/* Price and buy button */}
       <div className="flex flex-col items-end gap-1">
         <div className="text-sm font-medium text-white">
-          {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
+          {displayPrice}
         </div>
         
         <BuyButton 
