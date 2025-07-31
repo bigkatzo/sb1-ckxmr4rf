@@ -11,7 +11,7 @@ interface CalculateModifiedPriceParams {
  * Calculates the modified price based on current orders and modifiers
  * 
  * @param params Price calculation parameters
- * @returns The modified price with 2 decimal places precision
+ * @returns The modified price with 2 decimal places precision, always rounded up
  */
 export function calculateModifiedPrice(params: CalculateModifiedPriceParams): number {
   const { 
@@ -25,40 +25,40 @@ export function calculateModifiedPrice(params: CalculateModifiedPriceParams): nu
 
   // If no modifiers set, return base price
   if (!modifierBefore && !modifierAfter) {
-    return Number(basePrice.toFixed(2));
+    return Math.ceil(basePrice * 100) / 100;
   }
 
   // Before minimum orders
   if (currentOrders < minOrders) {
-    if (!modifierBefore) return Number(basePrice.toFixed(2));
+    if (!modifierBefore) return Math.ceil(basePrice * 100) / 100;
     
     const progress = currentOrders / minOrders;
     const currentModifier = modifierBefore + (progress * (0 - modifierBefore));
-    return Number((basePrice * (1 + currentModifier)).toFixed(2));
+    return Math.ceil((basePrice * (1 + currentModifier)) * 100) / 100;
   }
 
   // At minimum orders exactly
   if (currentOrders === minOrders) {
-    return Number(basePrice.toFixed(2));
+    return Math.ceil(basePrice * 100) / 100;
   }
 
   // After minimum orders
   if (modifierAfter && maxStock) {
     const remainingStock = maxStock - minOrders;
     // Safety check for invalid state
-    if (remainingStock <= 0) return Number(basePrice.toFixed(2));
+    if (remainingStock <= 0) return Math.ceil(basePrice * 100) / 100;
     
     const progress = Math.min((currentOrders - minOrders) / remainingStock, 1);
     const currentModifier = progress * modifierAfter;
-    return Number((basePrice * (1 + currentModifier)).toFixed(2));
+    return Math.ceil((basePrice * (1 + currentModifier)) * 100) / 100;
   }
 
   // If unlimited stock or no after-modifier, only apply before-min modifier
   if (modifierBefore) {
-    return Number((basePrice * (1 + modifierBefore)).toFixed(2));
+    return Math.ceil((basePrice * (1 + modifierBefore)) * 100) / 100;
   }
 
-  return Number(basePrice.toFixed(2));
+  return Math.ceil(basePrice * 100) / 100;
 }
 
 /**

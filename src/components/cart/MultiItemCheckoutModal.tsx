@@ -411,9 +411,9 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
       // Convert price if base currency differs from target currency
       if (itemBaseCurrency !== currency.toUpperCase()) {
         if (itemBaseCurrency === 'SOL' && currency.toUpperCase() === 'USDC') {
-          convertedPrice = itemPrice * (solRate ?? 180); // SOL → USDC
+          convertedPrice = Math.ceil((itemPrice * (solRate ?? 180)) * 100) / 100; // SOL → USDC
         } else if (itemBaseCurrency === 'USDC' && currency.toUpperCase() === 'SOL') {
-          convertedPrice = itemPrice / (solRate ?? 180); // USDC → SOL
+          convertedPrice = Math.ceil((itemPrice / (solRate ?? 180)) * 100) / 100; // USDC → SOL
         }
       }
       
