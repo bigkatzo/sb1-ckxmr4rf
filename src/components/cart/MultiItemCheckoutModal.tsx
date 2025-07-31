@@ -166,6 +166,16 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   });
   const [processingPayment, setProcessingPayment] = useState(false);
   
+  // Update payment method when currency changes
+  useEffect(() => {
+    if (paymentMethod?.type === 'default') {
+      setPaymentMethod({
+        ...paymentMethod,
+        defaultToken: currency === 'SOL' ? 'sol' : 'usdc',
+      });
+    }
+  }, [currency, paymentMethod?.type]);
+  
   // Define order progress steps
   const [orderProgress, setOrderProgress] = useState<{
     step: 'initial' | 'creating_order' | 'processing_payment' | 'confirming_transaction' | 'success' | 'error';
@@ -189,6 +199,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     couponDiscount?: number;
     walletAmounts?: { [address: string]: number };
     receiverWallet?: string;
+    currencyUnit?: string;
   }>({});
   
   // Add the showSuccessView state within the component
@@ -368,30 +379,19 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   //   }, 0);
   // };
 
-  const calculateSubtotal = (currency: string = 'SOL', solRate: number = 180): number => {
-  return items.reduce((total, item) => {
-    const itemPrice = item.priceInfo?.modifiedPrice || item.product.price;
-    const baseCurrency = item.product?.baseCurrency?.toUpperCase() ?? 'SOL'; // Default to SOL if not specified
-
-    let convertedPrice = itemPrice;
-
-    // Convert price if base currency differs from target currency
-    if (baseCurrency !== currency) {
-      if (baseCurrency === 'SOL' && currency === 'USDC') {
-        convertedPrice = itemPrice * solRate; // SOL → USDC
-      } else if (baseCurrency === 'USDC' && currency === 'SOL') {
-        convertedPrice = itemPrice / solRate; // USDC → SOL
-      }
-    }
-
-    return total + convertedPrice * item.quantity;
-  }, 0);
-};
+  const calculateSubtotal = (): number => {
+    // Let the backend handle all currency conversions
+    // Frontend should just sum the base prices in their original currency
+    return items.reduce((total, item) => {
+      const itemPrice = item.priceInfo?.modifiedPrice || item.product.price;
+      return total + (itemPrice * item.quantity);
+    }, 0);
+  };
   
-  // Calculate total price of all items in cart
-  const totalPrice = calculateSubtotal(currency, solRate ?? 180);
+  // Calculate total price of all items in cart (in base currency)
+  const totalPrice = calculateSubtotal();
   
-  // Calculate final price with coupon discount
+  // Calculate final price with coupon discount (in base currency)
   const finalPrice = appliedCoupon 
     ? appliedCoupon.discountPercentage 
       ? totalPrice * (1 - appliedCoupon.discountPercentage / 100) 
@@ -416,13 +416,11 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     setValidatingCoupon(true);
     
     try {
-      // Get the collection ID from the first item in the cart for validation
       // Get unique collection IDs from all items in the cart
       const collectionIds = Array.from(new Set(items.map(item => item.product.collectionId).filter(Boolean)));
 
-      // fetch the recommended token...
-      
       // Use the CouponService to validate and calculate the discount
+      // Pass the total price in the current currency for validation
       const result = await CouponService.calculateDiscount(
         totalPrice,
         couponCode,
@@ -443,7 +441,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
             : 0
         });
         
-        toast.success(`Coupon applied: ${result.discountDisplay || result.couponDiscount + ' SOL off'}`);
+        toast.success(`Coupon applied: ${result.discountDisplay || result.couponDiscount + ' off'}`);
       }
     } catch (error) {
       console.error("Coupon validation error:", error);
@@ -497,19 +495,25 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     const totalAmount = batchOrderData.totalPaymentAmount ?? 0;
     const receiverWallet = batchOrderData.receiverWallet ?? 'anonymous';
     const tokenToProcess = paymentMethod?.defaultToken;
-    const baseCurrency = batchOrderData.baseCurrency ?? 'USDC';
+    const currencyUnit = batchOrderData.currencyUnit ?? 'USDC';
 
-    console.log('Processing Solana payment:', { totalAmount, cartId, receiverWallet, tokenToProcess });
+    console.log('Processing Solana payment:', { totalAmount, cartId, receiverWallet, tokenToProcess, currencyUnit });
+
+    // The backend has already converted the amount to the correct currency unit
+    // No need for additional conversion here
+    const paymentAmount = totalAmount;
+
+    console.log('Final payment amount:', { amount: paymentAmount, paymentMethod: tokenToProcess, currencyUnit });
 
     let success;
     let signature: string | undefined;
     if(paymentMethod?.type === 'default') {
-      if(baseCurrency === 'sol') {
-        const { success: paymentSuccess, signature: txSignature } = await processPayment(totalAmount, cartId, receiverWallet);
+      if(paymentMethod?.defaultToken === 'sol') {
+        const { success: paymentSuccess, signature: txSignature } = await processPayment(paymentAmount, cartId, receiverWallet);
         success = paymentSuccess;
         signature = txSignature;
       } else {
-        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(totalAmount, cartId, receiverWallet);
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(paymentAmount, cartId, receiverWallet);
         success = paymentSuccess;
         signature = txSignature;
       }
@@ -517,7 +521,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
       const { success: paymentSuccess, signature: txSignature } = await processSolanaSwapTokenPayment(
         paymentMethod.tokenAddress || '',
         undefined,
-        totalAmount,
+        paymentAmount,
         receiverWallet,
         100,
         undefined,
@@ -609,7 +613,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
           shippingInfo: formattedShippingInfo,
           walletAddress: walletAddress || 'anonymous',
           paymentMetadata: {
-            paymentMethod: paymentMethod?.type === 'default' ? paymentMethod?.defaultToken : paymentMethod?.type ?? 'stripe',
+            paymentMethod: paymentMethod?.type ?? 'stripe',
             defaultToken: paymentMethod?.defaultToken,
             tokenAddress: paymentMethod?.tokenAddress,
             tokenSymbol: paymentMethod?.tokenSymbol,
@@ -619,6 +623,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
             couponCode: appliedCoupon?.code,
             couponDiscount: appliedCoupon?.discountAmount,
             totalPrice,
+            currencyUnit: currency.toLocaleLowerCase() as ('sol' | 'usdc')
           }
         })
       });
@@ -639,7 +644,8 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         originalPrice: batchOrderData.originalPrice,
         couponDiscount: batchOrderData.couponDiscount,
         transactionSignature: batchOrderData.transactionSignature,
-        receiverWallet: batchOrderData.receiverWallet
+        receiverWallet: batchOrderData.receiverWallet,
+        currencyUnit: batchOrderData.currencyUnit
       });
       
       if(batchOrderData.batchOrderId) {
@@ -1006,7 +1012,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Subtotal</span>
-                      <span className="text-gray-300">{formatPriceWithRate(calculateSubtotal(currency, solRate ?? 180), currency, currency, solRate ?? 180)}</span>
+                      <span className="text-gray-300">{formatPriceWithRate(totalPrice, currency, currency, solRate ?? 180)}</span>
                     </div>
                     
                     {appliedCoupon && (
@@ -1015,7 +1021,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                         <span className="text-secondary">
                           -{formatPriceWithRate(
                             appliedCoupon.discountPercentage 
-                              ? calculateSubtotal() * (appliedCoupon.discountPercentage / 100) 
+                              ? totalPrice * (appliedCoupon.discountPercentage / 100) 
                               : appliedCoupon.discountAmount,
                             currency,
                             currency,

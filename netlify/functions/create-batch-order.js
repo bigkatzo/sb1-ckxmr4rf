@@ -217,7 +217,7 @@ const getProductPrice = async (productId, selectedOptions) => {
     // Fetch the product with its variants from Supabase
     const { data: product, error } = await supabase
       .from('products')
-      .select('price, variants', 'base_currency')
+      .select('price, variants, base_currency')
       .eq('id', productId)
       .single();
 
@@ -231,11 +231,14 @@ const getProductPrice = async (productId, selectedOptions) => {
       throw new Error(`Product ${productId} not found`);
     }
 
+    // Ensure baseCurrency has a default value
+    const baseCurrency = product.base_currency?.toUpperCase() || 'SOL';
+
     // If no variants or no selected options, return base price
     if (!product.variants || !selectedOptions || Object.keys(selectedOptions).length === 0) {
       return {
         price: product.price,
-        baseCurrency: product.base_currency ?? 'SOL',
+        baseCurrency: baseCurrency,
         variantKey: null,
         variantSelections: []
       };
@@ -277,6 +280,7 @@ const getProductPrice = async (productId, selectedOptions) => {
       if (variantPrice && typeof variantPrice === 'number') {
         return {
           price: variantPrice,
+          baseCurrency: baseCurrency,
           variantKey,
           variantSelections
         };
@@ -286,7 +290,7 @@ const getProductPrice = async (productId, selectedOptions) => {
     // If no variant price found, return base price
     return {
       price: product.price,
-      baseCurrency: product.base_currency ?? 'SOL',
+      baseCurrency: baseCurrency,
       variantKey: variantKey || null,
       variantSelections
     };
@@ -409,7 +413,23 @@ exports.handler = async (event, context) => {
     const processedItems = [];
     
     const solRate = await getSolanaRate();
-    const currencyUnit = paymentMetadata?.paymentMethod.toUpperCase() === 'SOL' ? 'SOL' : 'USDC';
+    
+    // Determine the target currency unit based on payment method and default token
+    let currencyUnit = 'USDC'; // Default fallback
+    if (paymentMetadata?.paymentMethod === 'default') {
+      // For default payment method, use the defaultToken to determine currency
+      currencyUnit = paymentMetadata?.defaultToken?.toUpperCase() === 'SOL' ? 'SOL' : 'USDC';
+    } else if (paymentMetadata?.paymentMethod === 'stripe') {
+      currencyUnit = 'USDC'; // Stripe payments are always in USDC
+    } else if (paymentMetadata?.paymentMethod === 'spl-tokens') {
+      currencyUnit = 'USDC'; // SPL token payments are converted to USDC
+    } else if (paymentMetadata?.paymentMethod === 'cross-chain') {
+      currencyUnit = 'USDC'; // Cross-chain payments are in USDC
+    } else {
+      currencyUnit = 'USDC'; // Default to USDC for any other payment method
+    }
+
+    console.log(`Payment method: ${paymentMetadata?.paymentMethod}, Default token: ${paymentMetadata?.defaultToken}, Currency unit: ${currencyUnit}`);
 
     for (const item of items) {
       const quantity = Math.max(1, Number(item.quantity) || 1);
@@ -429,12 +449,17 @@ exports.handler = async (event, context) => {
 
       let itemTotalInTarget;
       
+      // Convert item total from base currency to target currency
       if (baseCurrency.toUpperCase() === currencyUnit) {
         itemTotalInTarget = itemTotalInBase;
       } else if (baseCurrency.toUpperCase() === 'SOL' && currencyUnit === 'USDC') {
         itemTotalInTarget = itemTotalInBase * solRate;
       } else if (baseCurrency.toUpperCase() === 'USDC' && currencyUnit === 'SOL') {
         itemTotalInTarget = itemTotalInBase / solRate;
+      } else {
+        // Handle any other currency conversion scenarios
+        console.warn(`Unsupported currency conversion: ${baseCurrency} to ${currencyUnit}, using base currency`);
+        itemTotalInTarget = itemTotalInBase;
       }
 
       const merchantWallet = await getMerchantWallet(collectionId);
@@ -468,12 +493,12 @@ exports.handler = async (event, context) => {
 
     console.log('Merchant wallet amounts:', 
       Object.entries(walletAmounts).map(([wallet, amount]) => 
-        `${wallet.substring(0, 6)}...: ${amount}`
+        `${wallet.substring(0, 6)}...: ${amount.toFixed(4)} ${currencyUnit}`
       )
     );
 
     // Log total payment amount for the batch
-    console.log('Total payment amount:', totalPaymentForBatch);
+    console.log(`Total payment amount: ${totalPaymentForBatch.toFixed(4)} ${currencyUnit}`);
 
     // Verify and apply discount
     const couponCode = paymentMetadata?.couponCode;
@@ -496,10 +521,25 @@ exports.handler = async (event, context) => {
           );
 
           if (isValid) {
-            couponDiscount = coupon.discount_type === 'fixed_sol' 
-              ? Math.min(coupon.discount_value, totalPaymentForBatch)
-              : (totalPaymentForBatch * coupon.discount_value) / 100;
-            console.log(`Coupon ${couponCode} applied: ${couponDiscount} discount`);
+            let discountAmount;
+            if (coupon.discount_type === 'fixed_sol') {
+              // Convert fixed SOL discount to target currency
+              if (currencyUnit === 'SOL') {
+                discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
+              } else if (currencyUnit === 'USDC') {
+                // Convert SOL discount to USDC
+                const discountInUSDC = coupon.discount_value * solRate;
+                discountAmount = Math.min(discountInUSDC, totalPaymentForBatch);
+              } else {
+                discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
+              }
+            } else {
+              // Percentage discount
+              discountAmount = (totalPaymentForBatch * coupon.discount_value) / 100;
+            }
+            
+            couponDiscount = discountAmount;
+            console.log(`Coupon ${couponCode} applied: ${couponDiscount.toFixed(4)} ${currencyUnit} discount (original: ${coupon.discount_value} ${coupon.discount_type === 'fixed_sol' ? 'SOL' : '%'})`);
           }
         }
       } catch (error) {
@@ -510,9 +550,15 @@ exports.handler = async (event, context) => {
     const originalPrice = totalPaymentForBatch;
     const isFreeOrder = originalPrice - couponDiscount <= 0;
     const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
-    const chargeFeeMethods = ['usdc', 'sol', 'spl-tokens'];
+    const chargeFeeMethods = ['default', 'spl-tokens'];
     const fee = (chargeFeeMethods.includes(paymentMethod)) && Object.keys(walletAmounts).length > 1 && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
+    
+    // Log fee calculation details
+    console.log(`Fee calculation: Payment method: ${paymentMethod}, Charge fee methods: ${chargeFeeMethods.join(', ')}, Multiple wallets: ${Object.keys(walletAmounts).length > 1}, Free order: ${isFreeOrder}, Fee: ${fee.toFixed(4)} ${currencyUnit}`);
+    
     totalPaymentForBatch = isFreeOrder ? 0 : totalPaymentForBatch + fee - couponDiscount;
+    
+    console.log(`Final calculation: Original: ${originalPrice.toFixed(4)} ${currencyUnit}, Coupon discount: ${couponDiscount.toFixed(4)} ${currencyUnit}, Fee: ${fee.toFixed(4)} ${currencyUnit}, Final total: ${totalPaymentForBatch.toFixed(4)} ${currencyUnit}`);
 
     let transactionSignature;
     if (isFreeOrder) {
@@ -538,7 +584,7 @@ exports.handler = async (event, context) => {
       const processedItem = processedItems[itemIndex];
       const { product, actualPrice, itemTotal, variantKey, variantSelections, quantity, baseCurrency } = processedItem;
       
-      console.log(`Creating order for item: ${product.name}, Quantity: ${quantity}, Price: ${actualPrice}`);
+      console.log(`Creating order for item: ${product.name}, Quantity: ${quantity}, Price: ${actualPrice} ${baseCurrency}`);
       
       try {
         const orderNumber = generateOrderNumber();
@@ -553,7 +599,7 @@ exports.handler = async (event, context) => {
           totalItemsInBatch: processedItems.length,
           variantKey: variantKey || undefined,
           merchantWallet: processedItem.merchantWallet,
-          baseCurrency,
+          baseCurrency: baseCurrency, // Ensure baseCurrency is included
           actualPrice,
           itemTotal,
           couponDiscount,
@@ -563,6 +609,7 @@ exports.handler = async (event, context) => {
           walletAmounts,
           originalPrice,
           receiverWallet,
+          currencyUnit, // Add the target currency unit
         };
         
         // Create order using the database function
@@ -592,7 +639,7 @@ exports.handler = async (event, context) => {
               amount: itemTotal,
               total_amount_paid_for_batch: totalPaymentForBatch,
               quantity,
-              base_currency: baseCurrency,
+              base_currency: baseCurrency, // Ensure baseCurrency is stored
               order_number: orderNumber,
               status: 'draft',
               item_index: itemIndex + 1,
@@ -618,7 +665,8 @@ exports.handler = async (event, context) => {
             totalItemsInBatch: processedItems.length,
             price: actualPrice,
             itemTotal: actualPrice * quantity,
-            variantKey
+            variantKey,
+            baseCurrency: baseCurrency // Include baseCurrency in response
           });
         } else {
           throw new Error(`Failed to create order: No order ID returned for product ${product.name}`);
@@ -689,10 +737,10 @@ exports.handler = async (event, context) => {
       totalItems: processedItems.length,
       success: createdOrders.length === processedItems.length,
       isFreeOrder,
-      totalPaymentForBatch,
-      fee,
-      couponDiscount,
-      originalPrice,
+      totalPaymentForBatch: `${totalPaymentForBatch.toFixed(4)} ${currencyUnit}`,
+      fee: `${fee.toFixed(4)} ${currencyUnit}`,
+      couponDiscount: `${couponDiscount.toFixed(4)} ${currencyUnit}`,
+      originalPrice: `${originalPrice.toFixed(4)} ${currencyUnit}`,
       merchantWallets: Object.keys(walletAmounts).length,
       customDataEntries: customDataResults.length
     });
@@ -714,7 +762,8 @@ exports.handler = async (event, context) => {
         couponDiscount,
         originalPrice,
         walletAmounts,
-        customDataResults
+        customDataResults,
+        currencyUnit // Include the currency unit in response
       })
     };
   } catch (error) {

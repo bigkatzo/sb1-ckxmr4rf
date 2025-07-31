@@ -27,7 +27,7 @@ export async function formatPrice(
 
   const formattedValue = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 8,
+    maximumFractionDigits: 2,
   }).format(convertedPrice);
 
   console.log(`Formatted price: ${formattedValue} ${paymentMethodType.toUpperCase()}`);
@@ -46,15 +46,15 @@ export function formatPriceWithRate(
   if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
       const solRate = rate; // USD value of 1 SOL
     if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
-      convertedPrice = price * solRate;
+      convertedPrice = Math.ceil((price * solRate) * 100) / 100;
     } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
-      convertedPrice = price / solRate;
+      convertedPrice = Math.ceil((price / solRate) * 100) / 100;
     }
   }
 
   const formattedValue = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 8,
+    maximumFractionDigits: 2,
   }).format(convertedPrice);
 
   console.log(`Formatted price: ${formattedValue} ${paymentMethodType.toUpperCase()}`);

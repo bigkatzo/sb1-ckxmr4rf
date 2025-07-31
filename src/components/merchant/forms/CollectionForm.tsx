@@ -257,27 +257,23 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       // Remove any remaining URL parts and clean the address
       contractAddress = contractAddress.replace(/^https?:\/\//, '').split('/').pop() || contractAddress;
       
-      // Mock API call - in a real implementation, you'd call a token info API
-      // For now, we'll simulate loading token information
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Simulate different responses based on contract address format
-      if (contractAddress.length >= 32 && /^[a-zA-Z0-9]+$/.test(contractAddress)) {
-        // Generate a mock token name based on the contract address
-        const mockNames = [
-          'PepeCoin',
-          'MoonToken',
-          'DiamondHands',
-          'RocketFuel',
-          'GemFinder',
-          'AlphaCoin',
-          'BetaToken',
-          'GammaGem'
-        ];
-        const mockName = mockNames[contractAddress.length % mockNames.length];
-        setTokenName(`${mockName} (${contractAddress.slice(0, 6)}...${contractAddress.slice(-4)})`);
-      } else {
+      // Validate contract address format
+      if (!contractAddress || contractAddress.length < 32 || !/^[a-zA-Z0-9]+$/.test(contractAddress)) {
         throw new Error('Invalid contract address format');
+      }
+
+      // Fetch token information from Jupiter API
+      const response = await fetch(`https://tokens.jup.ag/token/${contractAddress}`);
+      
+      if (response.ok) {
+        const tokenData = await response.json();
+        const tokenName = tokenData.name || 'Unknown Token';
+        const tokenSymbol = tokenData.symbol || 'TOKEN';
+        
+        setTokenName(`${tokenName} (${tokenSymbol})`);
+      } else {
+        // Fallback for tokens not found in Jupiter
+        setTokenName(`Custom Token (${contractAddress.slice(0, 6)}...${contractAddress.slice(-4)})`);
       }
     } catch (error) {
       console.error('Error loading token info:', error);
