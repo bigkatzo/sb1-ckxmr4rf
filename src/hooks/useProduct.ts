@@ -115,6 +115,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
         
         const { data, error } = await productQuery.single();
 
+        console.log('Fetched product data:', data);
+
         if (error) throw error;
         if (!data) throw new Error('Product not found');
         
