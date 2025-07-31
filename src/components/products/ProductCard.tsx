@@ -7,7 +7,7 @@ import { BuyButton } from './BuyButton';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useSolanaPrice } from '../../utils/price-conversion';
-import { formatPrice, formatPriceWithIcon } from '../../utils/formatters';
+import { formatPrice, formatPriceWithRate, formatPriceWithIcon } from '../../utils/formatters';
 import type { Product } from '../../types/variants';
 
 interface ProductCardProps {
@@ -33,8 +33,8 @@ export function ProductCard({ product, onClick, categoryIndex = 0, isInInitialVi
     // ✅ Update displayPrice whenever currency or modifiedPrice changes
   useEffect(() => {
       let isMounted = true;
-      const updatePrice = async () => {
-        const formatted = await formatPrice(modifiedPrice, currency, product.baseCurrency, solRate);
+      const updatePrice = () => {
+        const formatted = formatPriceWithRate(modifiedPrice, currency, product.baseCurrency, solRate ?? 180);
         const priceWithIcon = formatPriceWithIcon(modifiedPrice, currency, product.baseCurrency, solRate ?? 180);
         if (isMounted) {
           setDisplayPrice(formatted);

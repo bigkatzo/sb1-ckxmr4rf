@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { useOrderStats } from '../../hooks/useOrderStats';
 import type { Product } from '../../types/variants';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatPriceWithRate } from '../../utils/formatters';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useSolanaPrice } from '../../utils/price-conversion';
 
@@ -23,13 +23,13 @@ export function ProductVariantPrice({ product, selectedOptions }: ProductVariant
     // ✅ Update displayPrice whenever currency or modifiedPrice changes
     useEffect(() => {
       let isMounted = true;
-      const updatePrice = async () => {
-        const formatted = await formatPrice(modifiedPrice, currency, product.baseCurrency, solRate);
+      const updatePrice = () => {
+        const formatted = formatPriceWithRate(modifiedPrice, currency, product.baseCurrency, solRate ?? 180);
         if (isMounted) setDisplayPrice(formatted);
       };
       updatePrice();
       return () => { isMounted = false; };
-    }, [currency, modifiedPrice]);
+    }, [currency, modifiedPrice, product.baseCurrency, solRate]);
 
   // Calculate stock availability and status
   const isUnlimited = product.stock === null;

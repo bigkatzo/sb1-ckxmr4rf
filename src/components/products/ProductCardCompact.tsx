@@ -9,7 +9,7 @@ import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import type { Product } from '../../types/variants';
 import type { MerchantTier } from '../../types/collections';
 import { useCurrency } from '../../contexts/CurrencyContext';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatPriceWithRate } from '../../utils/formatters';
 import { useSolanaPrice } from '../../utils/price-conversion';
 interface ProductCardCompactProps {
   product: Product;
@@ -42,13 +42,13 @@ export function ProductCardCompact({
   // ✅ Update displayPrice whenever currency or modifiedPrice changes
   useEffect(() => {
     let isMounted = true;
-    const updatePrice = async () => {
-      const formatted = await formatPrice(modifiedPrice, currency, product.baseCurrency, solRate);
+    const updatePrice = () => {
+      const formatted = formatPriceWithRate(modifiedPrice, currency, product.baseCurrency, solRate ?? 180);
       if (isMounted) setDisplayPrice(formatted);
     };
     updatePrice();
     return () => { isMounted = false; };
-  }, [currency, modifiedPrice]);
+  }, [currency, modifiedPrice, product.baseCurrency, solRate]);
 
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;

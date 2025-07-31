@@ -96,8 +96,8 @@ export default function Navbar() {
             </Link>
           )
         )}
-        {/* Currency Toggle for mobile/tablet */}
-        <div className="px-3 py-1.5">
+        {/* Currency Toggle for mobile/tablet - only show when main navbar currency toggle is hidden */}
+        <div className="lg:hidden px-3 py-1.5">
           <CurrencyToggle />
         </div>
       </div>
