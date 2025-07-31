@@ -281,6 +281,10 @@ export function PaymentMethodSelector({
       // Get token decimals - assume 6 for most SPL tokens, 9 for SOL
       const tokenDecimals = tokenAddress === 'So11111111111111111111111111111111111111112' ? 9 : 6;
       const tokenAmount = (parseFloat(quoteData.outAmount) / Math.pow(10, tokenDecimals)).toFixed(6);
+      
+      // Calculate the correct exchange rate: how much base currency per 1 token
+      // Since Jupiter converts FROM base currency TO token, we need to calculate:
+      // rate = baseCurrencyAmount / tokenAmount
       const rate = parseFloat(tokenAmount) > 0 ? totalAmount / parseFloat(tokenAmount) : 0;
       
       return {
@@ -288,7 +292,7 @@ export function PaymentMethodSelector({
         tokenSymbol: tokenInfo?.symbol || 'TOKEN',
         tokenName: tokenInfo?.name || 'Custom Token',
         usdValue: totalAmount.toFixed(6),
-        exchangeRate: (1 / rate).toFixed(6),
+        exchangeRate: rate.toFixed(6),
         loading: false
       };
     } catch (error) {
@@ -310,6 +314,46 @@ export function PaymentMethodSelector({
         exchangeRate: rate.toFixed(6),
         loading: false
       };
+    }
+  };
+
+  // Function to get price quote
+  const fetchPriceQuote = async (tokenAddress?: string, chainId?: number) => {
+    setPriceQuote({ 
+      tokenAmount: '0', 
+      tokenSymbol: tokenInfo?.symbol || 'TOKEN',
+      tokenName: tokenInfo?.name || 'Custom Token',
+      usdValue: '0', 
+      exchangeRate: '0', 
+      loading: true 
+    });
+    
+    try {
+      let quote: PriceQuote;
+      
+      if (chainId) {
+        quote = onGetPriceQuote 
+          ? await onGetPriceQuote('', chainId.toString())
+          : await getDeBridgePriceQuote(chainId);
+      } else if (tokenAddress) {
+        quote = onGetPriceQuote 
+          ? await onGetPriceQuote(tokenAddress)
+          : await getJupiterPriceQuote(tokenAddress);
+      } else {
+        throw new Error('No token address or chain ID provided');
+      }
+      
+      setPriceQuote(quote);
+    } catch (error) {
+      setPriceQuote({
+        tokenAmount: '0',
+        tokenSymbol: tokenInfo?.symbol || 'TOKEN',
+        tokenName: tokenInfo?.name || 'Custom Token',
+        usdValue: '0',
+        exchangeRate: '0',
+        loading: false,
+        error: 'Failed to get price quote'
+      });
     }
   };
 
@@ -426,7 +470,7 @@ export function PaymentMethodSelector({
             tokenSymbol: 'USDC',
             tokenName: 'USD Coin',
             usdValue: totalAmount.toFixed(6),
-            exchangeRate: (1 / rate).toFixed(2),
+            exchangeRate: rate.toFixed(2),
             loading: false
           };
           setDefaultTokenQuote(usdcQuote);
@@ -469,46 +513,6 @@ export function PaymentMethodSelector({
     if (currency === 'usdc') return totalAmount;
     const solToUsdRate = solRate ?? 180; // Example: 1 SOL = $100
     return totalAmount * solToUsdRate;
-  };
-
-  // Function to get price quote
-  const fetchPriceQuote = async (tokenAddress?: string, chainId?: number) => {
-    setPriceQuote({ 
-      tokenAmount: '0', 
-      tokenSymbol: tokenInfo?.symbol || 'TOKEN',
-      tokenName: tokenInfo?.name || 'Custom Token',
-      usdValue: '0', 
-      exchangeRate: '0', 
-      loading: true 
-    });
-    
-    try {
-      let quote: PriceQuote;
-      
-      if (chainId) {
-        quote = onGetPriceQuote 
-          ? await onGetPriceQuote('', chainId.toString())
-          : await getDeBridgePriceQuote(chainId);
-      } else if (tokenAddress) {
-        quote = onGetPriceQuote 
-          ? await onGetPriceQuote(tokenAddress)
-          : await getJupiterPriceQuote(tokenAddress);
-      } else {
-        throw new Error('No token address or chain ID provided');
-      }
-      
-      setPriceQuote(quote);
-    } catch (error) {
-      setPriceQuote({
-        tokenAmount: '0',
-        tokenSymbol: tokenInfo?.symbol || 'TOKEN',
-        tokenName: tokenInfo?.name || 'Custom Token',
-        usdValue: '0',
-        exchangeRate: '0',
-        loading: false,
-        error: 'Failed to get price quote'
-      });
-    }
   };
 
   const handleMethodSelect = (method: typeof paymentOptions[0]) => {

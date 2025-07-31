@@ -45,9 +45,9 @@ export function formatPriceWithRate(
   if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
       const solRate = rate; // USD value of 1 SOL
     if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
-      convertedPrice = Math.ceil((price * solRate) * 100) / 100;
+      convertedPrice = Math.round((price * solRate) * 100) / 100;
     } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
-      convertedPrice = Math.ceil((price / solRate) * 100) / 100;
+      convertedPrice = Math.round((price / solRate) * 100) / 100;
     }
   }
 
@@ -79,9 +79,9 @@ export function formatPriceWithIcon(
 
   if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
     if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
-      convertedPrice = Math.ceil((price * rate) * 100) / 100;
+      convertedPrice = Math.round((price * rate) * 100) / 100;
     } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
-      convertedPrice = Math.ceil((price / rate) * 100) / 100;
+      convertedPrice = Math.round((price / rate) * 100) / 100;
     }
   }
 
