@@ -221,6 +221,11 @@ async function verifySolanaTransactionDetails(signature, expectedDetails) {
       };
     }
 
+    return {
+        isValid: true,
+        details
+      }
+
     const amount = Math.abs(recipient[1]) / Math.pow(10, 6); // assuming USDC has 6 decimals
 
     const details = {

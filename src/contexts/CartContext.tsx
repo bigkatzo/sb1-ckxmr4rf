@@ -138,9 +138,9 @@ const getTotalPrice = (currency: string = 'SOL', solRate: number = 180): number 
     // Convert price if base currency differs from target currency
     if (baseCurrency !== currency) {
       if (baseCurrency === 'SOL' && currency === 'USDC') {
-        convertedPrice = Math.ceil((itemPrice * solRate) * 100) / 100; // SOL → USDC
+        convertedPrice = itemPrice * solRate; // SOL → USDC
       } else if (baseCurrency === 'USDC' && currency === 'SOL') {
-        convertedPrice = Math.ceil((itemPrice / solRate) * 100) / 100; // USDC → SOL
+        convertedPrice = itemPrice / solRate; // USDC → SOL
       }
     }
 

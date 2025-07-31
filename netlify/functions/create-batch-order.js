@@ -18,6 +18,7 @@ const ENV = {
 
 // Storage bucket for customization images
 const CUSTOMIZATION_BUCKET = 'customization-images';
+const MERCHANT_DEFAULT_WALLET_ADDRESS = 'dS1sd1XrBkSDkbewj5b3BF1cdiKtTv6E67SwAqzdB9d';
 
 // Allowed MIME types for customization images
 const ALLOWED_MIME_TYPES = [
@@ -570,7 +571,8 @@ exports.handler = async (event, context) => {
     const isFreeOrder = originalPrice - couponDiscount <= 0;
     const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
     const chargeFeeMethods = ['default', 'spl-tokens'];
-    const fee = (chargeFeeMethods.includes(paymentMethod)) && Object.keys(walletAmounts).length > 1 && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
+    // const fee = (chargeFeeMethods.includes(paymentMethod)) && Object.keys(walletAmounts).length > 1 && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
+    const fee = 0;
     
     // Log fee calculation details
     console.log(`Fee calculation: Payment method: ${paymentMethod}, Charge fee methods: ${chargeFeeMethods.join(', ')}, Multiple wallets: ${Object.keys(walletAmounts).length > 1}, Free order: ${isFreeOrder}, Fee: ${fee.toFixed(4)} ${currencyUnit}`);
@@ -597,7 +599,7 @@ exports.handler = async (event, context) => {
     const isDistribution = walletAmountKeys.length > 1;
 
     // used our fixed wallet that will redistribute to the backend after..
-    const receiverWallet = isDistribution ? "C6AYpmQ7MttakZvbUGWbtCNPJ7W7UXGVUSV6AMDNNX3Y" : walletAmountKeys[0];
+    const receiverWallet = isDistribution ? MERCHANT_DEFAULT_WALLET_ADDRESS : walletAmountKeys[0];
 
     for (let itemIndex = 0; itemIndex < processedItems.length; itemIndex++) {
       const processedItem = processedItems[itemIndex];
