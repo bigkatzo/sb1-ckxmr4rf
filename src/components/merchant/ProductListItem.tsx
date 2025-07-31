@@ -205,7 +205,9 @@ export function ProductListItem({
           
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-white">{product.price} SOL</span>
+              <span className="text-sm font-medium text-white">
+                {product.price} {product.baseCurrency?.toUpperCase() || 'SOL'}
+              </span>
               <span className={`text-xs ${loading ? 'text-gray-500' : 'text-gray-400'}`}>
                 Stock available: {getStockDisplay()}
               </span>
