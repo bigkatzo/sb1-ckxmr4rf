@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useCurrency, Currency } from '../../contexts/CurrencyContext';
+import { TokenIcon } from './TokenIcon';
 
 const currencies: { value: Currency; label: string; symbol: string }[] = [
-  { value: 'SOL', label: 'SOL', symbol: '◎' },
-  { value: 'USDC', label: 'USDC', symbol: '$' },
+  { value: 'SOL', label: 'SOL', symbol: 'SOL' },
+  { value: 'USDC', label: 'USDC', symbol: 'USDC' },
 ];
 
 export function CurrencySelector() {
@@ -39,7 +40,7 @@ export function CurrencySelector() {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-text-muted hover:text-text bg-background-800/50 hover:bg-background-800 rounded-md transition-colors"
       >
-        <span className="text-xs">{currentCurrency.symbol}</span>
+        <TokenIcon symbol={currentCurrency.symbol} size="sm" />
         <span className="text-xs">{currentCurrency.label}</span>
         <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -54,7 +55,7 @@ export function CurrencySelector() {
                 currency === curr.value ? 'text-text bg-background-800/50' : 'text-text-muted'
               }`}
             >
-              <span>{curr.symbol}</span>
+              <TokenIcon symbol={curr.symbol} size="sm" />
               <span>{curr.label}</span>
             </button>
           ))}

@@ -11,6 +11,7 @@ import { formatPrice, formatPriceWithRate } from '../../utils/formatters';
 import { MultiItemCheckoutModal } from './MultiItemCheckoutModal';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useSolanaPrice } from '../../utils/price-conversion';
+import { TokenIcon } from '../ui/TokenIcon';
 
 export function CartDrawer() {
   const { 
@@ -228,7 +229,8 @@ export function CartDrawer() {
                             </button>
                           </div>
                           
-                          <div className="text-white">
+                          <div className="text-white flex items-center gap-1">
+                            <TokenIcon symbol={currency.toUpperCase()} size="sm" />
                             {formatPriceWithRate(
                               (item.priceInfo?.modifiedPrice || item.product.price) * item.quantity, currency, item.product.baseCurrency, solRate ?? 180
                             )}
@@ -245,7 +247,10 @@ export function CartDrawer() {
               <div className="p-4 border-t border-gray-800">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-gray-300">Total</span>
-                  <span className="text-xl font-medium text-white">{formatPriceWithRate(totalPrice, currency, currency, solRate ?? 180)}</span>
+                  <span className="text-xl font-medium text-white flex items-center gap-1">
+                    <TokenIcon symbol={currency.toUpperCase()} size="md" />
+                    {formatPriceWithRate(totalPrice, currency, currency, solRate ?? 180)}
+                  </span>
                 </div>
                 
                 <button

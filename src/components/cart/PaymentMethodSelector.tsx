@@ -3,6 +3,7 @@ import { ChevronDown, CreditCard, Wallet, Coins, Link, Check, Copy, ExternalLink
 // Import from App.tsx temporarily - you should move these to proper UI components
 import { Button } from '../ui/Button';
 import { toast } from 'react-toastify';
+import { TokenIcon } from '../ui/TokenIcon';
 
 export interface PaymentMethod {
   type: 'default' | 'stripe' | 'spl-tokens' | 'cross-chain';
@@ -658,9 +659,7 @@ export function PaymentMethodSelector({
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white">$</span>
-              </div>
+              <TokenIcon symbol="USDC" />
               USDC
             </button>
 
@@ -678,9 +677,7 @@ export function PaymentMethodSelector({
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white">◎</span>
-              </div>
+              <TokenIcon symbol="SOL" />
               SOL
             </button>
 
@@ -698,9 +695,7 @@ export function PaymentMethodSelector({
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              <div className="w-4 h-4 rounded-full bg-yellow-400 flex items-center justify-center">
-                <span className="text-[10px] font-bold text-gray-900">{firstRecommendedCA.symbol[0]}</span>
-              </div>
+              <TokenIcon symbol={firstRecommendedCA.symbol} />
               {firstRecommendedCA.symbol}
             </button>
             )}
@@ -743,8 +738,10 @@ export function PaymentMethodSelector({
               </div>
               <div className="flex items-center gap-2">
                 {!defaultTokenQuote.loading && !defaultTokenQuote.error && (
-                  <span className="text-sm font-medium text-white">
-                    {defaultTokenQuote.tokenAmount} {defaultTokenQuote.tokenSymbol}
+                  <span className="text-sm font-medium text-white flex items-center gap-1">
+                    {defaultTokenQuote.tokenAmount} 
+                    <TokenIcon symbol={defaultTokenQuote.tokenSymbol} size="sm" />
+                    {defaultTokenQuote.tokenSymbol}
                   </span>
                 )}
                 <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
@@ -764,8 +761,10 @@ export function PaymentMethodSelector({
                   <div className="space-y-1 pt-2">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-400">You'll pay:</span>
-                      <span className="text-sm font-medium text-white">
-                        {defaultTokenQuote.tokenAmount} {defaultTokenQuote.tokenSymbol}
+                      <span className="text-sm font-medium text-white flex items-center gap-1">
+                        {defaultTokenQuote.tokenAmount} 
+                        <TokenIcon symbol={defaultTokenQuote.tokenSymbol} size="sm" />
+                        {defaultTokenQuote.tokenSymbol}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -894,9 +893,7 @@ export function PaymentMethodSelector({
                       : 'border-gray-600 bg-gray-700 hover:bg-gray-600'
                   }`}
                 >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
-                    <span className="text-xs font-bold text-white">{token.symbol[0]}</span>
-                  </div>
+                  <TokenIcon symbol={token.symbol} />
                   <div className="text-left">
                     <div className="text-sm font-medium text-white">{token.symbol}</div>
                     <div className="text-xs text-gray-400">{token.name}</div>

@@ -167,6 +167,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
           collectionLaunchDate: data.collection_launch_date ? new Date(data.collection_launch_date) : (data.collections?.launch_date ? new Date(data.collections.launch_date) : undefined),
           collectionSaleEnded: data.collection_sale_ended ?? data.collections?.sale_ended ?? false,
           categorySaleEnded: data.category_sale_ended ?? data.categories?.sale_ended ?? false,
+          collectionCa: data.collection_ca ?? data.collections?.ca,
           slug: data.slug || '',
           stock: data.quantity,
           minimumOrderQuantity: data.minimum_order_quantity || 50,
