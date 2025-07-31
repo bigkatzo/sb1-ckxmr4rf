@@ -426,7 +426,22 @@ export function usePayment() {
 
       try {
         const buyerTokenAccountInfo = await getAccount(SOLANA_CONNECTION, buyerTokenAccount);
-        amountInSmallestUnit = BigInt(Math.floor(amount * 10 ** USDC_DECIMALS));
+        
+        // Get token decimals - default to 6 for USDC, but handle other tokens
+        let tokenDecimals = 6; // Default for USDC
+        if (!tokenMint.equals(USDC_MINT)) {
+          try {
+            // Try to get token mint info to determine decimals
+            const mintInfo = await SOLANA_CONNECTION.getParsedAccountInfo(tokenMint);
+            if (mintInfo.value && 'parsed' in mintInfo.value.data) {
+              tokenDecimals = (mintInfo.value.data as any).parsed.info.decimals;
+            }
+          } catch (error) {
+            console.warn('Could not determine token decimals, using default of 6:', error);
+          }
+        }
+        
+        amountInSmallestUnit = BigInt(Math.floor(amount * 10 ** tokenDecimals));
 
         if (buyerTokenAccountInfo.amount < amountInSmallestUnit) {
           throw new Error(`Insufficient ${tokenMint.equals(USDC_MINT) ? 'USDC' : 'token'} balance`);

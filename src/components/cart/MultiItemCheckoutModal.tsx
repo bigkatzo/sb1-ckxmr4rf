@@ -23,6 +23,7 @@ import { usePayment } from '../../hooks/usePayment.ts';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice.ts';
 import { useSolanaPrice } from '../../utils/price-conversion.ts';
 import { useCurrency } from '../../contexts/CurrencyContext.tsx';
+import { PublicKey } from '@solana/web3.js';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -550,17 +551,32 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         signature = txSignature;
       }
     } else if(paymentMethod?.type === 'spl-tokens') {
-      const { success: paymentSuccess, signature: txSignature } = await processSolanaSwapTokenPayment(
-        paymentMethod.tokenAddress || '',
-        undefined,
-        paymentAmount,
-        receiverWallet,
-        100,
-        undefined,
-        paymentMethod.tokenSymbol
-      );
-      success = paymentSuccess;
-      signature = txSignature;
+      // Check if this is a strict token payment (user receives the same token they're paying with)
+      if (hasStrictTokenRestriction && collectionStrictToken) {
+        // For strict token payments, use processTokenPayment instead of swap
+        // because the user receives the same token they're paying with
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(
+          paymentAmount, 
+          cartId, 
+          receiverWallet,
+          new PublicKey(collectionStrictToken)
+        );
+        success = paymentSuccess;
+        signature = txSignature;
+      } else {
+        // For regular SPL token payments, use the swap functionality
+        const { success: paymentSuccess, signature: txSignature } = await processSolanaSwapTokenPayment(
+          paymentMethod.tokenAddress || '',
+          undefined,
+          paymentAmount,
+          receiverWallet,
+          100,
+          undefined,
+          paymentMethod.tokenSymbol
+        );
+        success = paymentSuccess;
+        signature = txSignature;
+      }
     }
     
     if(!success || !signature) {
