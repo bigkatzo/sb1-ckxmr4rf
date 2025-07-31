@@ -6,6 +6,7 @@ import { ProductModal } from './ProductModal';
 import { useBestSellers } from '../../hooks/useBestSellers';
 import { BestSellersSkeleton } from '../ui/Skeletons';
 import type { Product as VariantsProduct } from '../../types/variants';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 export function BestSellers() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -14,6 +15,7 @@ export function BestSellers() {
   const [visibleItemCount, setVisibleItemCount] = useState(3); // Default to mobile
   const [contentLoaded, setContentLoaded] = useState(false);
   const initialLoadTimeoutRef = useRef<NodeJS.Timeout>();
+  const { currency } = useCurrency();
 
   // Ensure products have all required properties for VariantsProduct
   const products = rawProducts.map(product => ({
@@ -34,7 +36,7 @@ export function BestSellers() {
         }
       };
     }
-  }, [loading, products, contentLoaded]);
+  }, [loading, products, contentLoaded, currency]);
 
   // Update visible items count based on screen size
   useEffect(() => {

@@ -36,6 +36,8 @@ export interface Product {
   categorySaleEnded?: boolean;
   collectionOwnerMerchantTier?: import('./collections').MerchantTier;
   collectionUserId?: string; // User ID of the collection owner
+  collectionCa?: string; // CA for the collection, if applicable
+  collectionStrictToken?: string; // Strict token for the collection, if applicable
   slug: string;
   stock: number | null; // Base stock, null means unlimited
   minimumOrderQuantity: number;
@@ -60,6 +62,12 @@ export interface Product {
   };
   freeNotes?: string; // Free-form notes for additional information
   reviewStats?: ReviewStats; // Add review stats
+  isCustomizable?: string; // Whether the product can be customized
+  customization?: {
+    image?: boolean; // Whether image customization is available
+    text?: boolean; // Whether text customization is available
+  };
+  baseCurrency?: string; // Base price as a string for display
 }
 
 export interface ProductVariantFormData {

@@ -5,6 +5,7 @@ import { SearchBar } from '../search/SearchBar';
 import { Logo } from '../ui/Logo';
 import { WalletButton } from '../wallet/WalletButton';
 import { CartButton } from '../cart/CartButton';
+import { CurrencyToggle } from '../ui/CurrencyToggle';
 import { useHowItWorks } from '../../contexts/HowItWorksContext';
 import { useAppMessages } from '../../contexts/AppMessagesContext';
 
@@ -95,6 +96,10 @@ export default function Navbar() {
             </Link>
           )
         )}
+        {/* Currency Toggle for mobile/tablet - only show when main navbar currency toggle is hidden */}
+        <div className="lg:hidden px-3 py-1.5">
+          <CurrencyToggle />
+        </div>
       </div>
       <div className="flex justify-center gap-4 py-2">
         {socialLinks.map((link) => (
@@ -168,7 +173,10 @@ export default function Navbar() {
           {/* Right section */}
           <div className="flex items-center ml-auto">
             {/* Desktop Actions */}
-            <div className="hidden md:flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-3">
+              <div className="hidden lg:block">
+                <CurrencyToggle />
+              </div>
               <CartButton />
               <WalletButton />
               <button

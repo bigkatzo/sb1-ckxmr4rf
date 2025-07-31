@@ -47,6 +47,8 @@ export interface Product {
   collectionLaunchDate?: Date;
   collectionSaleEnded?: boolean;
   categorySaleEnded?: boolean;
+  collectionCa?: string;
+  collectionStrictToken?: string;
   collectionOwnerMerchantTier?: import('./collections').MerchantTier;
   collectionUserId?: string;
   slug: string;
@@ -71,6 +73,12 @@ export interface Product {
   };
   freeNotes?: string;
   rank?: number;
+  isCustomizable?: string;
+  customization?: {
+    text?: boolean;
+    image?: boolean;
+  };
+  baseCurrency?: string;
 }
 
 export interface SearchResult {

@@ -3,7 +3,7 @@ import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { verifyTokenHolding } from '../../utils/token-verification';
 import { verifyWhitelistAccess } from '../../utils/whitelist-verification';
-import { usePayment } from '../../hooks/usePayment';
+// import { usePayment } from '../../hooks/usePayment';
 import { toast } from 'react-toastify';
 import { toastService } from '../../services/toast';
 import type { Product } from '../../types/variants';
@@ -17,12 +17,18 @@ import { validatePhoneNumber, validateZipCode, getStateFromZipCode } from '../..
 import { StripePaymentModal } from './StripePaymentModal';
 import { CouponService } from '../../services/coupons';
 import type { PriceWithDiscount } from '../../types/coupons';
-import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
+// import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
+<<<<<<< HEAD
 import { getLocationFromZip, doesCountryRequireTaxId, isCountrySupportedForShipping } from '../../utils/addressUtil';
 import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
+=======
+import { getLocationFromZip, doesCountryRequireTaxId } from '../../utils/addressUtil';
+import { updateOrderTransactionSignature } from '../../services/orders';
+>>>>>>> test
 import { usePreventScroll } from '../../hooks/usePreventScroll';
+import { CryptoPaymentModal } from '../products/CryptoPaymentModal.tsx';
 
 interface TokenVerificationModalProps {
   product: Product;
@@ -89,8 +95,7 @@ export function TokenVerificationModal({
 }: TokenVerificationModalProps) {
   usePreventScroll(true); // Modal is always showing when component is rendered
   
-  const { walletAddress, isConnected } = useWallet();
-  const { processPayment } = usePayment();
+  const { walletAddress } = useWallet();
   const [verifying, setVerifying] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const { modifiedPrice: baseModifiedPrice } = useModifiedPrice({
@@ -100,11 +105,15 @@ export function TokenVerificationModal({
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [showSuccessView, setShowSuccessView] = useState(false);
   const [orderDetails, setOrderDetails] = useState<{
-    orderNumber: string;
-    transactionSignature: string;
+    orderNumber?: string;
+    transactionSignature?: string;
+    amount?: number;
+    receiverWallet?: string;
+    walletAmounts?: { [address: string]: number };
   } | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showStripeModal, setShowStripeModal] = useState(false);
+  const [showCryptoModal, setShowCryptoModal] = useState(false);
   const [showCoupon, setShowCoupon] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [couponResult, setCouponResult] = useState<PriceWithDiscount | null>(null);
@@ -356,14 +365,14 @@ export function TokenVerificationModal({
     verifyAccess();
   }, [walletAddress, product]);
 
-  const handleShippingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // const handleShippingSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
     
-    try {
-      if (!isConnected) {
-        toast.error('Please connect your wallet first');
-        return;
-      }
+  //   try {
+  //     if (!isConnected) {
+  //       toast.error('Please connect your wallet first');
+  //       return;
+  //     }
       
       // Check if the selected country is supported for shipping
       if (!isCountrySupportedForShipping(shippingInfoState.country)) {
@@ -381,299 +390,151 @@ export function TokenVerificationModal({
         };
       });
       
-      setSubmitting(true);
-      setProgressSteps(prevSteps => 
-        prevSteps.map((step, i) => 
-          i === 0 ? { ...step, status: 'processing' } : step
-        )
-      );
+  //     setSubmitting(true);
+  //     setProgressSteps(prevSteps => 
+  //       prevSteps.map((step, i) => 
+  //         i === 0 ? { ...step, status: 'processing' } : step
+  //       )
+  //     );
       
-      // For free orders with 100% discount, use a different flow
-      if (isFreeOrder && couponResult) {
-        await handleFreeOrder();
-        return;
-      }
+  //     // Start order creation process
+  //     updateProgressStep(0, 'processing', 'Creating your order...');
+        
+  //     const orderResponse = await fetch('/.netlify/functions/create-order', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json'
+  //       },
+  //       body: JSON.stringify({
+  //         productId: product.id,
+  //         variants: formattedVariantSelections,
+  //         shippingInfo: {
+  //           shipping_address: {
+  //             address: shippingInfoState.address,
+  //             city: shippingInfoState.city,
+  //             country: shippingInfoState.country,
+  //             state: shippingInfoState.state || undefined,
+  //             zip: shippingInfoState.zip,
+  //             taxId: shippingInfoState.taxId || undefined
+  //           },
+  //           contact_info: {
+  //             method: shippingInfoState.contactMethod,
+  //             value: shippingInfoState.contactValue,
+  //             firstName: shippingInfoState.firstName,
+  //             lastName: shippingInfoState.lastName,
+  //             phoneNumber: shippingInfoState.phoneNumber
+  //           }
+  //         },
+  //         walletAddress,
+  //         paymentMetadata: {
+  //           ...paymentMetadata,
+  //           orderSource: 'token_modal',
+  //           paymentMethod: 'solana',
+  //           isBatchOrder: false,
+  //           isSingleItemOrder: true
+  //         }
+  //       })
+  //     });
 
-      // Start order creation process
-      updateProgressStep(0, 'processing', 'Creating your order...');
+  //     const orderData = await orderResponse.json();
+  //     if (orderData.error) {
+  //       throw new Error(orderData.error);
+  //     }
       
-      let orderResponse;
-      let orderId: string | undefined;
-      let orderNumber: string;
-      let batchOrderId;
+  //     const orderId = orderData.orderId || '';
       
-      // If user has a batch checkout from cart, use batch order endpoint
-      if (paymentMetadata?.isBatchOrder) {
-        // For batch orders, use the batch order endpoint
-        orderResponse = await fetch('/.netlify/functions/create-batch-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            items: [{
-              product,
-              selectedOptions: selectedOption,
-              quantity: 1
-            }],
-            shippingInfo: {
-              shipping_address: {
-                address: shippingInfoState.address,
-                city: shippingInfoState.city,
-                country: shippingInfoState.country,
-                state: shippingInfoState.state || undefined,
-                zip: shippingInfoState.zip,
-                taxId: shippingInfoState.taxId || undefined
-              },
-              contact_info: {
-                method: shippingInfoState.contactMethod,
-                value: shippingInfoState.contactValue,
-                firstName: shippingInfoState.firstName,
-                lastName: shippingInfoState.lastName,
-                phoneNumber: shippingInfoState.phoneNumber
-              }
-            },
-            walletAddress,
-            paymentMetadata: {
-              ...paymentMetadata,
-              paymentMethod: 'solana'
-            }
-          })
-        });
-            
-        const batchData = await orderResponse.json();
-            
-        if (!batchData.success) {
-          throw new Error(batchData.error || 'Failed to create batch order');
-        }
-            
+  //     // Get order number from any of the formats
+  //     const orderNumber = orderData.orderNumber || 
+  //                   orderData.orders?.[0]?.orderNumber || 
+  //                   `SF-${Date.now().toString().slice(-6)}`;  // Fallback that matches pattern
 
-        orderNumber = batchData.orderNumbers?.[0]; 
-        batchOrderId = batchData.batchOrderId;
+  //                   updateProgressStep(0, 'completed');
 
-        console.log("Successfully created batch order data with batch id above: ", batchOrderId);
-      } else {
-        // For regular single orders, use the regular order endpoint
-        orderResponse = await fetch('/.netlify/functions/create-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            productId: product.id,
-            variants: formattedVariantSelections,
-            shippingInfo: {
-              shipping_address: {
-                address: shippingInfoState.address,
-                city: shippingInfoState.city,
-                country: shippingInfoState.country,
-                state: shippingInfoState.state || undefined,
-                zip: shippingInfoState.zip,
-                taxId: shippingInfoState.taxId || undefined
-              },
-              contact_info: {
-                method: shippingInfoState.contactMethod,
-                value: shippingInfoState.contactValue,
-                firstName: shippingInfoState.firstName,
-                lastName: shippingInfoState.lastName,
-                phoneNumber: shippingInfoState.phoneNumber
-              }
-            },
-            walletAddress,
-            paymentMetadata: {
-              ...paymentMetadata,
-              orderSource: 'token_modal',
-              paymentMethod: 'solana',
-              isBatchOrder: false,
-              isSingleItemOrder: true
-            }
-          })
-        });
-
-        const orderData = await orderResponse.json();
-        if (orderData.error) {
-          throw new Error(orderData.error);
-        }
-        
-        orderId = orderData.orderId;
-        
-        // Get order number from any of the formats
-        orderNumber = orderData.orderNumber || 
-                     orderData.orders?.[0]?.orderNumber || 
-                     `SF-${Date.now().toString().slice(-6)}`;  // Fallback that matches pattern
-      }
-
-      updateProgressStep(0, 'completed');
-
-      // Start payment processing
-      updateProgressStep(1, 'processing', 'Initiating payment on Solana network...');
+                    
+  //     const merchantWallet = orderNumber.receiverWallet;
       
-      // Process payment with modified price
-      const { success: paymentSuccess, signature: txSignature } = await processPayment(finalPrice, product.collectionId);
+  //     setOrderDetails({
+  //       amount: orderData.totalAmount || 0,
+  //       orderNumber: orderNumber,
+  //       receiverWallet: merchantWallet
+  //     })
+  //     // Start payment processing
+  //     updateProgressStep(1, 'processing', 'Initiating payment on Solana network...');
       
-      if (!paymentSuccess || !txSignature) {
-        updateProgressStep(1, 'error', undefined, 'Payment failed');
-        
-        // Update order to pending_payment status even if payment fails
-        try {
-          const rejectBody = JSON.stringify({
-            orderId,
-            batchOrderId,
-            transactionSignature: 'rejected', // Use a special value for rejected transactions
-            amountSol: finalPrice,
-            walletAddress: walletAddress || 'anonymous'
-          });
+  //     // Process payment with modified price
+  //     const { success: paymentSuccess, signature: txSignature } = await processPayment(orderData.totalAmount, orderId, merchantWallet);
+      
+  //     setOrderDetails({
+  //       ...orderDetails,
+  //       transactionSignature: txSignature,
+  //     });
 
-          const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: rejectBody,
-          });
-
-          if (!updateResponse.ok) {
-            const errorData = await updateResponse.json();
-            console.error('Failed to update order status:', errorData.error);
-          }
-        } catch (err) {
-          console.error('Error updating order status:', err);
-        }
+  //     if (!paymentSuccess || !txSignature) {
+  //       updateProgressStep(1, 'error', undefined, 'Payment failed');
         
-        throw new Error('Payment failed');
-      }
+  //       // Update order to pending_payment status even if payment fails
+  //       try {
+  //         const rejectBody = JSON.stringify({
+  //           orderId,
+  //           transactionSignature: `rejected_${walletAddress}_${product.name}_${Date.now()}`, // Use a special value for rejected transactions
+  //           amountSol: orderData.totalAmount,
+  //           walletAddress: walletAddress || 'anonymous'
+  //         });
 
-      // Update order with transaction signature
-      try {
-        console.log("Batch order id right before...");
-        const success = await updateOrderTransactionSignature({
-          orderId,
-          transactionSignature: txSignature,
-          amountSol: finalPrice,
-          walletAddress: walletAddress || 'anonymous',
-          batchOrderId,
-        });
+  //         const updateResponse = await fetch('/.netlify/functions/update-order-transaction', {
+  //           method: 'POST',
+  //           headers: {
+  //             'Content-Type': 'application/json'
+  //           },
+  //           body: rejectBody,
+  //         });
 
-        if (!success) {
-          throw new Error('Failed to update order transaction');
-        }
+  //         if (!updateResponse.ok) {
+  //           const errorData = await updateResponse.json();
+  //           console.error('Failed to update order status:', errorData.error);
+  //         }
+  //       } catch (err) {
+  //         console.error('Error updating order status:', err);
+  //       }
         
-        // Payment initiated successfully
-        updateProgressStep(1, 'completed');
-        
-        // Start transaction confirmation
-        updateProgressStep(2, 'processing', 'Waiting for transaction confirmation...');
-        
-        // Expected transaction details for server verification
-        const expectedDetails = {
-          amount: finalPrice,
-          buyer: walletAddress || '',
-          collectionId: product.collectionId,
-          recipient: product.collectionId // Collection address as recipient
-        };
-        
-        // Monitor transaction status and confirm on chain
-        const transactionSuccess = await verifyFinalTransaction(
-          txSignature,
-          (status) => {
-            console.log('Transaction status update:', status);
-            if (status.error) {
-              updateProgressStep(2, 'error', undefined, status.error);
-            } else if (status.paymentConfirmed) {
-              updateProgressStep(2, 'completed', 'Transaction confirmed!');
-              
-              // Add immediate success trigger when paymentConfirmed is true
-              console.log('Payment confirmed, triggering success view');
-              // Use the order number from the API response, fall back to a generated one if not available
-              const displayOrderNumber = orderNumber || `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-              
-              // Important: Force full sequence order, use functional state update
-              setOrderDetails({
-                orderNumber: displayOrderNumber,
-                transactionSignature: txSignature || ''
-              });
-              
-              // Force re-render by triggering in the next tick
-              setTimeout(() => {
-                setShowSuccessView(true);
-                toastService.showOrderSuccess();
-                onSuccess();
-              }, 50);
-            }
-          },
-          orderId,
-          paymentMetadata?.batchOrderId,
-          expectedDetails,
-        );
+  //       throw new Error('Payment failed');
+  //     }
 
-        // SAFETY: Add a timeout for direct success if callbacks aren't working
-        // In case the monitorTransaction callback is not triggered or has issues
-        if (transactionSuccess) {
-          console.log('Setting safety timeout for success view - will trigger in 2s if not already shown');
-          setTimeout(() => {
-            // Check if the success view is showing by looking at the state
-            if (!showSuccessView) {
-              console.log('SAFETY TIMEOUT: Forcing success view to show as callback may have failed');
-              const displayOrderNumber = orderNumber || `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-              setOrderDetails({
-                orderNumber: displayOrderNumber,
-                transactionSignature: txSignature || ''
-              });
-              
-              // Force re-render by triggering in the next tick
-              setTimeout(() => {
-                setShowSuccessView(true);
-                toastService.showOrderSuccess();
-                onSuccess();
-              }, 50);
-            }
-          }, 2000);
-        }
+  //     // Update order with transaction signature
+  //     try {
+  //       console.log("order id right before...");
+  //       const success = await updateOrderTransactionSignature({
+  //         orderId,
+  //         transactionSignature: txSignature,
+  //         amountSol: orderData.totalAmount,
+  //         walletAddress: walletAddress || 'anonymous',
+  //       });
 
-        if (!transactionSuccess) {
-          updateProgressStep(2, 'error', undefined, 'Transaction verification failed. Order will remain in pending_payment status for merchant review.');
-          // Don't throw error here, let the merchant handle it
-          
-          // Create order details for the success view using real order number if available
-          const displayOrderNumber = orderNumber || `ORD-${Date.now().toString(36)}-${orderId?.substring(0, 6) || 'unknown'}`;
-          
-          // Force reliable state update sequence
-          setOrderDetails({
-            orderNumber: displayOrderNumber,
-            transactionSignature: txSignature || ''
-          });
-          
-          // Use setTimeout to ensure state updates processed in order
-          setTimeout(() => {
-            setShowSuccessView(true);
-            toastService.showOrderSuccess();
-            onSuccess();
-          }, 50);
-          
-          return;
-        }
+  //       if (!success) {
+  //         throw new Error('Failed to update order transaction');
+  //       }
         
-        // Server-side verification confirms the transaction and updates the order status automatically
-        // We don't need to make another call to confirm_order_transaction
-
-        updateProgressStep(2, 'completed');
-      } catch (error) {
-        console.error('Order error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
-        toast.error(errorMessage, {
-          autoClose: false
-        });
-        setSubmitting(false);
-      }
-    } catch (error) {
-      console.error('Order error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
-      toast.error(errorMessage, {
-        autoClose: false
-      });
-      setSubmitting(false);
-    }
-  };
+  //       // Payment initiated successfully
+  //       updateProgressStep(1, 'completed');
+        
+  //       // Start transaction confirmation - using same flow as MultiItemCheckoutModal
+  //       await handleVerification(txSignature, orderId, merchantWallet);
+  //     } catch (error) {
+  //       console.error('Order error:', error);
+  //       const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
+  //       toast.error(errorMessage, {
+  //         autoClose: false
+  //       });
+  //       setSubmitting(false);
+  //     }
+  //   } catch (error) {
+  //     console.error("Checkout error:", error);
+  //     toast.error("An error occurred during checkout");
+  //     updateProgressStep(0, 'error', undefined, error instanceof Error ? error.message : 'An unknown error occurred');
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -687,104 +548,149 @@ export function TokenVerificationModal({
   };
 
   // Track the created order ID for Stripe payments
-  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [createdOrderId, setCreatedOrderId] = useState<string | undefined>(undefined);
 
-  const handleStripeSuccess = async (paymentIntentId: string) => {
+  // Verification handler following MultiItemCheckoutModal pattern
+  const handleVerification = async (txSignature: string, orderId?: string, receiverWallet?: string) => {
     try {
-      console.log('Stripe payment successful:', { orderId: createdOrderId, paymentIntentId });
+      updateProgressStep(2, 'processing', 'Waiting for transaction confirmation...');
       
-      // Update order progress for UI
-      updateProgressStep(1, 'completed');
-      updateProgressStep(2, 'processing', 'Confirming transaction...');
-      
-      // Skip confirmation call for free orders - they are already confirmed during creation
-      const isFreeOrder = paymentIntentId.startsWith('free_');
-      
-      // Only call the confirmation endpoint for regular Stripe payments, not free orders
-      if (!isFreeOrder && createdOrderId) {
-        try {
-          updateProgressStep(2, 'processing', 'Updating order status...');
-          const response = await fetch('/.netlify/functions/update-stripe-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId: createdOrderId, paymentIntentId })
-          });
+      const success = await verifyFinalTransaction(
+        txSignature,
+        async (status) => {
+          console.log('Status update received:', status);
           
-          const result = await response.json();
-          console.log('Client-side order confirmation result:', result);
+          if (status.error) {
+            console.log('Setting error state:', status.error);
+            updateProgressStep(2, 'error', undefined, status.error);
+            return;
+          } 
           
-          if (result.success) {
-            updateProgressStep(2, 'completed');
-          } else {
-            updateProgressStep(2, 'error', undefined, result.error || 'Failed to update order status');
-            // Continue with success view anyway - we've received payment
+          if (status.paymentConfirmed) {
+            console.log('Payment confirmed, setting success state');
+            
+            // IMMEDIATELY set success state and update order data
+            updateProgressStep(2, 'completed', 'Transaction confirmed!');
+            setOrderDetails(prev => ({
+              ...prev,
+              transactionSignature: txSignature
+            }));
+            
+            // Force re-render by triggering in the next tick
+            setTimeout(() => {
+              setShowSuccessView(true);
+              toastService.showOrderSuccess();
+              onSuccess();
+            }, 50);
           }
-        } catch (confirmError) {
-          console.error('Error with client-side order confirmation:', confirmError);
-          updateProgressStep(2, 'error', undefined, 'Failed to update order status, but payment was received');
-          // Continue with the process even if this fails
-        }
-      } else {
-        // For free orders, mark the final step as complete
-        updateProgressStep(2, 'completed');
-      }
+        },
+        orderId,
+        undefined,
+        {
+          amount: orderDetails?.amount || 0,
+          buyer: walletAddress || '',
+          recipient: receiverWallet || "",
+        },
+      );
       
-      // Try to fetch the latest order data first to get the correct order number
-      try {
-        if (createdOrderId) {
-          console.log('Fetching order details via helper function for:', createdOrderId);
-          
-          const orderDetailsResult = await getOrderDetails(createdOrderId);
-          
-          if (orderDetailsResult.success && orderDetailsResult.order) {
-            console.log('Found order details:', orderDetailsResult.order);
-            
-            // Use the retrieved order number
-            setOrderDetails({
-              orderNumber: orderDetailsResult.order.order_number,
-              transactionSignature: paymentIntentId
-            });
-            
-            // Always show success view and toast for Stripe payments
+      // SAFETY: Add a timeout to ensure modal closes properly
+      if (success || txSignature) {
+        console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
+        setTimeout(() => {
+          // Chefck if still in confirming_transaction state
+          if (progressSteps[2].status === 'processing') {
+            console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
+            updateProgressStep(2, 'completed');
             setShowSuccessView(true);
             toastService.showOrderSuccess();
             onSuccess();
-            return;
-          } else {
-            console.warn('Could not fetch order details from helper:', orderDetailsResult.error);
-            throw new Error('Order details not found');
           }
+        }, 3000);
+      }
+    } catch (error) {
+      console.error("Verification error:", error);
+      toast.error("An error occurred during verification");
+      updateProgressStep(2, 'error', undefined, error instanceof Error ? error.message : 'An unknown error occurred');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Add crypto payment completion handler
+  const handleCryptoComplete = async (status: any, txSignature: string, orderId?: string, batchOrderId?: string, receiverWallet?: string) => {
+    console.log('Crypto payment completed:', { status, txSignature, orderId, receiverWallet });
+    
+    setShowCryptoModal(false);
+    
+    if (!status.success) {
+      updateProgressStep(1, 'error', undefined, 'Payment failed or was cancelled');
+      try {
+        if (createdOrderId) {
+          await updateOrderTransactionSignature({
+            orderId: createdOrderId,
+            transactionSignature: 'rejected',
+            amountSol: orderDetails?.amount || 0,
+            walletAddress: walletAddress || 'anonymous'
+          });
         }
-      } catch (fetchError) {
-        console.warn('Could not fetch order details, using fallback:', fetchError);
+      } catch (err) {
+        console.error('Error updating order status:', err);
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    // Update order with transaction signature
+    try {
+      updateProgressStep(1, 'completed');
+      
+      if (createdOrderId) {
+        const success = await updateOrderTransactionSignature({
+          orderId: createdOrderId,
+          transactionSignature: txSignature,
+          amountSol: orderDetails?.amount || 0,
+          walletAddress: walletAddress || 'anonymous'
+        });
+
+        if (!success) {
+          throw new Error('Failed to update order transaction');
+        }
       }
       
-      // Create a proper order details object as fallback
-      const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
-      setOrderDetails({
-        orderNumber: fallbackOrderNumber,
-        transactionSignature: paymentIntentId
-      });
+      // Start transaction confirmation using same flow as MultiItemCheckoutModal
+      await handleVerification(txSignature, createdOrderId, receiverWallet);
       
-      // Always show success view and toast for Stripe payments
-      setShowSuccessView(true);
-      toastService.showOrderSuccess();
-      onSuccess();
     } catch (error) {
-      console.error('Error handling Stripe success:', error);
-      updateProgressStep(2, 'error', undefined, 'Error finalizing order, but payment was received');
+      console.error('Crypto payment error:', error);
+      updateProgressStep(2, 'error', undefined, error instanceof Error ? error.message : 'Transaction verification failed');
       
-      // Even if there's an error getting order details, still show success
-      const fallbackOrderNumber = `ORD-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
+      // Still show success view even if verification fails
+      const displayOrderNumber = `SF-${Date.now().toString(36)}-${createdOrderId?.substring(0, 6) || 'unknown'}`;
       setOrderDetails({
-        orderNumber: fallbackOrderNumber,
-        transactionSignature: paymentIntentId
+        amount: orderDetails?.amount || 0,
+        orderNumber: displayOrderNumber,
+        transactionSignature: txSignature
       });
       
-      setShowSuccessView(true);
-      toastService.showOrderSuccess();
-      onSuccess();
+      setTimeout(() => {
+        setShowSuccessView(true);
+        toastService.showOrderSuccess();
+        onSuccess();
+      }, 50);
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  // Simplified handleStripeSuccess following MultiItemCheckoutModal pattern
+  const handleStripeSuccess = async (paymentIntentId: string) => {
+    console.log('Stripe payment successful:', paymentIntentId);
+    
+    setShowStripeModal(false);
+    updateProgressStep(1, 'completed');
+    
+    // Use same verification flow as MultiItemCheckoutModal
+    await handleVerification(paymentIntentId, createdOrderId);
   };
 
   // Add progress indicator component
@@ -865,35 +771,23 @@ export function TokenVerificationModal({
     </div>
   );
 
-  // Add this function to handle free orders consistently in the parent component
-  const handleFreeOrder = async (paymentMethod = 'free_order') => {
-    try {
-      console.log('Processing free order in parent component');
-      setSubmitting(true);
-      
-      // Generate a consistent transaction ID for free orders to prevent duplicates
-      const transactionId = `free_order_${product.id}_${couponResult?.couponCode || 'nocoupon'}_${walletAddress || 'anonymous'}_${Date.now()}`;
-      
-      let response;
-      let responseData;
-      
-      try {
-        // Format variant selections for database (same as in regular order flow)
-        const formattedVariantSelections = Object.entries(selectedOption).map(([variantId, value]) => {
-          // Find the variant name from product.variants
-          const variant = product.variants?.find(v => v.id === variantId);
-          return {
-            name: variant?.name || variantId, // Use variant name, fallback to variant ID
-            value
-          };
-        });
+  const createTransaction = async (method: 'stripe' | 'crypto') => {
+    setSubmitting(true);
+    updateProgressStep(0, 'processing',`Creating order for ${method} payment...`);
 
-        // Call the create-order endpoint with the free order flag
-        response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createOrder}`, {
+    const formattedVariantSelections = Object.entries(selectedOption).map(([variantId, value]) => {
+      // Find the variant name from product.variants
+      const variant = product.variants?.find(v => v.id === variantId);
+      return {
+        name: variant?.name || variantId, // Use variant name, fallback to variant ID
+        value
+      };
+    });
+    try{
+      const response = await fetch('/.netlify/functions/create-order', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             productId: product.id,
@@ -903,8 +797,9 @@ export function TokenVerificationModal({
                 address: shippingInfoState.address,
                 city: shippingInfoState.city,
                 country: shippingInfoState.country,
-                state: shippingInfoState.state,
-                zip: shippingInfoState.zip
+                state: shippingInfoState.state || undefined,
+                zip: shippingInfoState.zip,
+                taxId: shippingInfoState.taxId || undefined
               },
               contact_info: {
                 method: shippingInfoState.contactMethod,
@@ -914,23 +809,17 @@ export function TokenVerificationModal({
                 phoneNumber: shippingInfoState.phoneNumber
               }
             },
-            walletAddress: walletAddress || 'anonymous',
+            walletAddress,
             paymentMetadata: {
-              paymentMethod,
+              orderSource: 'token_modal',
+              paymentMethod: method,
+              isBatchOrder: false,
+              isSingleItemOrder: true,
               couponCode: couponResult?.couponCode,
-              couponDiscount: couponResult?.couponDiscount,
-              originalPrice: baseModifiedPrice,
-              isFreeOrder: true,
-              transactionId
+              couponDiscount: couponResult?.couponDiscount
             }
-          }),
+          })
         });
-          
-        responseData = await response.json();
-          
-        if (responseData.error) {
-          throw new Error(responseData.error);
-        }
         
         console.log('Free order created successfully:', responseData);
           
@@ -1049,7 +938,7 @@ export function TokenVerificationModal({
       });
       
       const orderData = await response.json();
-      console.log('Created order for Stripe payment:', orderData);
+      console.log('Created order for payment:', orderData);
       
       if (orderData.error) {
         updateProgressStep(0, 'error', undefined, orderData.error);
@@ -1060,6 +949,12 @@ export function TokenVerificationModal({
       
       // Store the order ID for later use when Stripe payment completes
       setCreatedOrderId(orderData.orderId);
+      setOrderDetails({
+        orderNumber: orderData.orderNumber,
+        amount: orderData.totalPaymentAmount,
+        transactionSignature: orderData.transactionSignature,
+        receiverWallet: orderData.receiverWallet
+      })
       
       // Store the order ID in session storage for use by Stripe payment modal
       if (orderData.orderId) {
@@ -1067,16 +962,33 @@ export function TokenVerificationModal({
       }
       
       updateProgressStep(0, 'completed');
-      
-      // Show the Stripe modal
-      setShowStripeModal(true);
       setSubmitting(false);
+
+      if (orderData.isFreeOrder) {
+        updateProgressStep(1, 'completed');
+        await handleVerification(orderData.transactionSignature, orderData.batchOrderId);
+        return;  
+      }
+
+      if (method === 'stripe') {
+        // Show the Stripe modal
+        setShowStripeModal(true);
+      } else if (method === 'crypto') {
+        setShowCryptoModal(true);
+      }
     } catch (error) {
-      console.error("Error creating order for Stripe:", error);
+      console.error("Error creating order for crypto:", error);
       updateProgressStep(0, 'error', undefined, error instanceof Error ? error.message : 'Failed to create order');
       toast.error("Failed to create order for payment processing");
       setSubmitting(false);
     }
+  }
+
+  // Add a click handler for the payment method buttons
+  const handlePaymentClick = (method: 'stripe' | 'crypto') => (e: React.MouseEvent) => {
+    e.preventDefault();
+
+    createTransaction(method);
   };
 
   // Initialize coupon data from paymentMetadata if available
@@ -1104,16 +1016,16 @@ export function TokenVerificationModal({
           collectionName={product.collectionName || 'Unknown Collection'}
           productImage={product.imageUrl}
           orderNumber={orderDetails.orderNumber || `SF-${Date.now().toString().slice(-6)}`}
-          transactionSignature={orderDetails.transactionSignature}
+          transactionSignature={orderDetails?.transactionSignature || ''}
           onClose={onSuccess}
         />
       ) : showStripeModal ? (
         <StripePaymentModal
           onClose={() => setShowStripeModal(false)}
           onSuccess={handleStripeSuccess}
-          solAmount={finalPrice}
+          solAmount={orderDetails?.amount || 0}
           productName={product.name}
-          productId={product.id}
+          orderId={createdOrderId}
           shippingInfo={{
             shipping_address: {
               address: shippingInfoState.address,
@@ -1129,17 +1041,20 @@ export function TokenVerificationModal({
               phoneNumber: shippingInfoState.phoneNumber,
             }
           }}
-          variants={Object.entries(selectedOption).map(([variantId, value]) => {
-            // Find the variant name from product.variants
-            const variant = product.variants?.find(v => v.id === variantId);
-            return {
-              name: variant?.name || variantId, // Use variant name, fallback to variant ID
-              value
-            };
-          })}
-          couponCode={couponResult?.couponCode}
           couponDiscount={couponResult?.couponDiscount}
           originalPrice={product.price}
+        />
+      ) : showCryptoModal ? (
+        <CryptoPaymentModal
+          onClose={() => setShowCryptoModal(false)}
+          onComplete={handleCryptoComplete}
+          totalAmount={orderDetails?.amount || 0}
+          productName={product.name}
+          orderId={createdOrderId || ''}
+          couponDiscount={couponResult?.couponDiscount}
+          originalPrice={product.price}
+          receiverWallet={orderDetails?.receiverWallet || ''}
+          fee={0}
         />
       ) : (
         <div className="relative max-w-lg w-full bg-gray-900 rounded-xl p-6">
@@ -1190,7 +1105,8 @@ export function TokenVerificationModal({
 
             {/* Show either the shipping form or progress indicator */}
             {(!product.category?.eligibilityRules?.groups?.length || verificationResult?.isValid) && (
-              <form onSubmit={handleShippingSubmit} className="space-y-4">
+              <form className="space-y-4">
+              {/* <form onSubmit={handleShippingSubmit} className="space-y-4"> */}
                 {submitting ? (
                   <>
                     <ProgressIndicator />
@@ -1479,7 +1395,7 @@ export function TokenVerificationModal({
                                     baseModifiedPrice,
                                     couponCode,
                                     walletAddress,
-                                    product.collectionId
+                                    [product.collectionId]
                                   );
                                   setCouponResult(result);
                                   if (result.couponDiscount > 0) {
@@ -1515,7 +1431,7 @@ export function TokenVerificationModal({
                       {/* Solana Payment Button - requires wallet verification */}
                       <button
                         type="button"
-                        onClick={handlePaymentClick('solana')}
+                       onClick={handlePaymentClick('crypto')}
                         disabled={submitting || !verificationResult?.isValid || 
                           !shippingInfoState.address || !shippingInfoState.city || 
                           !shippingInfoState.country || !shippingInfoState.zip || 
@@ -1526,7 +1442,7 @@ export function TokenVerificationModal({
                           !!phoneError || !!zipError || !isCountrySupported}
                         className="w-full bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
-                        <span>Pay with Solana ({finalPrice.toFixed(2)} SOL)</span>
+                       <span>Pay with Crypto ({finalPrice.toFixed(2)} SOL)</span>
                       </button>
 
                       <div className="mt-4 text-center">

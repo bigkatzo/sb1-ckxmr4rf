@@ -38,6 +38,7 @@ export function ProductBasicInfo({ categories }: ProductBasicInfoProps) {
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   
   const currentDescription = watch('description') || '';
+  const isCustomizable = watch('isCustomizable') || false;
   
   return (
     <div className="space-y-4">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ImageIcon, Ban } from 'lucide-react';
 import { CategoryDiamond } from '../collections/CategoryDiamond';
@@ -8,7 +8,9 @@ import { CollectionBadge } from '../ui/CollectionBadge';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import type { Product } from '../../types/variants';
 import type { MerchantTier } from '../../types/collections';
-
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { formatPrice, formatPriceWithRate } from '../../utils/formatters';
+import { useSolanaPrice } from '../../utils/price-conversion';
 interface ProductCardCompactProps {
   product: Product;
   onClick: (product: Product) => void;
@@ -32,7 +34,22 @@ export function ProductCardCompact({
   const { modifiedPrice } = useModifiedPrice({ product });
   const [touchStartTime, setTouchStartTime] = useState<number | null>(null);
   const [touchStartPosition, setTouchStartPosition] = useState<{x: number, y: number} | null>(null);
+  const { currency } = useCurrency();
+  const { price: solRate } = useSolanaPrice();
   
+  const [displayPrice, setDisplayPrice] = useState<string>('');
+
+  // ✅ Update displayPrice whenever currency or modifiedPrice changes
+  useEffect(() => {
+    let isMounted = true;
+    const updatePrice = () => {
+      const formatted = formatPriceWithRate(modifiedPrice, currency, product.baseCurrency, solRate ?? 180);
+      if (isMounted) setDisplayPrice(formatted);
+    };
+    updatePrice();
+    return () => { isMounted = false; };
+  }, [currency, modifiedPrice, product.baseCurrency, solRate]);
+
   // Check if sale has ended at any level
   const isSaleEnded = product.saleEnded || product.categorySaleEnded || product.collectionSaleEnded;
 
@@ -163,7 +180,7 @@ export function ProductCardCompact({
         )}
         <div className="mt-1.5 sm:mt-2 flex items-center justify-between">
           <span className="text-[10px] sm:text-xs font-semibold text-white">
-            {modifiedPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 })} SOL
+            {displayPrice}
           </span>
           <BuyButton 
             product={productWithExplicitSaleEnded}

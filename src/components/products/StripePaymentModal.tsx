@@ -7,19 +7,19 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
-import { useSolanaPrice } from '../../utils/price-conversion';
+// import { useSolanaPrice } from '../../utils/price-conversion';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/api';
 import { useWallet } from '../../contexts/WalletContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { Button } from '../ui/Button';
 
-// Replace the early initialization with a function
-function getStripe() {
-  const key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+// Stripe initialization function
+function getStripe(): Promise<Stripe | null> {
+  const key = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY;
   if (!key) {
     console.error('Stripe publishable key is missing from environment variables');
-    return null;
+    return Promise.resolve(null);
   }
   return loadStripe(key).catch(err => {
     console.error('Failed to initialize Stripe:', err);
@@ -27,7 +27,7 @@ function getStripe() {
   });
 }
 
-// Near the top of the file, add this function
+// CSS variable helper function
 function getCssVariable(name: string, fallback: string): string {
   if (typeof window !== 'undefined') {
     const style = getComputedStyle(document.documentElement);
@@ -36,7 +36,7 @@ function getCssVariable(name: string, fallback: string): string {
   return fallback;
 }
 
-// Type definitions for better type safety
+// Type definitions
 interface ShippingAddress {
   address: string;
   city: string;
@@ -60,30 +60,27 @@ interface ShippingInfo {
 interface StripePaymentModalProps {
   onClose: () => void;
   onSuccess: (paymentIntentId: string, orderId?: string, batchOrderId?: string) => void;
-  solAmount: number;
+  amount: number;
   productName: string;
-  productId: string;
+  orderId?: string;
+  batchOrderId?: string;
   shippingInfo: ShippingInfo;
-  variants?: Array<{
-    name: string;
-    value: string;
-  }>;
-  couponCode?: string;
   couponDiscount?: number;
   originalPrice?: number;
+  fee?: number;
 }
 
 type PaymentStatus = 'idle' | 'processing' | 'requires_action' | 'succeeded' | 'error';
 
 function StripeCheckoutForm({ 
-  solAmount, 
+  amount, 
   onSuccess,
-  couponDiscount,
-  originalPrice,
+  couponDiscount = 0,
+  originalPrice = 0,
   solPrice,
   shippingInfo
 }: {
-  solAmount: number;
+  amount: number;
   onSuccess: (paymentIntentId: string, orderId?: string, batchOrderId?: string) => void;
   couponDiscount?: number;
   originalPrice?: number;
@@ -97,31 +94,11 @@ function StripeCheckoutForm({
   const [isPaymentMethodSelected, setIsPaymentMethodSelected] = React.useState(false);
   const [elementsReady, setElementsReady] = React.useState(false);
   const paymentStatusRef = React.useRef<PaymentStatus>('idle');
-  const submitButtonRef = React.useRef<HTMLButtonElement>(null);
 
   // Update ref when status changes
   React.useEffect(() => {
     paymentStatusRef.current = paymentStatus;
   }, [paymentStatus]);
-
-  // Effect to check if elements are ready
-  React.useEffect(() => {
-    if (!elements) return;
-    
-    const checkElementsReady = async () => {
-      try {
-        // Get the payment element
-        const paymentElement = elements.getElement('payment');
-        if (paymentElement) {
-          setElementsReady(true);
-        }
-      } catch (err) {
-        console.error('Error checking elements ready state:', err);
-      }
-    };
-    
-    checkElementsReady();
-  }, [elements]);
 
   // Handle payment element changes
   const handlePaymentElementChange = React.useCallback((event: any) => {
@@ -134,7 +111,7 @@ function StripeCheckoutForm({
     }
   }, []);
 
-  // Debounced submit handler to prevent multiple rapid clicks
+  // Payment submission handler
   const handleSubmit = React.useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Payment submission initiated');
@@ -150,20 +127,7 @@ function StripeCheckoutForm({
       return;
     }
 
-    // Check if this is a 100% discounted order - no need to process payment
-    const is100PercentDiscount = 
-      couponDiscount !== undefined && 
-      originalPrice !== undefined && 
-      couponDiscount > 0 && 
-      (couponDiscount >= originalPrice || (originalPrice > 0 && (couponDiscount / originalPrice) * 100 >= 100));
-
-    if (is100PercentDiscount) {
-      console.log('Client-side validation: 100% discounted order detected, payment should be bypassed');
-      setError('This order has a 100% discount and should not require payment. Please refresh the page and try again.');
-      return;
-    }
-
-    // Additional validation to ensure we have a payment method selected
+    // Validate payment form
     try {
       const result = await elements.submit();
       if (result.error) {
@@ -195,87 +159,53 @@ function StripeCheckoutForm({
         switch (result.paymentIntent.status) {
           case 'succeeded':
             setPaymentStatus('succeeded');
-            // The PaymentIntent type doesn't declare metadata, so we need to use type assertion
             const paymentMeta = (result.paymentIntent as any).metadata || {};
             
-            // Ensure we properly extract order metadata
             console.log('Payment metadata from Stripe:', paymentMeta);
             
-            // Extract orderId and batchOrderId from metadata (using new field names)
-            // The server stores these in the metadata when creating the payment intent
             const metaOrderId = paymentMeta.orderIdStr;
             const metaBatchOrderId = paymentMeta.batchOrderIdStr;
             
-            if (!metaOrderId) {
-              console.warn('No orderId found in payment intent metadata - this likely indicates the metadata was not properly attached during payment intent creation');
+            if (!metaOrderId && !metaBatchOrderId) {
+              console.warn('No orderId found in payment intent metadata');
             }
             
-            // For backward compatibility, ensure we always have an orderId to pass,
-            // even if we need to use the local one (will be corrected in MultiItemCheckoutModal)
-            const orderIdToPass = metaOrderId || 'use_local_order_id';
-            
-            // Use transaction verification utilities to trigger server-side verification
-            // This helps ensure the order status is correctly updated even if metadata is missing
-            try {
-              const txSignature = result.paymentIntent.id;
-              
-              // Log the attempt to verify the Stripe payment
-              console.log('Attempting direct verification of Stripe payment:', {
-                txSignature,
-                orderIdToPass
-              });
-              
-              // We can send a verification request with the payment intent ID
-              // This is a fire-and-forget operation - we don't wait for the response
-              fetch('/.netlify/functions/verify-transaction', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  signature: txSignature,
-                  orderId: orderIdToPass !== 'use_local_order_id' ? orderIdToPass : undefined,
-                  stripePayment: true
-                })
-              }).catch(e => {
-                console.warn('Failed to send verification request, but continuing:', e);
-              });
-            } catch (e) {
-              console.warn('Error during verification attempt:', e);
-            }
-            
-            // Finally call onSuccess with the payment ID and order ID
             onSuccess(
-              result.paymentIntent.id, 
-              orderIdToPass,
+              result.paymentIntent.id,
+              metaOrderId,
               metaBatchOrderId
             );
             break;
+            
           case 'processing':
             setPaymentStatus('processing');
-            // Add a timeout to check status again
-            const timeoutId = window.setTimeout(() => {
-              // Use ref to check current status
+            setTimeout(() => {
               if (paymentStatusRef.current === 'processing') {
                 setError('Payment is taking longer than expected. Please check your payment status.');
                 setPaymentStatus('error');
               }
-            }, 30000); // 30 seconds timeout
-            return () => window.clearTimeout(timeoutId);
+            }, 30000);
             break;
+            
           case 'requires_payment_method':
             setError('Please provide a valid payment method.');
             setPaymentStatus('idle');
             break;
+            
           case 'requires_confirmation':
             setError('Payment requires confirmation. Please try again.');
             setPaymentStatus('idle');
             break;
+            
           case 'requires_action':
             setPaymentStatus('requires_action');
             break;
+            
           case 'canceled':
             setError('Payment was canceled. Please try again.');
             setPaymentStatus('idle');
             break;
+            
           default:
             setError('Something went wrong with the payment.');
             setPaymentStatus('error');
@@ -287,9 +217,9 @@ function StripeCheckoutForm({
       setError('An unexpected error occurred. Please try again.');
       setPaymentStatus('error');
     }
-  }, [stripe, elements, solPrice, paymentStatus, onSuccess, isPaymentMethodSelected, couponDiscount, originalPrice]);
+  }, [stripe, elements, solPrice, paymentStatus, onSuccess]);
 
-  // Add payment status effect
+  // Payment timeout effect
   React.useEffect(() => {
     let timeoutId: number;
     
@@ -297,7 +227,7 @@ function StripeCheckoutForm({
       timeoutId = window.setTimeout(() => {
         setError('Payment is taking longer than expected. Please check your payment status.');
         setPaymentStatus('error');
-      }, 30000); // 30 seconds timeout
+      }, 30000);
     }
 
     return () => {
@@ -311,7 +241,7 @@ function StripeCheckoutForm({
     return <Loading type={LoadingType.ACTION} text="Loading price data..." />;
   }
 
-  const usdAmount = Math.max(solAmount * solPrice, 0.50).toFixed(2);
+  const usdAmount = Math.max(amount * solPrice, 0.50).toFixed(2);
   const isProcessing = paymentStatus === 'processing' || paymentStatus === 'requires_action';
 
   return (
@@ -321,15 +251,15 @@ function StripeCheckoutForm({
           <span className="text-gray-300">Amount:</span>
           <div className="text-right">
             <span className="text-white font-medium">
-              ${usdAmount} <span className="text-gray-400">({solAmount.toFixed(2)} SOL)</span>
+              ${usdAmount} <span className="text-gray-400">({amount.toFixed(2)} SOL)</span>
             </span>
-            {(couponDiscount ?? 0) > 0 && (originalPrice ?? 0) > 0 && (
+            {couponDiscount > 0 && originalPrice > 0 && (
               <div className="text-sm">
-                <span className="text-gray-400 line-through">${((originalPrice ?? 0) * solPrice).toFixed(2)}</span>
-                <span className="text-primary-400 ml-2">Coupon applied</span>
+                <span className="text-gray-400 line-through">${(originalPrice * solPrice).toFixed(2)}</span>
+                <span className="text-purple-400 ml-2">Coupon applied</span>
               </div>
             )}
-            {solAmount * solPrice < 0.50 && (
+            {amount * solPrice < 0.50 && (
               <div className="text-sm text-yellow-400">
                 Adjusted to minimum payment amount ($0.50)
               </div>
@@ -346,12 +276,14 @@ function StripeCheckoutForm({
           layout: 'tabs',
           defaultValues: {
             billingDetails: {
-              name: shippingInfo?.contact_info?.firstName + ' ' + shippingInfo?.contact_info?.lastName,
+              name: `${shippingInfo?.contact_info?.firstName || ''} ${shippingInfo?.contact_info?.lastName || ''}`.trim(),
               email: shippingInfo?.contact_info?.method === 'email' ? shippingInfo?.contact_info?.value : undefined,
               phone: shippingInfo?.contact_info?.phoneNumber,
               address: {
-                ...shippingInfo?.shipping_address,
-                country: shippingInfo?.shipping_address?.country || 'US'
+                line1: shippingInfo?.shipping_address?.address,
+                city: shippingInfo?.shipping_address?.city,
+                country: shippingInfo?.shipping_address?.country || 'US',
+                postal_code: shippingInfo?.shipping_address?.zip
               }
             }
           },
@@ -371,7 +303,6 @@ function StripeCheckoutForm({
       )}
 
       <Button
-        ref={submitButtonRef}
         type="submit"
         variant="primary"
         size="lg"
@@ -403,34 +334,29 @@ function StripeCheckoutForm({
 export function StripePaymentModal({
   onClose,
   onSuccess,
-  solAmount,
+  amount,
   productName,
-  productId,
+  orderId,
+  batchOrderId,
   shippingInfo,
-  variants,
-  couponCode,
   couponDiscount = 0,
-  originalPrice = 0
+  originalPrice = 0,
+  fee = 0,
 }: StripePaymentModalProps) {
   const [clientSecret, setClientSecret] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
-  const [orderId, setOrderId] = React.useState<string | null>(null);
-  const isProcessingOrder = false; // Replace the state with a constant since we no longer need to change it
+  const [solPrice, setSolPrice] = React.useState<number>(0);
   const { walletAddress } = useWallet();
-  const { price: rawSolPrice } = useSolanaPrice();
-  const solPrice = rawSolPrice || 0;
-  
-  // Add a ref to track if a free order has been processed to prevent duplicates
   const orderProcessedRef = React.useRef(false);
 
-  // Initialize Stripe only when modal is opened
+  // Initialize Stripe
   React.useEffect(() => {
     setStripePromise(getStripe());
   }, []);
 
-  // Try to get checkout data from session storage (added for cart flow)
+  // Session storage helper
   const getCheckoutDataFromStorage = React.useCallback(() => {
     try {
       const storedData = window.sessionStorage.getItem('stripeCheckoutData');
@@ -448,112 +374,72 @@ export function StripePaymentModal({
     return null;
   }, []);
 
-  // Create payment intent when component mounts
+  // Create payment intent
   React.useEffect(() => {
-    // Skip if necessary data is missing, already loading, already have clientSecret, or already processing an order
-    if (!solPrice || isLoading || clientSecret || isProcessingOrder) return;
-    
-    // Skip if we've already successfully processed an order in this component lifecycle
-    if (orderProcessedRef.current) return;
+    if (isLoading || clientSecret || orderProcessedRef.current) return;
     
     async function createPaymentIntent() {
       setIsLoading(true);
       setError(null);
       try {
-        // Try to get checkout data from session storage for cart flow
         const checkoutData = getCheckoutDataFromStorage();
-        
-        // Use the checkout data if available, otherwise use props
         const finalShippingInfo = checkoutData?.shippingInfo || shippingInfo;
-        const finalItems = checkoutData?.items || [];
-        const finalCouponCode = checkoutData?.couponCode || couponCode;
-        const finalCouponDiscount = checkoutData?.couponDiscount || couponDiscount;
-        const finalOriginalPrice = checkoutData?.originalPrice || originalPrice;
         
-        // Make sure we have shipping info
         if (!finalShippingInfo?.shipping_address) {
           throw new Error('Shipping information is required');
         }
         
-        // ALWAYS get the existing order ID - this is critical to avoid duplicate orders
-        const existingOrderId = window.sessionStorage.getItem('lastCreatedOrderId');
+        const existingOrderId = orderId ?? batchOrderId;
         
         if (!existingOrderId) {
-          console.error('No existing order ID found in session storage');
+          console.error('No existing order ID found');
           throw new Error('No existing order ID found. Please go back and try again.');
         }
         
         console.log('Creating payment intent for', {
-          solAmount,
+          amount,
           productName,
-          productId,
+          orderId,
+          batchOrderId,
           hasShippingInfo: !!finalShippingInfo,
-          hasVariants: !!(variants && variants.length > 0),
           walletAddress,
           isCartCheckout: !!checkoutData,
           existingOrderId
         });
 
-        // We no longer handle free orders in the Stripe modal
-        // They are now handled by the parent component (TokenVerificationModal)
-        // This prevents duplicate order creation issues
-
-        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.createPaymentIntent}`, {
+        const response = await fetch(`/.netlify/functions/create-payment-intent`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
           body: JSON.stringify({
-            solAmount,
-            solPrice,
             productName,
-            productId,
-            variants,
+            orderId,
+            batchOrderId,
             walletAddress,
-            shippingInfo: finalShippingInfo,
-            couponCode: finalCouponCode,
-            couponDiscount: finalCouponDiscount,
-            originalPrice: finalOriginalPrice,
-            // Include cart items if this is a cart checkout
-            cartItems: checkoutData ? finalItems : undefined,
-            isCartCheckout: !!checkoutData,
-            // ALWAYS pass the existing order ID to prevent duplicate orders
-            existingOrderId,
-            paymentMetadata: {
-              couponCode: finalCouponCode,
-              originalPrice: finalOriginalPrice,
-              couponDiscount: finalCouponDiscount,
-              paymentMethod: 'stripe',
-              timestamp: Date.now()
-            }
+            shippingInfo: finalShippingInfo
           }),
         });
 
         console.log('Payment intent response:', {
           status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries())
+          statusText: response.statusText
         });
 
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        
         let data;
-        let responseText;
         try {
-          responseText = await response.text();
-          console.log('Response text:', responseText);
-          
-          try {
-            data = JSON.parse(responseText);
-          } catch (e) {
-            console.error('JSON parse error:', e);
-            throw new Error(`Invalid JSON response from server: ${responseText}`);
-          }
-        } catch (err) {
-          console.error('Network or parsing error:', err);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
-          }
-          throw new Error('Failed to connect to payment server');
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error('JSON parse error:', e);
+          throw new Error(`Invalid JSON response from server: ${responseText}`);
+        }
+
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP error! status: ${response.status} ${response.statusText}`);
         }
 
         if (data.error) {
@@ -564,16 +450,9 @@ export function StripePaymentModal({
           throw new Error('No client secret returned from the server');
         }
 
-        // Save orderId from response if available
-        if (data.orderId) {
-          console.log('Received order ID from payment intent creation:', data.orderId);
-          // Store it in component state
-          setOrderId(data.orderId);
-        } else {
-          console.warn('No orderId received from payment intent creation');
-        }
-
         console.log('Setting client secret:', data.clientSecret.substring(0, 10) + '...');
+        setSolPrice(data.solPrice || solPrice);
+        
         setClientSecret(data.clientSecret);
       } catch (err) {
         console.error('Error creating payment intent:', err);
@@ -585,68 +464,37 @@ export function StripePaymentModal({
 
     createPaymentIntent();
     
-    // Return cleanup function to reset the order processed state when component is unmounted
     return () => {
       orderProcessedRef.current = false;
     };
-  }, [solPrice, solAmount, productId, productName, walletAddress, shippingInfo, couponCode, 
-      couponDiscount, originalPrice, variants, isLoading, clientSecret, onSuccess, isProcessingOrder]);
+  }, [clientSecret]);
 
-  // Handle successful payment - pass orderId if available
+  // Handle successful payment
   const handlePaymentSuccess = React.useCallback((paymentIntentId: string, orderIdFromPayment?: string, batchOrderIdFromPayment?: string) => {
-    // Skip if we've already processed a successful payment
     if (orderProcessedRef.current) return;
     
-    // Mark as processed
     orderProcessedRef.current = true;
     
     console.log('Payment successful with payment intent ID:', paymentIntentId);
-    console.log('Order ID to pass to parent:', orderIdFromPayment || orderId);
+    console.log('Order ID to pass to parent:', orderIdFromPayment);
     console.log('Batch order ID to pass to parent:', batchOrderIdFromPayment);
     
-    // IMPORTANT: We must use the orderIdFromPayment from Stripe's response instead of our local orderData
-    // This ensures we're using the actual order ID that was created during payment intent creation
-    // But if stripeOrderId is missing or the special value "use_local_order_id", fall back to local orderData
-    let finalOrderId: string | undefined;
-    
-    if (!orderIdFromPayment || orderIdFromPayment === 'use_local_order_id') {
-      // Stripe didn't provide metadata - use our local orderData instead
-      console.log('Using local order ID due to missing metadata in Stripe payment intent');
-      finalOrderId = orderId || undefined;
-      
-      // Check session storage for recently created orders (from MultiItemCheckoutModal)
-      const lastCreatedOrderId = window.sessionStorage.getItem('lastCreatedOrderId');
-      if (lastCreatedOrderId && !finalOrderId) {
-        console.log('Using order ID from session storage:', lastCreatedOrderId);
-        finalOrderId = lastCreatedOrderId;
-      }
-    } else {
-      // Use the order ID from Stripe's metadata
-      finalOrderId = orderIdFromPayment;
-    }
-    
-    // If we don't have any orderId, this is an error condition
-    if (!finalOrderId) {
-      console.error('Missing order ID from both Stripe payment response and local state');
-    }
-    
-    // Compare IDs to detect mismatch issues
-    if (orderId && finalOrderId && orderId !== finalOrderId) {
+    if (orderIdFromPayment !== orderId) {
       console.warn('Order ID mismatch detected:', {
         localOrderId: orderId,
-        stripeOrderId: finalOrderId
+        stripeOrderId: orderIdFromPayment
+      });
+    }
+
+    if (batchOrderIdFromPayment !== batchOrderId) {
+      console.warn('Batch Order ID mismatch detected:', {
+        localOrderId: batchOrderId,
+        stripeOrderId: batchOrderIdFromPayment
       });
     }
     
-    // For backward compatibility, ensure we always have an orderId to pass,
-    // even if it's undefined
-    const orderIdParam = finalOrderId === null ? undefined : finalOrderId;
-    
-    // Use the batch ID either from payment or local state
-    const batchOrderIdParam = batchOrderIdFromPayment || window.sessionStorage.getItem('lastBatchOrderId') || undefined;
-    
-    onSuccess(paymentIntentId, orderIdParam, batchOrderIdParam as string | undefined);
-  }, [onSuccess, orderId]);
+    onSuccess(paymentIntentId, orderIdFromPayment, batchOrderIdFromPayment);
+  }, [onSuccess, orderId, batchOrderId]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-lg overflow-y-auto">
@@ -740,7 +588,7 @@ export function StripePaymentModal({
                 </div>
               }>
                 <StripeCheckoutForm 
-                  solAmount={solAmount}
+                  amount={amount}
                   onSuccess={handlePaymentSuccess}
                   solPrice={solPrice}
                   shippingInfo={shippingInfo}

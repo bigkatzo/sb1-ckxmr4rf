@@ -15,6 +15,12 @@ export interface CartItem {
   selectedOptions: Record<string, string>;
   quantity: number;
   priceInfo: CartItemPriceInfo;
+  customizationData?: {
+    image?: File | null;
+    text?: string;
+    imagePreview?: string;
+    imageBase64?: string;
+  };
   verificationStatus?: {
     verified: boolean;
     timestamp: number;
@@ -29,7 +35,13 @@ interface CartContextType {
     selectedOptions: Record<string, string>, 
     quantity?: number, 
     verified?: boolean,
-    priceInfo?: CartItemPriceInfo
+    priceInfo?: CartItemPriceInfo,
+    customizationData?: {
+      image?: File | null;
+      text?: string;
+      imagePreview?: string;
+      imageBase64?: string;
+    }
   ) => void;
   removeItem: (itemIndex: number) => void;
   updateQuantity: (itemIndex: number, quantity: number) => void;
@@ -39,7 +51,7 @@ interface CartContextType {
   closeCart: () => void;
   toggleCart: () => void;
   count: number;
-  getTotalPrice: () => number;
+  getTotalPrice: (currency: string, solRate: number) => number;
   verifyAllItems: (walletAddress: string | null) => Promise<boolean>;
 }
 
@@ -115,20 +127,39 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items]);
 
-  // Calculate total price of all items in cart
-  const getTotalPrice = (): number => {
-    return items.reduce((total, item) => {
-      const itemPrice = item.priceInfo?.modifiedPrice || item.product.price;
-      return total + (itemPrice * item.quantity);
-    }, 0);
-  };
+// Calculate total price of all items in the cart in the desired currency
+const getTotalPrice = (currency: string = 'SOL', solRate: number = 180): number => {
+  return items.reduce((total, item) => {
+    const itemPrice = item.priceInfo?.modifiedPrice || item.product.price;
+    const baseCurrency = item.product?.baseCurrency?.toUpperCase() ?? 'SOL'; // Default to SOL if not specified
+
+    let convertedPrice = itemPrice;
+
+    // Convert price if base currency differs from target currency
+    if (baseCurrency !== currency) {
+      if (baseCurrency === 'SOL' && currency === 'USDC') {
+        convertedPrice = itemPrice * solRate; // SOL → USDC
+      } else if (baseCurrency === 'USDC' && currency === 'SOL') {
+        convertedPrice = itemPrice / solRate; // USDC → SOL
+      }
+    }
+
+    return total + convertedPrice * item.quantity;
+  }, 0);
+};
 
   const addItem = (
     product: Product, 
     selectedOptions: Record<string, string>, 
     quantity = 1,
     verified = false,
-    priceInfo?: CartItemPriceInfo
+    priceInfo?: CartItemPriceInfo,
+    customizationData?: {
+      image?: File | null;
+      text?: string;
+      imagePreview?: string;
+      imageBase64?: string;
+    }
   ) => {
     setItems(prevItems => {
       // Check if this exact product + options combination already exists in cart
@@ -195,7 +226,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               verified: true,
               timestamp: Date.now()
             }
-          })
+          }),
+          customizationData
         };
         return [...prevItems, newItem];
       }

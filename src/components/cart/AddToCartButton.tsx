@@ -13,21 +13,30 @@ import { getVariantKey } from '../../utils/variant-helpers';
 interface AddToCartButtonProps {
   product: Product;
   selectedOptions: Record<string, string>;
+  customizationData?: {
+    image?: File | null;
+    text?: string;
+    imagePreview?: string;
+    imageBase64?: string;
+  };
   disabled?: boolean;
   className?: string;
   showText?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  isCustomizationValid?: boolean; // Add this prop to match BuyButton validation
 }
 
 export function AddToCartButton({
   product,
   selectedOptions,
+  customizationData,
   disabled,
   className = '',
   showText = false,
-  size = 'md'
+  size = 'md',
+  isCustomizationValid = true
 }: AddToCartButtonProps) {
-  const { addItem, toggleCart } = useCart();
+  const { addItem, toggleCart, items } = useCart();
   const { walletAddress } = useWallet();
   const { setVisible } = useWalletModal();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -44,9 +53,24 @@ export function AddToCartButton({
 
   // Function to check if all required options are selected
   const areAllOptionsSelected = (): boolean => {
-    if (!product.variants || product.variants.length === 0) return true;
+    // Filter out customization variants from regular variants
+    const customizationFields = ['Image Customization', 'Text Customization'];
+    const regularVariants = product.variants?.filter(variant => !customizationFields.includes(variant.name)) || [];
     
-    return product.variants.every(variant => selectedOptions[variant.id]);
+    // Check if all regular variants are selected
+    const allRegularVariantsSelected = regularVariants.length === 0 || 
+      regularVariants.every(variant => selectedOptions[variant.id]);
+    
+    // Determine final validation based on customization requirements
+    if (product.isCustomizable === 'mandatory') {
+      // For mandatory customization, also require customization to be valid
+      return allRegularVariantsSelected && isCustomizationValid;
+    } else if (product.isCustomizable === 'optional') {
+      // For optional customization, only require regular variants
+      return allRegularVariantsSelected;
+    }
+    // For 'no' customization, only regular variants matter
+    return allRegularVariantsSelected;
   };
   
   // Function to get price adjustments from variant options
@@ -74,6 +98,26 @@ export function AddToCartButton({
     if (!areAllOptionsSelected()) {
       toast.error('Please select all options before adding to cart');
       return;
+    }
+    
+    // Check for strict token cart restriction
+    const productHasStrictToken = Boolean(product.collectionStrictToken);
+    const hasOtherItemsInCart = items.length > 0;
+    
+    if (productHasStrictToken && hasOtherItemsInCart) {
+      // Check if any existing items have different strict tokens
+      const existingStrictTokens = items
+        .map(item => item.product.collectionStrictToken)
+        .filter(Boolean);
+      
+      const hasDifferentStrictTokens = existingStrictTokens.some(
+        existingToken => existingToken !== product.collectionStrictToken
+      );
+      
+      if (hasDifferentStrictTokens) {
+        toast.error('You cannot add this item to cart with other tokens. Please clear your cart first.');
+        return;
+      }
     }
     
     // Check if wallet is connected first
@@ -110,7 +154,8 @@ export function AddToCartButton({
           1,
           () => setVisible(true), // Function to show wallet connection modal if needed
           priceInfo,
-          toggleCart  // Pass toggle cart function for the View link
+          toggleCart,  // Pass toggle cart function for the View link
+          customizationData
         );
       } catch (error) {
         console.error('Error verifying product access:', error);
@@ -129,7 +174,8 @@ export function AddToCartButton({
           1,
           () => setVisible(true),
           priceInfo,
-          toggleCart
+          toggleCart,
+          customizationData
         );
       } catch (error) {
         console.error('Error adding to cart:', error);

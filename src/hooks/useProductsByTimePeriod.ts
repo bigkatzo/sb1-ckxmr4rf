@@ -234,6 +234,7 @@ export function useProductsByTimePeriod({
             blankCode: product.blank_code,
             technique: product.technique,
             noteForSupplier: product.note_for_supplier,
+            baseCurrency: product.base_currency || 'sol',
             notes: {
               shipping: product.shipping_notes || '',
               quality: product.quality_notes || '',

@@ -57,7 +57,13 @@ export const productSchema = z.object({
   removedImages: stringArraySchema,
   designFiles: fileArraySchema,
   existingDesignFiles: stringArraySchema,
-  removedDesignFiles: stringArraySchema
+  removedDesignFiles: stringArraySchema,
+  isCustomizable: z.string().optional().default('no'),
+  customization: z.object({
+    image: z.boolean().optional().default(false),
+    text: z.boolean().optional().default(false),
+  }).optional(),
+  baseCurrency: z.string().optional().default('sol'),
 });
 
 // Basic product form values from schema

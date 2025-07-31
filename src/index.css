@@ -500,3 +500,12 @@ body.modal-open {
     background: transparent;
   }
 }
+
+.lifi-widget-container {
+  --lifi-color-primary: #8B5CF6;
+  --lifi-color-secondary: #6B7280;
+  --lifi-color-background: #111827;
+  --lifi-color-paper: #1F2937;
+  --lifi-color-text-primary: #FFFFFF;
+  --lifi-color-text-secondary: #9CA3AF;
+}

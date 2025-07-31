@@ -1,0 +1,85 @@
+/* LiFi Widget Styling */
+.lifi-widget-container {
+  --lifi-border-radius: 12px;
+  --lifi-border-radius-secondary: 8px;
+}
+
+/* Override LiFi widget styling to match our dark theme */
+.lifi-widget-container .MuiPaper-root {
+  background-color: #1f2937 !important;
+  border: 1px solid #374151 !important;
+}
+
+.lifi-widget-container .MuiCard-root {
+  background-color: #111827 !important;
+  border: 1px solid #374151 !important;
+}
+
+.lifi-widget-container .MuiButton-contained {
+  background-color: #8b5cf6 !important;
+  color: white !important;
+}
+
+.lifi-widget-container .MuiButton-contained:hover {
+  background-color: #7c3aed !important;
+}
+
+.lifi-widget-container .MuiTextField-root .MuiOutlinedInput-root {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+}
+
+.lifi-widget-container .MuiTextField-root .MuiOutlinedInput-root:hover {
+  border-color: #6b7280 !important;
+}
+
+.lifi-widget-container .MuiTextField-root .MuiOutlinedInput-root.Mui-focused {
+  border-color: #8b5cf6 !important;
+}
+
+.lifi-widget-container .MuiInputLabel-root {
+  color: #9ca3af !important;
+}
+
+.lifi-widget-container .MuiTypography-root {
+  color: #f9fafb !important;
+}
+
+.lifi-widget-container .MuiTypography-body2 {
+  color: #9ca3af !important;
+}
+
+/* Fix token logos and icons */
+.lifi-widget-container img {
+  border-radius: 50%;
+  background-color: #374151;
+}
+
+.lifi-widget-container .MuiAvatar-root {
+  background-color: #374151 !important;
+}
+
+/* Ensure proper spacing and layout */
+.lifi-widget-container {
+  min-height: 400px;
+  width: 100%;
+}
+
+/* Fix scrollbar styling */
+.lifi-widget-container .MuiList-root {
+  background-color: #1f2937 !important;
+}
+
+.lifi-widget-container .MuiMenuItem-root:hover {
+  background-color: #374151 !important;
+}
+
+/* Fix chain and token selection dropdowns */
+.lifi-widget-container .MuiSelect-select {
+  background-color: #374151 !important;
+  color: #f9fafb !important;
+}
+
+.lifi-widget-container .MuiSelect-icon {
+  color: #9ca3af !important;
+}

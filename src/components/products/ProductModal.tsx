@@ -5,6 +5,7 @@ import { CategoryDescription } from '../collections/CategoryDescription';
 import { CompactReviewSection } from '../reviews/CompactReviewSection';
 import { VariantDisplay } from './variants/VariantDisplay';
 import { ProductVariantPrice } from './ProductVariantPrice';
+import { ProductCustomization } from './ProductCustomization';
 import { OrderProgressBar } from '../ui/OrderProgressBar';
 import { BuyButton } from './BuyButton';
 import { OptimizedImage } from '../ui/OptimizedImage';
@@ -44,6 +45,13 @@ interface Product extends BaseProduct {
   collectionUserId?: string;
 }
 
+interface CustomizationData {
+  image?: File | null;
+  text?: string;
+  imagePreview?: string;
+  imageBase64?: string;
+}
+
 interface ProductModalProps {
   product: Product;
   onClose: () => void;
@@ -55,17 +63,21 @@ interface ProductModalProps {
 function ProductBuyButton({ 
   product, 
   selectedOptions, 
+  customizationData,
   hasVariants, 
   isUpcoming, 
   isSaleEnded, 
-  allOptionsSelected 
+  allOptionsSelected,
+  isCustomizationValid
 }: { 
   product: Product; 
   selectedOptions: Record<string, string>; 
+  customizationData: CustomizationData;
   hasVariants: boolean; 
   isUpcoming: boolean; 
   isSaleEnded: boolean; 
   allOptionsSelected: boolean;
+  isCustomizationValid: boolean;
 }) {
   if (isUpcoming) {
     return (
@@ -99,6 +111,7 @@ function ProductBuyButton({
       <BuyButton
         product={product}
         selectedOptions={selectedOptions}
+        customizationData={customizationData}
         disabled={isDisabled}
         className="flex-1 flex items-center justify-center gap-2 py-3 text-sm sm:text-base"
         showModal={true}
@@ -107,9 +120,11 @@ function ProductBuyButton({
       <AddToCartButton
         product={product}
         selectedOptions={selectedOptions}
+        customizationData={customizationData}
         disabled={isDisabled}
         size="md"
         className="px-3 py-3"
+        isCustomizationValid={isCustomizationValid}
       />
     </div>
   );
@@ -123,6 +138,8 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
   
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [customizationData, setCustomizationData] = useState<CustomizationData>({});
+  const [isCustomizationValid, setIsCustomizationValid] = useState(true);
   const [reviewStats, setReviewStats] = useState<ReviewStats | null>(product.reviewStats || null);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -173,8 +190,6 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     preloadGallery(images, selectedImageIndex, 2);
   }, [selectedImageIndex, product.id, product.slug, images.length]);
 
-
-
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -215,11 +230,28 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     }
   }, [product.id, reviewStats, loadingReviews]);
 
+  // Cleanup effect for customization image preview URLs
+  useEffect(() => {
+    return () => {
+      if (customizationData.imagePreview) {
+        URL.revokeObjectURL(customizationData.imagePreview);
+      }
+    };
+  }, []); // Only run on unmount
+
   const handleOptionChange = (variantId: string, value: string) => {
     setSelectedOptions(prev => ({
       ...prev,
       [variantId]: value
     }));
+  };
+
+  const handleCustomizationChange = (data: CustomizationData) => {
+    setCustomizationData(data);
+  };
+
+  const handleCustomizationValidationChange = (isValid: boolean) => {
+    setIsCustomizationValid(isValid);
   };
 
   // Touch handlers
@@ -432,9 +464,27 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     ? -(selectedImageIndex * 100) + (dragOffset * dampingFactor / (modalRef.current?.clientWidth || window.innerWidth) * 100)
     : -(selectedImageIndex * 100);
 
-  const allOptionsSelected = hasVariants
-    ? product.variants!.every((variant: { id: string }) => selectedOptions[variant.id])
-    : true;
+  // Filter out customization variants from regular variants
+  const customizationFields = ['Image Customization', 'Text Customization'];
+  const regularVariants = hasVariants 
+    ? product.variants!.filter((variant: { name: string }) => !customizationFields.includes(variant.name))
+    : [];
+
+  // Check if all regular variants are selected
+  const allRegularVariantsSelected = regularVariants.length === 0 || 
+    regularVariants.every((variant: { id: string }) => selectedOptions[variant.id]);
+
+  // Determine final allOptionsSelected based on customization requirements
+  let allOptionsSelected = allRegularVariantsSelected;
+  
+  if (product.isCustomizable === 'mandatory') {
+    // For mandatory customization, also require customization to be valid
+    allOptionsSelected = allRegularVariantsSelected && isCustomizationValid;
+  } else if (product.isCustomizable === 'optional') {
+    // For optional customization, only require regular variants
+    allOptionsSelected = allRegularVariantsSelected;
+  }
+  // For 'no' customization, only regular variants matter (already handled above)
 
   // Product state variables - extract at the component level
   const isUpcoming = product.collectionLaunchDate ? new Date(product.collectionLaunchDate) > new Date() : false;
@@ -560,7 +610,6 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
     // Allow a brief delay for images to load into the DOM
     const timer = setTimeout(() => {
       // Validate each image URL in the gallery
-      console.log('Validating gallery image URLs');
       images.forEach(imgUrl => validateImageUrl(imgUrl));
       
       // Also specifically check gallery image placeholders
@@ -779,6 +828,15 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     />
                   )}
 
+                  {/* Product Customization Component */}
+                  <ProductCustomization
+                    customization={product.customization || { image: false, text: false }}
+                    isCustomizable={product.isCustomizable || 'no'}
+                    customizationData={customizationData}
+                    onChange={handleCustomizationChange}
+                    onValidationChange={handleCustomizationValidationChange}
+                  />
+
                   <ProductVariantPrice
                     product={product}
                     selectedOptions={selectedOptions}
@@ -789,10 +847,12 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                     <ProductBuyButton
                       product={product}
                       selectedOptions={selectedOptions}
+                      customizationData={customizationData}
                       hasVariants={!!hasVariants}
                       isUpcoming={!!isUpcoming}
                       isSaleEnded={!!isSaleEnded}
                       allOptionsSelected={!!allOptionsSelected}
+                      isCustomizationValid={isCustomizationValid}
                     />
                   </div>
 
@@ -885,10 +945,12 @@ export function ProductModal({ product, onClose, categoryIndex, loading = false 
                 <ProductBuyButton
                   product={product}
                   selectedOptions={selectedOptions}
+                  customizationData={customizationData}
                   hasVariants={!!hasVariants}
                   isUpcoming={!!isUpcoming}
                   isSaleEnded={!!isSaleEnded}
                   allOptionsSelected={!!allOptionsSelected}
+                  isCustomizationValid={isCustomizationValid}
                 />
               </div>
             </div>

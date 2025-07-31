@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ChevronRight, CreditCard, Wallet, Tag, Check, AlertTriangle } from 'lucide-react';
+import { X, ChevronRight, Check, AlertTriangle } from 'lucide-react';
 import { useCart, CartItem } from '../../contexts/CartContext';
 import { OptimizedImage } from '../ui/OptimizedImage';
-import { formatPrice } from '../../utils/formatters';
+import { formatPriceWithRate, formatPriceWithIcon } from '../../utils/formatters';
 import { useWallet } from '../../contexts/WalletContext';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { toast } from 'react-toastify';
@@ -12,22 +12,47 @@ import { validatePhoneNumber, validateZipCode, getStateFromZipCode } from '../..
 import { countries, getStatesByCountryCode } from '../../data/countries';
 import { ComboBox } from '../ui/ComboBox';
 import { getLocationFromZip, doesCountryRequireTaxId, isCountrySupportedForShipping } from '../../utils/addressUtil';
-import { usePayment } from '../../hooks/usePayment';
 import { StripePaymentModal } from '../products/StripePaymentModal';
 import { verifyFinalTransaction } from '../../utils/transaction-monitor.tsx';
-import { updateOrderTransactionSignature, getOrderDetails } from '../../services/orders';
+// import { updateOrderTransactionSignature } from '../../services/orders';
 import { Button } from '../ui/Button';
 import { OrderSuccessView } from '../OrderSuccessView';
+import { PaymentMethodSelector, PaymentMethod, PriceQuote } from './PaymentMethodSelector';
+import { updateOrderTransactionSignature } from '../../services/orders.ts';
+import { usePayment } from '../../hooks/usePayment.ts';
+import { useModifiedPrice } from '../../hooks/useModifiedPrice.ts';
+import { useSolanaPrice } from '../../utils/price-conversion.ts';
+import { useCurrency } from '../../contexts/CurrencyContext.tsx';
+import { PublicKey } from '@solana/web3.js';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
+  isSingle?: boolean;
+  singleItem: CartItem[]; // Optional single item for single-item checkout
 }
 
-export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps) {
-  const { items, clearCart, verifyAllItems } = useCart();
+export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }: MultiItemCheckoutModalProps) {
+  let { items, clearCart, verifyAllItems } = useCart();
+  if(isSingle) {
+    items = singleItem;
+    // get the price info
+    const { modifiedPrice } = useModifiedPrice({
+      product: items[0].product,
+      selectedOptions: items[0].selectedOptions
+    })
+    items[0].priceInfo = {
+      modifiedPrice,
+      basePrice: items[0].product.price,
+      variantKey: null,
+      variantPriceAdjustments: 0
+    }
+    clearCart = () => {}; // No need to clear cart in single item mode
+    verifyAllItems = async () => true; // No verification needed in single item mode
+  }
+
   const { isConnected, walletAddress } = useWallet();
   const { setVisible } = useWalletModal();
-  const { processPayment } = usePayment();
+  const { processPayment, processTokenPayment, processSolanaSwapTokenPayment } = usePayment();
   
   // Form state
   const [shipping, setShipping] = useState<{
@@ -59,7 +84,53 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   // Add validation states
   const [zipError, setZipError] = useState<string>('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
+
+  const { currency } = useCurrency();
+  const { price: solRate } = useSolanaPrice();
+
+  // Get collection strict token from the first item's collection
+  const collectionStrictToken = items[0]?.product?.collectionStrictToken;
   
+  // Check if all items in cart are from the same collection with strict token
+  const hasStrictTokenRestriction = Boolean(collectionStrictToken && 
+    items.every(item => item.product.collectionStrictToken === collectionStrictToken));
+
+  // Check for mixed cart with strict tokens - prevent checkout if items have different strict tokens
+  const hasMixedStrictTokens = items.some(item => {
+    const itemStrictToken = item.product.collectionStrictToken;
+    return itemStrictToken && itemStrictToken !== collectionStrictToken;
+  });
+
+  // Use strict token if available, otherwise use recommended CAs
+  const recommendedCas = collectionStrictToken 
+    ? [collectionStrictToken]
+    : items
+        .map(item => item.product.collectionCa)
+        .filter((ca): ca is string => ca != null && ca !== undefined);
+
+  // Utility function to convert customization data to variantId:value format
+  const convertCustomizationDataToVariantFormat = (item: CartItem) => {
+    const customizationVariants: Record<string, string> = {};
+    
+    if (item.customizationData) {
+      // Find customization variants in the product
+      const imageCustomizationVariant = item.product.variants?.find(v => v.name === 'Image Customization');
+      const textCustomizationVariant = item.product.variants?.find(v => v.name === 'Text Customization');
+      
+      // Add image customization if present
+      if (item.customizationData.image && imageCustomizationVariant) {
+        customizationVariants[imageCustomizationVariant.id] = 'Yes';
+      }
+      
+      // Add text customization if present
+      if (item.customizationData.text && textCustomizationVariant) {
+        customizationVariants[textCustomizationVariant.id] = item.customizationData.text;
+      }
+    }
+    
+    return customizationVariants;
+  };
+
   // Get states for the selected country
   const availableStates = useMemo(() => {
     const countryCode = countries.find(c => c.name === shipping.country)?.code;
@@ -104,9 +175,22 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   
-  // Payment method state
-  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'solana' | null>(null);
+  // Payment method state - updated to use new PaymentMethod type
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>({
+    type: 'default',
+    defaultToken: currency === 'SOL' ? 'sol' : 'usdc',
+  });
   const [processingPayment, setProcessingPayment] = useState(false);
+  
+  // Update payment method when currency changes
+  useEffect(() => {
+    if (paymentMethod?.type === 'default') {
+      setPaymentMethod({
+        ...paymentMethod,
+        defaultToken: currency === 'SOL' ? 'sol' : 'usdc'
+      });
+    }
+  }, [currency, paymentMethod?.type]);
   
   // Define order progress steps
   const [orderProgress, setOrderProgress] = useState<{
@@ -119,16 +203,27 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   // Add state for Stripe payment modal
   const [showStripeModal, setShowStripeModal] = useState(false);
   const [orderData, setOrderData] = useState<{
-    orderId?: string;
-    orderNumber?: string;
+    orderIds?: Array<string>;
+    orderNumbers?: Array<string>;
     transactionSignature?: string;
     batchOrderId?: string;
-    createdOrderIds?: string[];
+    createdOrderIds?: Array<string>;
+    price?: number;
+    solPrice?: number;
+    originalPrice?: number;
+    fee?: number;
+    couponDiscount?: number;
+    walletAmounts?: { [address: string]: number };
+    receiverWallet?: string;
+    currencyUnit?: string;
   }>({});
   
   // Add the showSuccessView state within the component
   const [showSuccessView, setShowSuccessView] = useState(false);
-  const [createdOrderId, setCreatedOrderId] = useState<string | undefined>();
+  
+  // Add state for total display price
+  const [totalDisplayPrice, setTotalDisplayPrice] = useState<string>('');
+  const [totalDisplaySymbol, setTotalDisplaySymbol] = useState<string>('USD');
   
   // Try to load shipping info from localStorage
   useEffect(() => {
@@ -171,6 +266,40 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       taxId: shipping.taxId
     }));
   }, [shipping]);
+
+  // Auto-select strict token payment method when restriction is enabled
+  useEffect(() => {
+    if (hasStrictTokenRestriction && collectionStrictToken) {
+      setPaymentMethod({
+        type: 'spl-tokens',
+        tokenAddress: collectionStrictToken
+      });
+    }
+  }, [hasStrictTokenRestriction, collectionStrictToken]);
+
+  // validating
+  const validateItemsInCarts = async () => {
+    // Verify all items in the cart again just before checkout as a safety measure
+    const allItemsVerified = await verifyAllItems(walletAddress);
+    
+    if (!allItemsVerified) {
+      // Find unverified items
+      const unverifiedItems = items.filter(item => 
+        item.product.category?.eligibilityRules?.groups?.length && 
+        (!item.verificationStatus?.verified)
+      );
+      
+      if (unverifiedItems.length > 0) {
+        const itemNames = unverifiedItems.map(item => item.product.name).join(', ');
+        toast.error(`You don't have access to these items: ${itemNames}. Please remove them from your cart.`);
+        setOrderProgress({ step: 'error', error: 'Some items in your cart could not be verified' });
+        return false;
+      }
+
+      return false;
+    }
+    return true;
+  };
 
   // Enhanced zip code change handler with country/state detection
   const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -261,30 +390,61 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
   // Display item prices in the order summary section
   const renderItemPrice = (item: CartItem) => {
     const price = item.priceInfo?.modifiedPrice || item.product.price;
+    const formattedPrice = formatPriceWithIcon(price, currency, item.product.baseCurrency, solRate ?? 180);
+    
     return (
       <div className="text-sm text-gray-200 mt-1">
-        {formatPrice(price)} × {item.quantity}
+        <span>{formattedPrice.text} × {item.quantity}</span>
       </div>
     );
   };
 
   // Calculate subtotal before any discounts
-  const calculateSubtotal = () => {
+  // const calculateSubtotal = () => {
+  //   return items.reduce((total, item) => {
+  //     const price = item.priceInfo?.modifiedPrice || item.product.price;
+  //     return total + (price * item.quantity);
+  //   }, 0);
+  // };
+
+  const calculateSubtotal = (): number => {
+    // Convert each item's price from its base currency to the target currency before summing
     return items.reduce((total, item) => {
-      const price = item.priceInfo?.modifiedPrice || item.product.price;
-      return total + (price * item.quantity);
+      const itemPrice = item.priceInfo?.modifiedPrice || item.product.price;
+      const itemBaseCurrency = item.product.baseCurrency?.toUpperCase() || 'SOL';
+      
+      let convertedPrice = itemPrice;
+      
+      // Convert price if base currency differs from target currency
+      if (itemBaseCurrency !== currency.toUpperCase()) {
+        if (itemBaseCurrency === 'SOL' && currency.toUpperCase() === 'USDC') {
+          convertedPrice = itemPrice * (solRate ?? 180); // SOL → USDC
+        } else if (itemBaseCurrency === 'USDC' && currency.toUpperCase() === 'SOL') {
+          convertedPrice = itemPrice / (solRate ?? 180); // USDC → SOL
+        }
+      }
+      
+      return total + (convertedPrice * item.quantity);
     }, 0);
   };
   
-  // Calculate total price of all items in cart
+  // Calculate total price of all items in cart (converted to target currency)
   const totalPrice = calculateSubtotal();
   
-  // Calculate final price with coupon discount
+  // Calculate final price with coupon discount (in target currency)
   const finalPrice = appliedCoupon 
     ? appliedCoupon.discountPercentage 
       ? totalPrice * (1 - appliedCoupon.discountPercentage / 100) 
       : totalPrice - appliedCoupon.discountAmount
     : totalPrice;
+  
+  // Initialize total display price
+  useEffect(() => {
+    if (!totalDisplayPrice) {
+      setTotalDisplayPrice(finalPrice.toFixed(2));
+      setTotalDisplaySymbol(currency.toUpperCase());
+    }
+  }, [finalPrice, totalDisplayPrice, currency]);
   
   // Handle coupon application
   const handleApplyCoupon = async () => {
@@ -296,15 +456,16 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     setValidatingCoupon(true);
     
     try {
-      // Get the collection ID from the first item in the cart for validation
-      const firstItemCollectionId = items[0]?.product.collectionId;
-      
+      // Get unique collection IDs from all items in the cart
+      const collectionIds = Array.from(new Set(items.map(item => item.product.collectionId).filter(Boolean)));
+
       // Use the CouponService to validate and calculate the discount
+      // Pass the total price in the current currency for validation
       const result = await CouponService.calculateDiscount(
         totalPrice,
         couponCode,
         walletAddress || '',
-        firstItemCollectionId
+        collectionIds
       );
       
       if (result.error || result.couponDiscount <= 0) {
@@ -320,7 +481,7 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             : 0
         });
         
-        toast.success(`Coupon applied: ${result.discountDisplay || result.couponDiscount + ' SOL off'}`);
+        toast.success(`Coupon applied: ${result.discountDisplay || result.couponDiscount + ' off'}`);
       }
     } catch (error) {
       console.error("Coupon validation error:", error);
@@ -336,146 +497,310 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
     toast.info("Coupon removed");
   };
   
-  const handlePaymentMethodSelect = (method: 'stripe' | 'solana') => {
-    setPaymentMethod(method);
+  const handleDefaultCryptoComplete = async (status: any, txSignature: string, batchOrderId?: string, receiverWallet?: string) => {
+    console.log('Crypto payment successful:', txSignature, batchOrderId);
+    
+    if (!status.success) {
+      setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
+      try {
+        await updateOrderTransactionSignature({
+          transactionSignature: `rejected_${walletAddress}_${orderData.batchOrderId}_${Date.now()}`,
+          amountSol: orderData.price || 0,
+          batchOrderId: orderData.batchOrderId
+        });
+      } catch (err) {
+        console.error('Error updating order status:', err);
+      }
+      return;
+    }
+
+    const statusSuccess = await updateOrderTransactionSignature({
+      transactionSignature: txSignature,
+      amountSol: orderData.price || 0,
+      walletAddress: walletAddress || 'anonymous',
+      batchOrderId,
+    });
+
+    if (!statusSuccess) {
+      throw new Error('Failed to update order transaction');
+    }
+
+    // Start transaction confirmation
+    setOrderProgress({ step: 'confirming_transaction' });
+    await handleVerifyBatchTransactions(txSignature, batchOrderId, receiverWallet);
+  };
+
+  const processSolanaPayment = async (batchOrderData: any) => {
+    let cartId = batchOrderData.batchOrderId ?? '';
+    const totalAmount = batchOrderData.totalPaymentAmount ?? 0;
+    const receiverWallet = batchOrderData.receiverWallet ?? 'anonymous';
+    const tokenToProcess = paymentMethod?.defaultToken;
+    const currencyUnit = batchOrderData.currencyUnit ?? 'USDC';
+
+    console.log('Processing Solana payment:', { totalAmount, cartId, receiverWallet, tokenToProcess, currencyUnit });
+
+    // The backend has already converted the amount to the correct currency unit
+    // No need for additional conversion here
+    const paymentAmount = totalAmount;
+
+    console.log('Final payment amount:', { amount: paymentAmount, paymentMethod: tokenToProcess, currencyUnit });
+
+    let success;
+    let signature: string | undefined;
+    if(paymentMethod?.type === 'default') {
+      if(paymentMethod?.defaultToken === 'sol') {
+        const { success: paymentSuccess, signature: txSignature } = await processPayment(paymentAmount, cartId, receiverWallet);
+        success = paymentSuccess;
+        signature = txSignature;
+      } else {
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(paymentAmount, cartId, receiverWallet);
+        success = paymentSuccess;
+        signature = txSignature;
+      }
+    } else if(paymentMethod?.type === 'spl-tokens') {
+      // Check if this is a strict token payment (user receives the same token they're paying with)
+      if (hasStrictTokenRestriction && collectionStrictToken) {
+        // For strict token payments, use processTokenPayment instead of swap
+        // because the user receives the same token they're paying with
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(
+          paymentAmount, 
+          cartId, 
+          receiverWallet,
+          new PublicKey(collectionStrictToken)
+        );
+        success = paymentSuccess;
+        signature = txSignature;
+      } else {
+        // For regular SPL token payments, use the swap functionality
+        const { success: paymentSuccess, signature: txSignature } = await processSolanaSwapTokenPayment(
+          paymentMethod.tokenAddress || '',
+          undefined,
+          paymentAmount,
+          receiverWallet,
+          100,
+          undefined,
+          paymentMethod.tokenSymbol
+        );
+        success = paymentSuccess;
+        signature = txSignature;
+      }
+    }
+    
+    if(!success || !signature) {
+      await handleDefaultCryptoComplete(
+        {
+          success: false
+        },
+        signature || '',
+        cartId,
+      );
+      return;
+    }
+    
+    await handleDefaultCryptoComplete(
+      {
+        success: true
+      },
+      signature,
+      cartId,
+      receiverWallet
+    );
   };
   
   // Update the handleStripeSuccess function to receive and use batchOrderId
-  const handleStripeSuccess = async (paymentIntentId: string, stripeOrderId?: string, batchOrderId?: string) => {
-    console.log('Stripe payment successful:', paymentIntentId, stripeOrderId, batchOrderId);
-    try {
-      if (!stripeOrderId && createdOrderId) {
-        stripeOrderId = createdOrderId;
-      }
+  const handleStripeSuccess = async (paymentIntentId: string, stripeOrderId?: string, stripeBatchOrderId?: string) => {
+    console.log('Stripe payment successful:', paymentIntentId, stripeOrderId, stripeBatchOrderId);
 
-      if (stripeOrderId) {
-        console.log('Getting order details for confirmation page:', stripeOrderId);
-        try {
-          const orderDetails = await getOrderDetails(stripeOrderId);
-          
-          if (orderDetails && orderDetails.success && orderDetails.order) {
-            // Set the order data for display
-            setOrderData({
-              orderId: stripeOrderId,
-              orderNumber: orderDetails.order.order_number || '',
-              transactionSignature: paymentIntentId,
-              batchOrderId: batchOrderId || ''
-            });
-            
-            // Show success state and clear cart
-            setOrderProgress({ step: 'success' });
-            clearCart();
-            
-            // Show the success view
-            setShowSuccessView(true);
-            
-            // Add success toast notification
-            toast.success(
-              `Order #${orderDetails.order.order_number || ''} payment confirmed!`,
-              { autoClose: 5000 }
-            );
-          }
-        } catch (error) {
-          console.error('Error getting order details:', error);
-          
-          // Still mark as successful even without order details
-          setOrderProgress({ step: 'success' });
-          setOrderData({
-            orderId: stripeOrderId,
-            orderNumber: '',
-            transactionSignature: paymentIntentId,
-            batchOrderId: batchOrderId || ''
-          });
-          
-          clearCart();
-          setShowSuccessView(true);
-        }
-      } else if (batchOrderId) {
-        // If we have a batch order ID but no specific order ID
-        console.log('Getting batch order details for confirmation page:', batchOrderId);
+    try {
+      if (stripeBatchOrderId) {
+          setShowStripeModal(false);
+          setOrderProgress({ step: 'confirming_transaction' });
         
-        try {
-          // Get all orders in the batch
-          const response = await fetch(`/.netlify/functions/get-batch-orders?batchOrderId=${batchOrderId}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-          });
+          // I think the verification should happen here tho
+          await handleVerifyBatchTransactions(paymentIntentId, stripeBatchOrderId);
           
-          if (response.ok) {
-            const batchData = await response.json();
-            
-            if (batchData.success && batchData.orders && batchData.orders.length > 0) {
-              const firstOrder = batchData.orders[0];
-              
-              // Set the order data for display
-              setOrderData({
-                orderId: firstOrder.id,
-                orderNumber: firstOrder.order_number,
-                transactionSignature: paymentIntentId,
-                batchOrderId: batchOrderId
-              });
-              
-              // Show success state and clear cart
-              setOrderProgress({ step: 'success' });
-              clearCart();
-              
-              // Show the success view
-              setShowSuccessView(true);
-              
-              // Add success toast notification
-              const batchSize = items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0);
-              toast.success(
-                batchSize > 1
-                  ? `Batch order #${firstOrder.order_number} with ${batchSize} items confirmed!`
-                  : `Order #${firstOrder.order_number} confirmed successfully!`,
-                { autoClose: 5000 }
-              );
-              return;
-            }
-          }
-          
-          // If we couldn't get batch details, still show generic success
-          setOrderProgress({ step: 'success' });
-          setOrderData({
-            orderId: '',
-            orderNumber: '',
-            transactionSignature: paymentIntentId,
-            batchOrderId: batchOrderId
-          });
-          
-          clearCart();
-          setShowSuccessView(true);
-        } catch (error) {
-          console.error('Error getting batch order details:', error);
-          
-          // Still mark as successful
-          setOrderProgress({ step: 'success' });
-          setOrderData({
-            orderId: '',
-            orderNumber: '',
-            transactionSignature: paymentIntentId,
-            batchOrderId: batchOrderId
-          });
-          
-          clearCart();
-          setShowSuccessView(true);
-        }
+          // Add success toast notification
+          const batchSize = items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0);
+          toast.success(
+            batchSize > 1
+              ? `Batch order with ${batchSize} items confirmed!`
+              : `Order  confirmed successfully!`,
+            { autoClose: 5000 }
+          );
       } else {
         // No order ID or batch ID, still mark as successful with minimal info
         console.log('No order ID available, showing generic success');
-        setOrderProgress({ step: 'success' });
-        setOrderData({
-          orderId: '',
-          orderNumber: '',
-          transactionSignature: paymentIntentId
-        });
-        
+        setOrderProgress({ step: 'error' });
         clearCart();
-        setShowSuccessView(true);
       }
     } catch (error) {
       console.error('Error in Stripe success handler:', error);
       setOrderProgress({ step: 'error', error: 'Failed to process payment confirmation' });
+    }
+  };
+
+  const createBatchTransactions = async () => {
+    try {
+      console.log('Creating batch transactions for items:', paymentMethod);
+      const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          items: items.map(item => {
+            // Convert customization data to variant format
+            const customizationVariants = convertCustomizationDataToVariantFormat(item);
+            
+            // Merge selected options with customization variants
+            const allSelectedOptions = {
+              ...item.selectedOptions,
+              ...customizationVariants
+            };
+            
+            return {
+              product: item.product,
+              selectedOptions: allSelectedOptions,
+              quantity: item.quantity,
+              customizationData: item.customizationData
+            };
+          }),
+          shippingInfo: formattedShippingInfo,
+          walletAddress: walletAddress || 'anonymous',
+          paymentMetadata: {
+            paymentMethod: paymentMethod?.type ?? 'stripe',
+            defaultToken: paymentMethod?.defaultToken,
+            tokenAddress: paymentMethod?.tokenAddress,
+            tokenSymbol: paymentMethod?.tokenSymbol,
+            tokenName: paymentMethod?.tokenName,
+            chainId: paymentMethod?.chainId,
+            chainName: paymentMethod?.chainName,
+            couponCode: appliedCoupon?.code,
+            couponDiscount: appliedCoupon?.discountAmount,
+            totalPrice,
+            currencyUnit: currency.toLocaleLowerCase() as ('sol' | 'usdc')
+          }
+        })
+      });
+
+      if(!batchOrderResponse.ok) {
+        const errorData = await batchOrderResponse.json();
+        throw new Error(errorData.error || 'Failed to create batch order');
+      }
+
+      const batchOrderData = await batchOrderResponse.json();
+
+      setOrderData({
+        orderIds: batchOrderData.orderIds || [],
+        orderNumbers: batchOrderData.orderNumbers || [],
+        batchOrderId: batchOrderData.batchOrderId,
+        price: batchOrderData.totalPaymentAmount,
+        fee: batchOrderData.fee,
+        originalPrice: batchOrderData.originalPrice,
+        couponDiscount: batchOrderData.couponDiscount,
+        transactionSignature: batchOrderData.transactionSignature,
+        receiverWallet: batchOrderData.receiverWallet,
+        currencyUnit: batchOrderData.currencyUnit
+      });
+      
+      if(batchOrderData.batchOrderId) {
+        window.sessionStorage.setItem('lastBatchOrderId', batchOrderData.batchOrderId);
+      }
+
+      if (batchOrderData.isFreeOrder) {
+        await handleVerifyBatchTransactions(batchOrderData.transactionSignature, batchOrderData.batchOrderId);
+        return;
+      }
+
+      setOrderProgress({ step: 'processing_payment' });
+      
+      if( paymentMethod?.type === 'stripe') {
+        setShowStripeModal(true);
+      } else if (paymentMethod?.type === 'spl-tokens') {
+        toast.info('Token payment flow will be implemented');
+        await processSolanaPayment(batchOrderData);
+      } else if (paymentMethod?.type === 'cross-chain') {
+        toast.info('Cross-chain payment flow will be implemented');
+      } else {
+        // toast.info('Normal payment flow will be implemented');
+        await processSolanaPayment(batchOrderData);
+      }
+    } catch (error) {
+      throw new Error(`Failed to create batch transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleVerifyBatchTransactions = async (txSignature: string, batchOrderId?: string, receiverWallet?: string) => {
+    try {
+      const success = await verifyFinalTransaction(
+        txSignature,
+        async (status) => {
+          console.log('Status update received:', status);
+          
+          if (status.error) {
+            console.log('Setting error state:', status.error);
+            setOrderProgress({ step: 'error', error: status.error });
+            onClose();
+            return;
+          }
+          
+          if (status.paymentConfirmed) {
+            console.log('Payment confirmed, setting success state');
+            
+            // IMMEDIATELY set success state and update order data
+            setOrderProgress({ step: 'success' });
+            setOrderData(prev => ({
+              ...prev,
+              transactionSignature: txSignature
+            }));
+            
+            // IMMEDIATELY clear cart - don't wait for batch refresh
+            console.log('Clearing cart immediately');
+            clearCart();
+            setShowSuccessView(true);
+            
+            // Auto-close modal after showing success
+            console.log('Setting auto-close timeout');
+            setTimeout(() => {
+              console.log('Auto-closing modal');
+              onClose && onClose();
+            }, 3000);
+          }
+        },
+        undefined,
+        batchOrderId,
+        {
+          amount: orderData.price || 0,
+          buyer: walletAddress || '',
+          recipient: receiverWallet || "",
+          // Add strict token information for verification
+          isStrictTokenPayment: Boolean(collectionStrictToken),
+          strictTokenAddress: collectionStrictToken,
+          strictTokenSymbol: paymentMethod?.tokenSymbol,
+          strictTokenName: paymentMethod?.tokenName
+        },
+      );
+        
+      // SAFETY: Add a timeout to ensure modal closes properly
+      if (success || txSignature) {
+        console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
+        setTimeout(() => {
+          // Check if still in confirming_transaction state
+          if (orderProgress.step === 'confirming_transaction') {
+            console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
+            setOrderProgress({ step: 'success' });
+            
+            // Clear cart but let user decide when to close modal
+            clearCart();
+          }
+        }, 3000);
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      toast.error("An error occurred during checkout");
+      setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'An unknown error occurred' });
+    } finally {
+      setProcessingPayment(false);
     }
   };
   
@@ -529,8 +854,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       return;
     }
     
-    // Verify wallet connection for Solana payments
-    if (paymentMethod === 'solana' && !isConnected) {
+    // Verify wallet connection for crypto payments
+    if (paymentMethod?.type === 'spl-tokens' && !isConnected) {
       toast.info("Please connect your wallet to proceed with payment", {
         position: "bottom-center",
         autoClose: 3000
@@ -545,409 +870,18 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
       return;
     }
     
-    // Calculate coupon discount consistently
-    const couponDiscount = appliedCoupon 
-      ? (appliedCoupon.discountPercentage 
-        ? (totalPrice * appliedCoupon.discountPercentage / 100) 
-        : appliedCoupon.discountAmount)
-      : 0;
-    
-    // Check if the coupon provides a 100% discount (free order)
-    const isFreeOrder = appliedCoupon && 
-      totalPrice > 0 && 
-      ((appliedCoupon.discountPercentage === 100) || 
-       (appliedCoupon.discountAmount >= totalPrice));
-    
-    if (isFreeOrder) {
-      setProcessingPayment(true);
-      try {
-        // For 100% discount, use the create-batch-order endpoint but mark it as a free order
-        const transactionId = `free_order_batch_${Date.now()}_${walletAddress || 'anonymous'}`;
-        
-        setOrderProgress({ step: 'creating_order' });
-        
-        const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            items: items.map(item => ({
-              product: item.product,
-              selectedOptions: item.selectedOptions,
-              quantity: item.quantity
-            })),
-            shippingInfo: formattedShippingInfo,
-            walletAddress: walletAddress || 'anonymous',
-            paymentMetadata: {
-              paymentMethod: 'free_order',
-              couponCode: appliedCoupon.code,
-              couponDiscount: totalPrice, // The entire amount is discounted
-              originalPrice: totalPrice,
-              isFreeOrder: true,
-              transactionId
-            }
-          })
-        });
-        
-        const batchOrderData = await batchOrderResponse.json();
-        
-        if (!batchOrderData.success) {
-          throw new Error(batchOrderData.error || 'Failed to create free order');
-        }
-        
-        // Get the order number from either format of response
-        const orderNumber = batchOrderData.orderNumber || batchOrderData.orders?.[0]?.orderNumber;
-        
-        // Store the order information
-        setOrderData({
-          orderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId,
-          orderNumber,
-          transactionSignature: transactionId,
-          batchOrderId: batchOrderData.batchOrderId
-        });
-        
-        // Update order progress
-        setOrderProgress({ step: 'success' });
-        
-        // More descriptive success message for batch orders
-        toast.success(
-          items.length > 1
-            ? `Order #${orderNumber} containing ${items.length} items was created successfully!`
-            : `Free order #${orderNumber} created successfully!`,
-          { autoClose: 5000 }
-        );
-        
-        // Clear cart and show the OrderSuccessView (consistent with paid orders)
-        clearCart();
-        setShowSuccessView(true);
-        return; // Exit early to skip regular payment flow
-      } catch (error) {
-        console.error("Free order error:", error);
-        toast.error(error instanceof Error ? error.message : "Failed to process free order");
-        setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : "Failed to process free order" });
-        setProcessingPayment(false);
-        return; // Exit early if there's an error
-      }
-    }
-    
-    // Update to set order progress for both payment methods
-    setOrderProgress({ step: 'creating_order' });
     setProcessingPayment(true);
-    
     try {
-      // Verify all items in the cart again just before checkout as a safety measure
-      const allItemsVerified = await verifyAllItems(walletAddress);
-      
-      if (!allItemsVerified) {
-        // Find unverified items
-        const unverifiedItems = items.filter(item => 
-          item.product.category?.eligibilityRules?.groups?.length && 
-          (!item.verificationStatus?.verified)
-        );
-        
-        if (unverifiedItems.length > 0) {
-          const itemNames = unverifiedItems.map(item => item.product.name).join(', ');
-          toast.error(`You don't have access to these items: ${itemNames}. Please remove them from your cart.`);
-          setOrderProgress({ step: 'error', error: 'Some items in your cart could not be verified' });
-          setProcessingPayment(false);
-          return;
-        }
+      const isValid = await validateItemsInCarts();
+      if (!isValid) {
+        setProcessingPayment(false);
+        return;
       }
-      
-      // For Stripe, create batch order and open the Stripe modal
-      if (paymentMethod === 'stripe') {
-        setOrderProgress({ step: 'creating_order' });
-        
-        try {
-          // Create batch order first with Stripe payment intent
-          const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              items: items.map(item => ({
-                product: item.product,
-                selectedOptions: item.selectedOptions,
-                quantity: item.quantity
-              })),
-              shippingInfo: formattedShippingInfo,
-              walletAddress: walletAddress || 'anonymous',
-              paymentMetadata: {
-                paymentMethod: 'stripe',
-                couponCode: appliedCoupon?.code,
-                couponDiscount,
-                originalPrice: totalPrice
-              }
-            })
-          });
-          
-          const batchOrderData = await batchOrderResponse.json();
-          
-          if (!batchOrderData.success) {
-            setOrderProgress({ step: 'error', error: batchOrderData.error || 'Failed to create batch order' });
-            throw new Error(batchOrderData.error || 'Failed to create batch order');
-          }
-          
-          console.log('Batch order created for Stripe payment:', {
-            batchOrderId: batchOrderData.batchOrderId,
-            orderNumber: batchOrderData.orderNumber,
-            orderCount: batchOrderData.orders?.length,
-            firstOrderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId
-          });
-          
-          // Save the order details for later
-          const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
-          setOrderData({
-            orderId,
-            orderNumber: batchOrderData.orderNumber,
-            batchOrderId: batchOrderData.batchOrderId
-          });
-          
-          // Set the createdOrderId for use in handleStripeSuccess
-          if (orderId) {
-            setCreatedOrderId(orderId);
-          }
-          
-          // Store order ID in session storage for Stripe payment to use
-          if (orderId) {
-            window.sessionStorage.setItem('lastCreatedOrderId', orderId);
-          }
-          if (batchOrderData.batchOrderId) {
-            window.sessionStorage.setItem('lastBatchOrderId', batchOrderData.batchOrderId);
-          }
-          
-          // Show the Stripe payment modal
-          setShowStripeModal(true);
-        } catch (error) {
-          console.error('Error creating orders for Stripe payment:', error);
-          toast.error(error instanceof Error ? error.message : 'Failed to create orders');
-          setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'Failed to create orders' });
-        }
-      }
-      // For Solana payments, use the processPayment function from usePayment
-      else if (paymentMethod === 'solana' && items.length > 0) {
-        try {
-          // Get collection ID from the first item (consistent with TokenVerificationModal)
-          const collectionId = items[0].product.collectionId;
-          
-          // First create the batch order
-          console.log('Creating batch order for Solana payment');
-          
-          const batchOrderResponse = await fetch('/.netlify/functions/create-batch-order', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              items: items.map(item => ({
-                product: item.product,
-                selectedOptions: item.selectedOptions,
-                quantity: item.quantity
-              })),
-              shippingInfo: formattedShippingInfo,
-              walletAddress: walletAddress || 'anonymous',
-              paymentMetadata: {
-                paymentMethod: 'solana',
-                couponCode: appliedCoupon?.code,
-                couponDiscount,
-                originalPrice: totalPrice
-              }
-            })
-          });
-          
-          const batchOrderData = await batchOrderResponse.json();
-          
-          if (!batchOrderData.success) {
-            setOrderProgress({ step: 'error', error: batchOrderData.error || 'Failed to create batch order' });
-            throw new Error(batchOrderData.error || 'Failed to create batch order');
-          }
-          
-          console.log('Batch order created for Solana payment:', {
-            batchOrderId: batchOrderData.batchOrderId,
-            orderNumber: batchOrderData.orderNumbers?.[0],
-            orderCount: batchOrderData.orders?.length,
-            firstOrderId: batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId
-          });
-          
-          // Store the order information
-          const orderId = batchOrderData.orderId || batchOrderData.orders?.[0]?.orderId;
-          const orderNumber = batchOrderData.orderNumber?.[0];
-          const batchOrderId = batchOrderData.batchOrderId;
-          
-          setOrderData({
-            orderId,
-            orderNumber,
-            batchOrderId
-          });
-          
-          // Store order ID in session storage for Stripe payment to use
-          if (orderId) {
-            window.sessionStorage.setItem('lastCreatedOrderId', orderId);
-          }
-          if (batchOrderId) {
-            window.sessionStorage.setItem('lastBatchOrderId', batchOrderId);
-          }
-          
-          // Process payment step
-          setOrderProgress({ step: 'processing_payment' });
-          console.log('Processing Solana payment for amount:', finalPrice);
-          
-          // Use the usePayment hook's processPayment function - same as TokenVerificationModal
-          const { success: paymentSuccess, signature: txSignature } = await processPayment(finalPrice, collectionId);
-          
-          if (!paymentSuccess || !txSignature) {
-            setOrderProgress({ step: 'error', error: 'Payment failed or was cancelled' });
-            
-            // Update order to pending_payment status even if payment fails - consistent with TokenVerificationModal
-            try {
-              await updateOrderTransactionSignature({
-                orderId,
-                transactionSignature: 'rejected',
-                amountSol: finalPrice,
-                batchOrderId: orderData.batchOrderId
-              });
-            } catch (err) {
-              console.error('Error updating order status:', err);
-            }
-            
-            throw new Error('Payment failed or was cancelled');
-          }
-          
-          console.log('Payment processed successfully with signature:', txSignature);
-          
-          const statusSuccess = await updateOrderTransactionSignature({
-            orderId,
-            transactionSignature: txSignature,
-            amountSol: finalPrice,
-            walletAddress: walletAddress || 'anonymous',
-            batchOrderId,
-          });
-  
-          if (!statusSuccess) {
-            throw new Error('Failed to update order transaction');
-          }
 
-          // Start transaction confirmation - using same monitoring as TokenVerificationModal
-          setOrderProgress({ step: 'confirming_transaction' });
-          console.log('Confirming transaction on-chain');
-          
-          // Add notification when starting Solana transaction for batch orders
-          toast.info(
-            items.length > 1 
-              ? `Processing batch order transaction...` 
-              : `Processing order transaction...`,
-            { autoClose: false }
-          );
-          
-          // Save transaction signature to state
-          setOrderData(prev => ({
-            ...prev,
-            transactionSignature: txSignature
-          }));
-          
-          // confirm on chain
-          const success = await verifyFinalTransaction(
-            txSignature,
-            async (status) => {
-              console.log('Status update received:', status);
-              
-              // Handle transaction status updates
-              if (status.error) {
-                console.log('Setting error state:', status.error);
-                setOrderProgress({ step: 'error', error: status.error });
-              } else if (status.paymentConfirmed) {
-                console.log('Payment confirmed, setting success state');
-                
-                // IMMEDIATELY set success state and update order data
-                setOrderProgress({ step: 'success' });
-                setOrderData(prev => ({
-                  ...prev,
-                  transactionSignature: txSignature
-                }));
-                
-                // IMMEDIATELY clear cart - don't wait for batch refresh
-                console.log('Clearing cart immediately');
-                clearCart();
-                
-                // Handle batch order refresh in background (don't block success state)
-                if (batchOrderId) {
-                  console.log('Starting batch order refresh in background:', batchOrderId);
-                  
-                  // Use a non-blocking approach for batch refresh
-                  setTimeout(async () => {
-                    try {
-                      const refreshResponse = await fetch('/.netlify/functions/get-batch-orders', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                          batchOrderId: batchOrderId
-                        })
-                      });
-                      
-                      if (refreshResponse.ok) {
-                        const refreshData = await refreshResponse.json();
-                        console.log('Batch orders refresh result:', refreshData);
-                        
-                        if (refreshData.success && refreshData.orders) {
-                          const confirmedOrders = refreshData.orders.filter((o: { status: string }) => o.status === 'confirmed').length;
-                          console.log(`Batch refresh: ${confirmedOrders}/${refreshData.orders.length} orders confirmed`);
-                          
-                          // This is just for logging - success state is already set
-                          if (confirmedOrders === refreshData.orders.length) {
-                            console.log('All batch orders confirmed');
-                          } else {
-                            console.log('Some batch orders still pending, but transaction is confirmed');
-                          }
-                        }
-                      }
-                    } catch (refreshError) {
-                      console.error('Background batch refresh error:', refreshError);
-                      // Don't affect the success state - transaction is already confirmed
-                    }
-                  }, 100); // Small delay to not block the main success flow
-                }
-                
-                // Auto-close modal after showing success
-                console.log('Setting auto-close timeout');
-                setTimeout(() => {
-                  console.log('Auto-closing modal');
-                  onClose && onClose();
-                }, 3000);
-              }
-            },
-            orderId,
-            batchOrderId,
-            {
-              amount: finalPrice,
-              buyer: walletAddress || '',
-              recipient: collectionId
-            },
-          );
-          
-          // SAFETY: Add a timeout to ensure modal closes properly
-          if (success || txSignature) {
-            console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
-            setTimeout(() => {
-              // Check if still in confirming_transaction state
-              if (orderProgress.step === 'confirming_transaction') {
-                console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
-                setOrderProgress({ step: 'success' });
-                
-                // Clear cart but let user decide when to close modal
-                clearCart();
-              }
-            }, 3000);
-          }
-        } catch (error) {
-          console.error("Solana payment error:", error);
-          toast.error(error instanceof Error ? error.message : "An error occurred during payment");
-          setOrderProgress({ step: 'error', error: error instanceof Error ? error.message : 'An unknown error occurred' });
-        }
-      }
+      setOrderProgress({ step: 'creating_order' });
+
+      await createBatchTransactions();
+
     } catch (error) {
       console.error("Checkout error:", error);
       toast.error("An error occurred during checkout");
@@ -975,27 +909,13 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
             productName={items.length > 1 ? `${items.length} Items from Cart` : items[0]?.product.name}
             collectionName={items[0]?.product.collectionName || 'Various Collections'}
             productImage={items[0]?.product.imageUrl || '/placeholder.jpg'}
-            orderNumber={orderData.orderNumber || ''}
+            orderNumber={orderData?.orderNumbers?.[0] || ''}
             transactionSignature={orderData.transactionSignature || ''}
             onClose={onClose}
             receiptUrl={orderData.transactionSignature}
             totalItems={items.reduce((total, item) => total + (Math.max(1, Number(item.quantity) || 1)), 0)}
             itemPosition={1}
             isBatchOrder={true}
-          />
-        ) : showStripeModal ? (
-          <StripePaymentModal
-            onClose={() => setShowStripeModal(false)}
-            onSuccess={handleStripeSuccess}
-            solAmount={finalPrice}
-            productName={items.length > 1 ? `Cart Items (${items.length})` : items[0]?.product.name || 'Cart Items'}
-            productId={items[0]?.product.id || ''}
-            shippingInfo={formattedShippingInfo}
-            variants={[]}
-            couponCode={appliedCoupon?.code}
-            couponDiscount={appliedCoupon?.discountAmount || 
-              (appliedCoupon?.discountPercentage ? (totalPrice * appliedCoupon.discountPercentage / 100) : 0)}
-            originalPrice={totalPrice}
           />
         ) : (
           <div className="relative bg-gray-900 w-full max-w-2xl rounded-xl overflow-hidden">
@@ -1034,21 +954,10 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                         </div>
                         {Object.keys(item.selectedOptions).length > 0 && (
                           <div className="mt-1 text-xs text-gray-400">
-                            {/* Debug output */}
-                            {(() => {
-                              console.log(`[Checkout] Rendering variants for ${item.product.name}:`, item.selectedOptions);
-                              console.log(`[Checkout] Product variants:`, item.product.variants);
-                              return null;
-                            })()}
-                            
                             {Object.entries(item.selectedOptions).map(([variantId, optionValue]) => {
-                              console.log(`[Checkout] Processing variant ${variantId} with value ${optionValue}`);
-                              
                               const variant = item.product.variants?.find(v => v.id === variantId);
-                              console.log(`[Checkout] Found variant:`, variant);
                               
                               if (!variant) {
-                                console.warn(`[Checkout] Variant with ID ${variantId} not found in product`, item.product);
                                 return (
                                   <div key={variantId}>
                                     Option: {optionValue}
@@ -1057,10 +966,8 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                               }
                               
                               const option = variant.options?.find(o => o.value === optionValue);
-                              console.log(`[Checkout] Found option:`, option);
                               
                               if (!option) {
-                                console.warn(`[Checkout] Option with value ${optionValue} not found in variant ${variant.name}`, variant);
                                 return (
                                   <div key={variantId}>
                                     {variant.name}: {optionValue}
@@ -1076,74 +983,138 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                             })}
                           </div>
                         )}
+                        
+                        {/* Show customization data */}
+                        {item.customizationData && (
+                          <div className="mt-1 text-xs text-blue-400">
+                            {item.customizationData.text && (
+                              <div>
+                                Custom Text: {item.customizationData.text}
+                              </div>
+                            )}
+                            {item.customizationData.image && (
+                              <div>
+                                Custom Image: ✓ Added
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
                         {renderItemPrice(item)}
                       </div>
                     </div>
                   ))}
-                </div>
-                
-                {/* Coupon Section */}
-                <div className="mt-4 border-t border-gray-800 pt-4">
-                  {appliedCoupon ? (
-                    <div className="flex items-center justify-between bg-gray-800/70 rounded-lg p-3">
-                      <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-secondary" />
-                        <div>
-                          <span className="text-sm font-medium text-white">Coupon: {appliedCoupon.code}</span>
-                          <p className="text-xs text-gray-400">
-                            {appliedCoupon.discountPercentage 
-                              ? `${appliedCoupon.discountPercentage}% off` 
-                              : formatPrice(appliedCoupon.discountAmount) + ' off'}
-                          </p>
+                  
+                  {/* Coupon Section */}
+                  <div className="mt-4 border-t border-gray-800 pt-4">
+                    <h4 className="text-sm font-medium text-gray-300 mb-2">Coupon Code</h4>
+                    {appliedCoupon ? (
+                      <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-green-500" />
+                          <span className="text-sm text-green-400">
+                            {appliedCoupon.code} applied
+                          </span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoupon}
+                          className="text-xs text-gray-400 hover:text-white"
+                        >
+                          Remove
+                        </button>
                       </div>
-                      <Button 
-                        onClick={handleRemoveCoupon}
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs text-gray-400 hover:text-red-400"
-                      >
-                        Remove
-                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value)}
+                          placeholder="Enter coupon code"
+                          className="flex-1 bg-gray-800 text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary placeholder-gray-500"
+                        />
+                        <Button
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          variant="outline"
+                          size="sm"
+                          isLoading={validatingCoupon}
+                          disabled={validatingCoupon || !couponCode.trim()}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Payment Method Selector */}
+                  <PaymentMethodSelector
+                    selectedMethod={paymentMethod}
+                    onMethodChange={setPaymentMethod}
+                    isConnected={isConnected}
+                    disabled={processingPayment}
+                    totalAmount={finalPrice}
+                    currency={currency.toLocaleLowerCase() as ('sol' | 'usdc')}
+                    onGetPriceQuote={undefined}
+                    recommendedCAs={recommendedCas}
+                    hasStrictTokenRestriction={hasStrictTokenRestriction}
+                    collectionStrictToken={collectionStrictToken}
+                    onTotalPriceChange={(price, symbol) => {
+                      setTotalDisplayPrice(price);
+                      setTotalDisplaySymbol(symbol);
+                    }}
+                    solRate={solRate ?? 180}
+                  />
+
+                  {/* Mixed Strict Tokens Warning */}
+                  {hasMixedStrictTokens && (
+                    <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                      <p className="text-red-400 text-sm">
+                        Cannot checkout items with different strict tokens. Please separate items with different collection tokens into separate orders.
+                      </p>
                     </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Enter coupon code"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value)}
-                        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
-                      />
-                      <Button
-                        onClick={handleApplyCoupon}
-                        variant="outline"
-                        size="sm"
-                        isLoading={validatingCoupon}
-                        disabled={validatingCoupon || !couponCode.trim()}
-                      >
-                        Apply
-                      </Button>
+                  )}
+
+                  {/* Strict Token Requirement Notice */}
+                  {hasStrictTokenRestriction && !hasMixedStrictTokens && (
+                    <div className="mt-2 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                      <p className="text-purple-400 text-sm">
+                        This collection requires payment with <strong>{paymentMethod?.tokenName || 'the collection token'}</strong>. 
+                        You will pay in this token and the merchant will receive payment in this token.
+                      </p>
+                    </div>
+                  )}
+
+                {paymentMethod?.type === 'spl-tokens' || paymentMethod?.type === 'default' && !isConnected && (
+                    <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                      <p className="text-amber-400 text-sm">
+                        Please connect your wallet to continue with token payment
+                      </p>
                     </div>
                   )}
                 </div>
-                
+
                 {/* Price Summary */}
                 <div className="mt-4 border-t border-gray-800 pt-4">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Subtotal</span>
-                      <span className="text-gray-300">{formatPrice(calculateSubtotal())}</span>
+                      <span className="text-gray-300">
+                        {formatPriceWithRate(totalPrice, currency, currency, solRate ?? 180)}
+                      </span>
                     </div>
                     
                     {appliedCoupon && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Discount</span>
                         <span className="text-secondary">
-                          -{formatPrice(
+                          -{formatPriceWithRate(
                             appliedCoupon.discountPercentage 
-                              ? calculateSubtotal() * (appliedCoupon.discountPercentage / 100) 
-                              : appliedCoupon.discountAmount
+                              ? totalPrice * (appliedCoupon.discountPercentage / 100) 
+                              : appliedCoupon.discountAmount,
+                            currency,
+                            currency,
+                            solRate ?? 180
                           )}
                         </span>
                       </div>
@@ -1151,7 +1122,16 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     
                     <div className="flex justify-between font-medium pt-2">
                       <span className="text-gray-300">Total</span>
-                      <span className="text-lg text-white">{formatPrice(finalPrice)}</span>
+                      <span className="text-lg text-white">
+                        {
+                          formatPriceWithRate(
+                            finalPrice,
+                            currency,
+                            currency,
+                            solRate ?? 180
+                          )
+                        }
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1219,18 +1199,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       {orderProgress.error && (
                         <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                           <p className="text-red-500 text-sm">{orderProgress.error}</p>
-                        </div>
-                      )}
-                      
-                      {/* Show order info if available */}
-                      {orderData.orderNumber && (
-                        <div className="mt-4 p-3 bg-gray-700/20 border border-gray-700 rounded-lg">
-                          <p className="text-gray-300 text-sm">Order #{orderData.orderNumber}</p>
-                          {orderData.transactionSignature && (
-                            <p className="text-xs text-gray-400 mt-1 truncate">
-                              Transaction: {orderData.transactionSignature}
-                            </p>
-                          )}
                         </div>
                       )}
                       
@@ -1492,58 +1460,6 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                   </div>
                 </div>
                 
-                {/* Payment Method Selection */}
-                <div className="pt-4 border-t border-gray-800 mt-4">
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Payment Method</h3>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button 
-                      type="button"
-                      onClick={() => handlePaymentMethodSelect('stripe')}
-                      className={`flex-1 flex items-center justify-between p-3 rounded-lg border ${
-                        paymentMethod === 'stripe' 
-                          ? 'border-secondary bg-gray-800' 
-                          : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800/80'
-                      } transition-colors`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <CreditCard className={`h-5 w-5 ${paymentMethod === 'stripe' ? 'text-secondary' : 'text-gray-400'}`} />
-                        <span className={`text-sm ${paymentMethod === 'stripe' ? 'text-white' : 'text-gray-300'}`}>
-                          Credit Card
-                        </span>
-                      </div>
-                      {paymentMethod === 'stripe' && (
-                        <Check className="h-4 w-4 text-secondary" />
-                      )}
-                    </button>
-                    
-                    <button 
-                      type="button"
-                      onClick={() => handlePaymentMethodSelect('solana')}
-                      className={`flex-1 flex items-center justify-between p-3 rounded-lg border ${
-                        paymentMethod === 'solana' 
-                          ? 'border-secondary bg-gray-800' 
-                          : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800/80'
-                      } transition-colors`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Wallet className={`h-5 w-5 ${paymentMethod === 'solana' ? 'text-secondary' : 'text-gray-400'}`} />
-                        <span className={`text-sm ${paymentMethod === 'solana' ? 'text-white' : 'text-gray-300'}`}>
-                          Solana {isConnected ? '(Connected)' : ''}
-                        </span>
-                      </div>
-                      {paymentMethod === 'solana' && (
-                        <Check className="h-4 w-4 text-secondary" />
-                      )}
-                    </button>
-                  </div>
-                  
-                  {paymentMethod === 'solana' && !isConnected && (
-                    <p className="mt-2 text-xs text-yellow-400">
-                      Please connect your wallet to continue with Solana payment
-                    </p>
-                  )}
-                </div>
-                
                 {/* Checkout button */}
                 <div className="pt-4 border-t border-gray-800 mt-4">
                   <Button
@@ -1552,7 +1468,11 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                     size="lg"
                     isLoading={processingPayment}
                     loadingText={processingPayment ? "Processing..." : ""}
-                    disabled={processingPayment || (paymentMethod === 'solana' && !isConnected) || !paymentMethod || 
+                    disabled={processingPayment || hasMixedStrictTokens || (paymentMethod?.type === 'spl-tokens' && !isConnected) || !paymentMethod || 
+                      (['solana', 'usdc', 'other-tokens'].includes(paymentMethod?.type || '') && !isConnected) || 
+                      !paymentMethod || 
+                      (paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) && !isConnected) || 
+                      !paymentMethod || 
                       !shipping.address || !shipping.city || 
                       !shipping.country || !shipping.zip || 
                       (availableStates.length > 0 && !shipping.state) ||
@@ -1562,10 +1482,15 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
                       !!phoneError || !!zipError || !isCountrySupported}
                     className="w-full"
                   >
-                    {!isConnected && paymentMethod === 'solana' ? (
+                    {!isConnected && paymentMethod?.type === 'spl-tokens' ? (
                       <>
-                        <Wallet className="h-4 w-4 mr-2" />
+                        <Check className="h-4 w-4 mr-2" />
                         <span>Connect Wallet</span>
+                      </>
+                    ) : hasStrictTokenRestriction ? (
+                      <>
+                        <span>Pay with {paymentMethod?.tokenSymbol || 'Collection Token'}</span>
+                        <ChevronRight className="h-4 w-4 ml-2" />
                       </>
                     ) : (
                       <>
@@ -1580,6 +1505,20 @@ export function MultiItemCheckoutModal({ onClose }: MultiItemCheckoutModalProps)
           </div>
         )}
       </div>
+
+      {/* Stripe Payment Modal */}
+      {showStripeModal && orderData.batchOrderId && (
+        <StripePaymentModal
+          onClose={() => setShowStripeModal(false)}
+          onSuccess={handleStripeSuccess}
+          // this amount needs to be converted to usd if sol
+          amount={orderData.price || 0}
+          productName={`Batch Order - ${items.length} items`}
+          orderId={orderData.batchOrderId}
+          batchOrderId={orderData.batchOrderId}
+          shippingInfo={formattedShippingInfo}
+        />
+      )}
     </div>
   );
-} 
+}

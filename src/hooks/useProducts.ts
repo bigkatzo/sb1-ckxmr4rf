@@ -192,7 +192,9 @@ export function useProducts(filters: ProductFilters = {}, isMerchant: boolean = 
           visible: product.visible ?? true,
           saleEnded: product.sale_ended ?? false,
           notes: notesObject,  // Always pass the properly structured object
-          freeNotes: freeNotesValue
+          freeNotes: freeNotesValue,
+          recommendedCa: product.recommended_ca || null, // Optional CA for recommended token
+          baseCurrency: product.base_currency || 'sol', // Add baseCurrency field with default to 'sol'
         };
       });
 
