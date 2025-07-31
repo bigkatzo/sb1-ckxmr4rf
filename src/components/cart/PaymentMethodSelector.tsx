@@ -117,6 +117,13 @@ export function PaymentMethodSelector({
   const [fetchedRecommendedCAs, setFetchedRecommendedCAs] = useState<RecommendedCA[]>([]);
   const [loadingRecommendedCAs, setLoadingRecommendedCAs] = useState(false);
 
+  // Helper function to format price quotes
+  const formatPriceQuote = (amount: string, tokenName: string): string => {
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount)) return `${amount} ${tokenName}`;
+    return `${numericAmount.toFixed(2)} ${tokenName}`;
+  };
+
   // Set default token based on currency context
   React.useEffect(() => {
     setDefaultToken(currency);
@@ -713,10 +720,8 @@ export function PaymentMethodSelector({
                 </div>
                 <div className="flex items-center gap-2">
                   {!defaultTokenQuote.loading && !defaultTokenQuote.error && (
-                    <span className="text-sm font-medium text-white flex items-center gap-2">
-                      {defaultTokenQuote.tokenAmount} 
-                      <TokenIcon symbol={defaultTokenQuote.tokenSymbol} size="sm" />
-                      {defaultTokenQuote.tokenSymbol}
+                    <span className="text-sm font-medium text-white">
+                      {formatPriceQuote(defaultTokenQuote.tokenAmount, defaultTokenQuote.tokenName)}
                     </span>
                   )}
                   <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
@@ -736,10 +741,8 @@ export function PaymentMethodSelector({
                     <div className="space-y-2 pt-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">You'll pay:</span>
-                        <span className="text-sm font-medium text-white flex items-center gap-2">
-                          {defaultTokenQuote.tokenAmount} 
-                          <TokenIcon symbol={defaultTokenQuote.tokenSymbol} size="sm" />
-                          {defaultTokenQuote.tokenSymbol}
+                        <span className="text-sm font-medium text-white">
+                          {formatPriceQuote(defaultTokenQuote.tokenAmount, defaultTokenQuote.tokenName)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
@@ -990,9 +993,7 @@ export function PaymentMethodSelector({
                 <div className="flex items-center gap-2">
                   {!priceQuote.loading && !priceQuote.error && (
                     <span className="text-sm font-medium text-white flex items-center gap-1">
-                      {priceQuote.tokenAmount} 
-                      <TokenIcon symbol={tokenInfo?.symbol || priceQuote.tokenSymbol} size="sm" logoUrl={tokenInfo?.logoUrl} />
-                      {tokenInfo?.symbol || priceQuote.tokenSymbol}
+                      {formatPriceQuote(priceQuote.tokenAmount, tokenInfo?.name || priceQuote.tokenName)}
                     </span>
                   )}
                   <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
@@ -1012,10 +1013,8 @@ export function PaymentMethodSelector({
                     <div className="space-y-1 pt-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">You'll pay:</span>
-                        <span className="text-sm font-medium text-white flex items-center gap-1">
-                          {priceQuote.tokenAmount} 
-                          <TokenIcon symbol={tokenInfo?.symbol || priceQuote.tokenSymbol} size="sm" logoUrl={tokenInfo?.logoUrl} />
-                          {tokenInfo?.symbol || priceQuote.tokenSymbol}
+                        <span className="text-sm font-medium text-white">
+                          {formatPriceQuote(priceQuote.tokenAmount, tokenInfo?.name || priceQuote.tokenName)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
@@ -1142,7 +1141,7 @@ export function PaymentMethodSelector({
                 <div className="flex items-center gap-2">
                   {!priceQuote.loading && !priceQuote.error && (
                     <span className="text-sm font-medium text-white">
-                      {priceQuote.tokenAmount} USDC
+                      {formatPriceQuote(priceQuote.tokenAmount, 'USDC')}
                     </span>
                   )}
                   <ChevronRight className={`h-3 w-3 text-gray-400 transition-transform ${showPriceDetails ? 'rotate-90' : ''}`} />
@@ -1163,7 +1162,7 @@ export function PaymentMethodSelector({
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">You'll pay:</span>
                         <span className="text-sm font-medium text-white">
-                          {priceQuote.tokenAmount} USDC
+                          {formatPriceQuote(priceQuote.tokenAmount, 'USDC')}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
