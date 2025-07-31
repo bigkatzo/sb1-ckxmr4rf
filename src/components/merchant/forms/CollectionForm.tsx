@@ -12,6 +12,7 @@ import { useSiteSettings } from '../../../hooks/useSiteSettings';
 import { cacheManager } from '../../../lib/cache';
 import { useCollectionContext } from '../../../contexts/CollectionContext';
 import { createPortal } from 'react-dom';
+import { tokenService } from '../../../services/tokenService';
 
 export interface CollectionFormProps {
   collection?: Partial<Collection & { tags?: string[]; launch_date?: string }>;
@@ -239,42 +240,17 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
     setTokenName('');
 
     try {
-      // Try to extract contract address from various URL formats
-      let contractAddress = recommendedToken.trim();
+      // Use the new token service to extract and validate the contract address
+      const contractAddress = tokenService.extractContractAddress(recommendedToken);
       
-      // Extract from DexScreener URLs
-      const dexScreenerMatch = contractAddress.match(/dexscreener\.com\/[^\/]+\/([a-zA-Z0-9]+)/);
-      if (dexScreenerMatch) {
-        contractAddress = dexScreenerMatch[1];
-      }
-      
-      // Extract from PumpFun URLs
-      const pumpFunMatch = contractAddress.match(/pump\.fun\/([a-zA-Z0-9]+)/);
-      if (pumpFunMatch) {
-        contractAddress = pumpFunMatch[1];
-      }
-      
-      // Remove any remaining URL parts and clean the address
-      contractAddress = contractAddress.replace(/^https?:\/\//, '').split('/').pop() || contractAddress;
-      
-      // Validate contract address format
-      if (!contractAddress || contractAddress.length < 32 || !/^[a-zA-Z0-9]+$/.test(contractAddress)) {
+      if (!tokenService.isValidAddress(contractAddress)) {
         throw new Error('Invalid contract address format');
       }
 
-      // Fetch token information from Jupiter API
-      const response = await fetch(`https://tokens.jup.ag/token/${contractAddress}`);
+      // Fetch token information using the new service
+      const tokenInfo = await tokenService.getTokenInfo(contractAddress);
       
-      if (response.ok) {
-        const tokenData = await response.json();
-        const tokenName = tokenData.name || 'Unknown Token';
-        const tokenSymbol = tokenData.symbol || 'TOKEN';
-        
-        setTokenName(`${tokenName} (${tokenSymbol})`);
-      } else {
-        // Fallback for tokens not found in Jupiter
-        setTokenName(`Custom Token (${contractAddress.slice(0, 6)}...${contractAddress.slice(-4)})`);
-      }
+      setTokenName(`${tokenInfo.name} (${tokenInfo.symbol})`);
     } catch (error) {
       console.error('Error loading token info:', error);
       setTokenError('Failed to load token information. Please check the contract address.');

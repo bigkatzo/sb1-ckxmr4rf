@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { ChevronDown, CreditCard, Wallet, Coins, Link, Check, Copy, ExternalLink, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Coins, CreditCard, Wallet, Link, Search, Copy, Check, AlertTriangle, ChevronDown, ChevronUp, ExternalLink, ChevronRight } from 'lucide-react';
 // Import from App.tsx temporarily - you should move these to proper UI components
 import { Button } from '../ui/Button';
 import { toast } from 'react-toastify';
 import { TokenIcon } from '../ui/TokenIcon';
+import { tokenService } from '../../services/tokenService';
 
 export interface PaymentMethod {
   type: 'default' | 'stripe' | 'spl-tokens' | 'cross-chain';
@@ -133,38 +134,16 @@ export function PaymentMethodSelector({
 
     setLoadingRecommendedCAs(true);
     try {
-      const fetchPromises = addresses.map(async (address) => {
-        try {
-          const response = await fetch(`https://tokens.jup.ag/token/${address}`);
-          if (response.ok) {
-            const tokenData = await response.json();
-            return {
-              address,
-              name: tokenData.name || 'Unknown Token',
-              symbol: tokenData.symbol || 'TOKEN',
-              decimals: tokenData.decimals || 6
-            };
-          } else {
-            // Fallback for tokens not found in Jupiter
-            return {
-              address,
-              name: 'Custom Token',
-              symbol: 'TOKEN',
-              decimals: 6
-            };
-          }
-        } catch (error) {
-          console.error(`Failed to fetch token info for ${address}:`, error);
-          return {
-            address,
-            name: 'Custom Token',
-            symbol: 'TOKEN',
-            decimals: 6
-          };
-        }
-      });
+      // Use the new token service to fetch multiple tokens at once
+      const tokenInfos = await tokenService.getMultipleTokens(addresses);
+      
+      const results = tokenInfos.map((tokenInfo, index) => ({
+        address: addresses[index],
+        name: tokenInfo.name,
+        symbol: tokenInfo.symbol,
+        decimals: tokenInfo.decimals || 6
+      }));
 
-      const results = await Promise.all(fetchPromises);
       setFetchedRecommendedCAs(results);
     } catch (error) {
       console.error('Failed to fetch recommended CA info:', error);
