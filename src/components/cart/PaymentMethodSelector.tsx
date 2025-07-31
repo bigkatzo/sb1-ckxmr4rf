@@ -50,6 +50,7 @@ interface PaymentMethodSelectorProps {
   onTotalPriceChange?: (totalPrice: string, tokenSymbol: string) => void;
   recommendedCAs?: string[]; // Array of token addresses
   solRate?: number; // Optional SOL rate for USD conversion
+  hasStrictTokenRestriction?: boolean; // Whether to restrict to specific tokens only
 }
 
 const POPULAR_TOKENS = [
@@ -102,7 +103,8 @@ export function PaymentMethodSelector({
   onGetPriceQuote,
   onTotalPriceChange,
   solRate,
-  recommendedCAs = []
+  recommendedCAs = [],
+  hasStrictTokenRestriction
 }: PaymentMethodSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [customTokenAddress, setCustomTokenAddress] = useState('');
@@ -171,25 +173,38 @@ export function PaymentMethodSelector({
     }
   }, [recommendedCAs]);
 
+  // Effect to automatically select the strict token when restriction is enabled
+  React.useEffect(() => {
+    if (hasStrictTokenRestriction && fetchedRecommendedCAs.length > 0) {
+      const strictToken = fetchedRecommendedCAs[0];
+      onMethodChange({
+        type: 'spl-tokens',
+        tokenAddress: strictToken.address,
+        tokenSymbol: strictToken.symbol,
+        tokenName: strictToken.name
+      });
+    }
+  }, [hasStrictTokenRestriction, fetchedRecommendedCAs, onMethodChange]);
+
   const paymentOptions = [
     {
       type: 'default' as const,
       label: 'Default',
       description: 'Quick payment with USDC or SOL',
       icon: Coins,
-      available: isConnected
+      available: isConnected && !hasStrictTokenRestriction
     },
     {
       type: 'stripe' as const,
       label: 'Credit Card',
       description: 'Pay with Visa, Mastercard, etc.',
       icon: CreditCard,
-      available: true
+      available: !hasStrictTokenRestriction
     },
     {
       type: 'spl-tokens' as const,
-      label: 'Pay with SPL Tokens',
-      description: 'Pay with any Solana token',
+      label: hasStrictTokenRestriction ? 'Collection Token' : 'Pay with SPL Tokens',
+      description: hasStrictTokenRestriction ? 'Pay with the collection\'s required token' : 'Pay with any Solana token',
       icon: Wallet,
       available: isConnected
     },
@@ -198,7 +213,7 @@ export function PaymentMethodSelector({
       label: 'Cross-Chain Payment',
       description: 'USDC from other blockchains',
       icon: Link,
-      available: true
+      available: !hasStrictTokenRestriction
     }
   ];
 
@@ -1174,6 +1189,15 @@ export function PaymentMethodSelector({
               Cross-chain payments use USDC only and are powered by DeBridge technology. Transactions may take 5-15 minutes to complete.
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Strict Token Restriction Notice */}
+      {hasStrictTokenRestriction && (
+        <div className="bg-purple-500/10 border border-purple-500/20 rounded-md p-3">
+          <p className="text-xs text-purple-400">
+            This collection requires payment with a specific token. Only the collection's designated token can be used for payment.
+          </p>
         </div>
       )}
 

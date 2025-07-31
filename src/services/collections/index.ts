@@ -82,6 +82,7 @@ export async function createCollection(data: FormData) {
         website_url: (data.get('website_url') as string)?.trim() || null,
         free_notes: (data.get('free_notes') as string)?.trim() || null,
         ca: (data.get('ca') as string)?.trim() || null,
+        strict_token: (data.get('strict_token') as string)?.trim() || null,
         user_id: user.id  // Explicitly set the user_id
       };
 
@@ -234,6 +235,8 @@ export async function updateCollection(id: string, data: FormData) {
       pumpfun_url: (data.get('pumpfun_url') as string)?.trim() || null,
       website_url: (data.get('website_url') as string)?.trim() || null,
       free_notes: (data.get('free_notes') as string)?.trim() || null,
+      ca: (data.get('ca') as string)?.trim() || null,
+      strict_token: (data.get('strict_token') as string)?.trim() || null,
       // Include theme fields if provided
       ...(data.get('theme_use_custom') !== null && {
         theme_use_custom: data.get('theme_use_custom') === 'true',

@@ -422,7 +422,13 @@ exports.handler = async (event, context) => {
     } else if (paymentMetadata?.paymentMethod === 'stripe') {
       currencyUnit = 'USDC'; // Stripe payments are always in USDC
     } else if (paymentMetadata?.paymentMethod === 'spl-tokens') {
-      currencyUnit = 'USDC'; // SPL token payments are converted to USDC
+      // For SPL tokens, check if it's a strict token payment
+      if (paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol) {
+        // This is a strict token payment - merchant receives the token, not converted to USDC
+        currencyUnit = paymentMetadata.tokenSymbol.toUpperCase();
+      } else {
+        currencyUnit = 'USDC'; // Regular SPL token payments are converted to USDC
+      }
     } else if (paymentMetadata?.paymentMethod === 'cross-chain') {
       currencyUnit = 'USDC'; // Cross-chain payments are in USDC
     } else {
@@ -449,17 +455,28 @@ exports.handler = async (event, context) => {
 
       let itemTotalInTarget;
       
-      // Convert item total from base currency to target currency
-      if (baseCurrency.toUpperCase() === currencyUnit) {
+      // Check if this is a strict token payment
+      const isStrictTokenPayment = paymentMetadata?.paymentMethod === 'spl-tokens' && 
+        paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol;
+      
+      if (isStrictTokenPayment) {
+        // For strict token payments, use the base currency price directly
+        // The merchant receives the token, not converted to USDC
         itemTotalInTarget = itemTotalInBase;
-      } else if (baseCurrency.toUpperCase() === 'SOL' && currencyUnit === 'USDC') {
-        itemTotalInTarget = itemTotalInBase * solRate;
-      } else if (baseCurrency.toUpperCase() === 'USDC' && currencyUnit === 'SOL') {
-        itemTotalInTarget = itemTotalInBase / solRate;
+        console.log(`Strict token payment: Using base currency price directly - ${itemTotalInBase} ${baseCurrency}`);
       } else {
-        // Handle any other currency conversion scenarios
-        console.warn(`Unsupported currency conversion: ${baseCurrency} to ${currencyUnit}, using base currency`);
-        itemTotalInTarget = itemTotalInBase;
+        // Convert item total from base currency to target currency
+        if (baseCurrency.toUpperCase() === currencyUnit) {
+          itemTotalInTarget = itemTotalInBase;
+        } else if (baseCurrency.toUpperCase() === 'SOL' && currencyUnit === 'USDC') {
+          itemTotalInTarget = itemTotalInBase * solRate;
+        } else if (baseCurrency.toUpperCase() === 'USDC' && currencyUnit === 'SOL') {
+          itemTotalInTarget = itemTotalInBase / solRate;
+        } else {
+          // Handle any other currency conversion scenarios
+          console.warn(`Unsupported currency conversion: ${baseCurrency} to ${currencyUnit}, using base currency`);
+          itemTotalInTarget = itemTotalInBase;
+        }
       }
 
       const merchantWallet = await getMerchantWallet(collectionId);
@@ -610,6 +627,12 @@ exports.handler = async (event, context) => {
           originalPrice,
           receiverWallet,
           currencyUnit, // Add the target currency unit
+          // Add strict token information
+          isStrictTokenPayment: paymentMetadata?.paymentMethod === 'spl-tokens' && 
+            paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol,
+          strictTokenAddress: paymentMetadata?.tokenAddress,
+          strictTokenSymbol: paymentMetadata?.tokenSymbol,
+          strictTokenName: paymentMetadata?.tokenName,
         };
         
         // Create order using the database function

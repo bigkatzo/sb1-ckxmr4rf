@@ -255,6 +255,8 @@ export function useCollection(slug: string) {
             collectionId: product.collection_id,
             collectionName: product.collection_name || product.collections?.name,
             collectionSlug: product.collection_slug || product.collections?.slug,
+            collectionCa: collectionData.ca || '',
+            collectionStrictToken: collectionData.strict_token || '',
             slug: product.slug || '',
             variants: product.variants || [],
             // Add created_at timestamp if available

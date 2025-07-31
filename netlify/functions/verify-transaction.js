@@ -130,6 +130,8 @@ async function verifySolanaTransactionDetails(signature, expectedDetails) {
 
     // Default to SOL, or use tokenMint if provided
     const tokenMint = expectedDetails?.tokenMint;
+    const isStrictTokenPayment = expectedDetails?.isStrictTokenPayment;
+    const strictTokenAddress = expectedDetails?.strictTokenAddress;
 
     if (!tokenMint || tokenMint === 'sol') {
       const preBalances = tx.meta.preBalances;
@@ -180,13 +182,24 @@ async function verifySolanaTransactionDetails(signature, expectedDetails) {
 
     const tokenAccounts = {};
 
+    // Determine which token mint to check based on payment type
+    let targetMint;
+    if (isStrictTokenPayment && strictTokenAddress) {
+      targetMint = strictTokenAddress;
+      log('info', `Checking for strict token payment with mint: ${targetMint}`);
+    } else {
+      // Default to USDC for regular token payments
+      targetMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+      log('info', 'Checking for USDC payment');
+    }
+
     // Build balance diffs by owner
     for (let i = 0; i < postTokenBalances.length; i++) {
       const post = postTokenBalances[i];
       const pre = preTokenBalances.find(p => p.accountIndex === post.accountIndex && p.mint === post.mint);
 
-      // USDC mint address
-      if (post.mint !== "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v") continue;
+      // Check for the target token mint
+      if (post.mint !== targetMint) continue;
 
       const owner = post.owner;
       const preAmount = Number(pre?.uiTokenAmount?.amount || '0');
@@ -563,6 +576,11 @@ exports.handler = async (event, context) => {
       buyer: allOrders[0].wallet_address,
       recipient: paymentMetadata.receiverWallet,
       tokenMint: paymentMetadata.defaultToken,
+      // Add strict token information
+      isStrictTokenPayment: paymentMetadata.isStrictTokenPayment,
+      strictTokenAddress: paymentMetadata.strictTokenAddress,
+      strictTokenSymbol: paymentMetadata.strictTokenSymbol,
+      strictTokenName: paymentMetadata.strictTokenName,
     };
 
     let verificationResult;
@@ -603,11 +621,16 @@ exports.handler = async (event, context) => {
       }
 
       log('info', 'Processing blockchain payment');
-      // if direct
-      if(paymentMetadata.paymentMethod === 'usdc' || paymentMetadata.paymethod === 'sol') {
+      // Check if this is a strict token payment
+      if (paymentMetadata.isStrictTokenPayment && paymentMetadata.paymentMethod === 'spl-tokens') {
+        log('info', 'Processing strict token payment verification');
+        // For strict token payments, we need to verify the SPL token transaction
+        verificationResult = await verifySolanaTransactionDetails(signature, details);
+      } else if (paymentMetadata.paymentMethod === 'default' || paymentMetadata.paymentMethod === 'usdc' || paymentMetadata.paymentMethod === 'sol') {
+        // Handle default USDC/SOL payments
         verificationResult = await verifySolanaTransactionDetails(signature, details);
       } else {
-        // just verify for now
+        // For other payment methods (cross-chain, etc.), just verify for now
         log('info', 'Skipping blockchain verification for cross chain and cross token payment for now');
         verificationResult = {
           isValid: true,

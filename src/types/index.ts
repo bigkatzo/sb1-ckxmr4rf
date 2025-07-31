@@ -48,6 +48,7 @@ export interface Product {
   collectionSaleEnded?: boolean;
   categorySaleEnded?: boolean;
   collectionCa?: string;
+  collectionStrictToken?: string;
   collectionOwnerMerchantTier?: import('./collections').MerchantTier;
   collectionUserId?: string;
   slug: string;

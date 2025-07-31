@@ -88,6 +88,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const [pumpfunUrl, setPumpfunUrl] = useState(collection?.pumpfun_url || '');
   const [websiteUrl, setWebsiteUrl] = useState(collection?.website_url || '');
   const [recommendedToken, setRecommendedToken] = useState(collection?.ca || '');
+  const [strictToken, setStrictToken] = useState(collection?.strict_token || '');
   const [tokenName, setTokenName] = useState('');
   const [loadingToken, setLoadingToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
@@ -395,6 +396,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       formData.append('pumpfun_url', pumpfunUrl || '');
       formData.append('website_url', websiteUrl || '');
       formData.append('ca', recommendedToken || '');
+      formData.append('strict_token', strictToken || '');
 
       // Add theme data - preserve existing theme data if not changed in theme modal
       if (themeData.theme_use_custom) {
@@ -763,6 +765,24 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                         Enter a contract address, DexScreener URL, or PumpFun URL to automatically load token information
                       </p>
                     </div>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="strict_token" className="block text-xs text-gray-400 mb-1">
+                      Strict Token
+                    </label>
+                    <input
+                      type="text"
+                      id="strict_token"
+                      name="strict_token"
+                      value={strictToken}
+                      onChange={(e) => setStrictToken(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 border-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400"
+                      placeholder="Enter strict token (e.g., 0x123...)"
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      If provided, this token must be the only one in the collection.
+                    </p>
                   </div>
                   
                   <div>

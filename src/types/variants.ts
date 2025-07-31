@@ -37,6 +37,7 @@ export interface Product {
   collectionOwnerMerchantTier?: import('./collections').MerchantTier;
   collectionUserId?: string; // User ID of the collection owner
   collectionCa?: string; // CA for the collection, if applicable
+  collectionStrictToken?: string; // Strict token for the collection, if applicable
   slug: string;
   stock: number | null; // Base stock, null means unlimited
   minimumOrderQuantity: number;

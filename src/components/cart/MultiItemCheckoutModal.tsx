@@ -87,15 +87,23 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   const { currency } = useCurrency();
   const { price: solRate } = useSolanaPrice();
 
-  // const recommendedCas: string[] = Array.from(
-  //   new Set(
-  //     items
-  //       .map(item => item.product.collectionCa)
-  //       .filter((ca): ca is string => typeof ca === 'string' && !!ca)
-  //   )
-  // );
+  // Get collection strict token from the first item's collection
+  const collectionStrictToken = items[0]?.product?.collectionStrictToken;
+  
+  // Check if all items in cart are from the same collection with strict token
+  const hasStrictTokenRestriction = Boolean(collectionStrictToken && 
+    items.every(item => item.product.collectionStrictToken === collectionStrictToken));
 
-  const recommendedCas = ["Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump"]
+  // Check for mixed cart with strict tokens - prevent checkout if items have different strict tokens
+  const hasMixedStrictTokens = items.some(item => {
+    const itemStrictToken = item.product.collectionStrictToken;
+    return itemStrictToken && itemStrictToken !== collectionStrictToken;
+  });
+
+  // Use strict token if available, otherwise use recommended CAs
+  const recommendedCas = collectionStrictToken 
+    ? [collectionStrictToken]
+    : ["Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump"];
 
   // Utility function to convert customization data to variantId:value format
   const convertCustomizationDataToVariantFormat = (item: CartItem) => {
@@ -171,7 +179,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     if (paymentMethod?.type === 'default') {
       setPaymentMethod({
         ...paymentMethod,
-        defaultToken: currency === 'SOL' ? 'sol' : 'usdc',
+        defaultToken: currency === 'SOL' ? 'sol' : 'usdc'
       });
     }
   }, [currency, paymentMethod?.type]);
@@ -250,6 +258,16 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
       taxId: shipping.taxId
     }));
   }, [shipping]);
+
+  // Auto-select strict token payment method when restriction is enabled
+  useEffect(() => {
+    if (hasStrictTokenRestriction && collectionStrictToken) {
+      setPaymentMethod({
+        type: 'spl-tokens',
+        tokenAddress: collectionStrictToken
+      });
+    }
+  }, [hasStrictTokenRestriction, collectionStrictToken]);
 
   // validating
   const validateItemsInCarts = async () => {
@@ -692,63 +710,68 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   const handleVerifyBatchTransactions = async (txSignature: string, batchOrderId?: string, receiverWallet?: string) => {
     try {
       const success = await verifyFinalTransaction(
-          txSignature,
-          async (status) => {
-            console.log('Status update received:', status);
+        txSignature,
+        async (status) => {
+          console.log('Status update received:', status);
+          
+          if (status.error) {
+            console.log('Setting error state:', status.error);
+            setOrderProgress({ step: 'error', error: status.error });
+            onClose();
+            return;
+          }
+          
+          if (status.paymentConfirmed) {
+            console.log('Payment confirmed, setting success state');
             
-            if (status.error) {
-              console.log('Setting error state:', status.error);
-              setOrderProgress({ step: 'error', error: status.error });
-              onClose();
-              return;
-            }
+            // IMMEDIATELY set success state and update order data
+            setOrderProgress({ step: 'success' });
+            setOrderData(prev => ({
+              ...prev,
+              transactionSignature: txSignature
+            }));
             
-            if (status.paymentConfirmed) {
-              console.log('Payment confirmed, setting success state');
-              
-              // IMMEDIATELY set success state and update order data
-              setOrderProgress({ step: 'success' });
-              setOrderData(prev => ({
-                ...prev,
-                transactionSignature: txSignature
-              }));
-              
-              // IMMEDIATELY clear cart - don't wait for batch refresh
-              console.log('Clearing cart immediately');
-              clearCart();
-              setShowSuccessView(true);
-              
-              // Auto-close modal after showing success
-              console.log('Setting auto-close timeout');
-              setTimeout(() => {
-                console.log('Auto-closing modal');
-                onClose && onClose();
-              }, 3000);
-            }
-          },
-          undefined,
-          batchOrderId,
-          {
-            amount: orderData.price || 0,
-            buyer: walletAddress || '',
-            recipient: receiverWallet || "",
-          },
-        );
+            // IMMEDIATELY clear cart - don't wait for batch refresh
+            console.log('Clearing cart immediately');
+            clearCart();
+            setShowSuccessView(true);
+            
+            // Auto-close modal after showing success
+            console.log('Setting auto-close timeout');
+            setTimeout(() => {
+              console.log('Auto-closing modal');
+              onClose && onClose();
+            }, 3000);
+          }
+        },
+        undefined,
+        batchOrderId,
+        {
+          amount: orderData.price || 0,
+          buyer: walletAddress || '',
+          recipient: receiverWallet || "",
+          // Add strict token information for verification
+          isStrictTokenPayment: hasStrictTokenRestriction && collectionStrictToken,
+          strictTokenAddress: collectionStrictToken,
+          strictTokenSymbol: paymentMethod?.tokenSymbol,
+          strictTokenName: paymentMethod?.tokenName
+        },
+      );
         
-        // SAFETY: Add a timeout to ensure modal closes properly
-        if (success || txSignature) {
-          console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
-          setTimeout(() => {
-            // Check if still in confirming_transaction state
-            if (orderProgress.step === 'confirming_transaction') {
-              console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
-              setOrderProgress({ step: 'success' });
-              
-              // Clear cart but let user decide when to close modal
-              clearCart();
-            }
-          }, 3000);
-        }
+      // SAFETY: Add a timeout to ensure modal closes properly
+      if (success || txSignature) {
+        console.log('Setting safety timeout for success state - will trigger in 3s if not already shown');
+        setTimeout(() => {
+          // Check if still in confirming_transaction state
+          if (orderProgress.step === 'confirming_transaction') {
+            console.log('SAFETY TIMEOUT: Forcing success state as transaction was initiated');
+            setOrderProgress({ step: 'success' });
+            
+            // Clear cart but let user decide when to close modal
+            clearCart();
+          }
+        }, 3000);
+      }
     } catch (error) {
       console.error("Checkout error:", error);
       toast.error("An error occurred during checkout");
@@ -1005,12 +1028,32 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     currency={currency.toLocaleLowerCase() as ('sol' | 'usdc')}
                     onGetPriceQuote={undefined}
                     recommendedCAs={recommendedCas}
+                    hasStrictTokenRestriction={hasStrictTokenRestriction}
                     onTotalPriceChange={(price, symbol) => {
                       setTotalDisplayPrice(price);
                       setTotalDisplaySymbol(symbol);
                     }}
                     solRate={solRate ?? 180}
                   />
+
+                  {/* Mixed Strict Tokens Warning */}
+                  {hasMixedStrictTokens && (
+                    <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                      <p className="text-red-400 text-sm">
+                        Cannot checkout items with different strict tokens. Please separate items with different collection tokens into separate orders.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Strict Token Requirement Notice */}
+                  {hasStrictTokenRestriction && !hasMixedStrictTokens && (
+                    <div className="mt-2 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                      <p className="text-purple-400 text-sm">
+                        This collection requires payment with <strong>{paymentMethod?.tokenSymbol || 'the collection token'}</strong>. 
+                        You will pay in this token and the merchant will receive payment in this token.
+                      </p>
+                    </div>
+                  )}
 
                 {paymentMethod?.type === 'spl-tokens' || paymentMethod?.type === 'default' && !isConnected && (
                     <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
@@ -1389,7 +1432,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     size="lg"
                     isLoading={processingPayment}
                     loadingText={processingPayment ? "Processing..." : ""}
-                    disabled={processingPayment || (paymentMethod?.type === 'spl-tokens' && !isConnected) || !paymentMethod || 
+                    disabled={processingPayment || hasMixedStrictTokens || (paymentMethod?.type === 'spl-tokens' && !isConnected) || !paymentMethod || 
                       (['solana', 'usdc', 'other-tokens'].includes(paymentMethod?.type || '') && !isConnected) || 
                       !paymentMethod || 
                       (paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) && !isConnected) || 
@@ -1407,6 +1450,11 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                       <>
                         <Check className="h-4 w-4 mr-2" />
                         <span>Connect Wallet</span>
+                      </>
+                    ) : hasStrictTokenRestriction ? (
+                      <>
+                        <span>Pay with {paymentMethod?.tokenSymbol || 'Collection Token'}</span>
+                        <ChevronRight className="h-4 w-4 ml-2" />
                       </>
                     ) : (
                       <>

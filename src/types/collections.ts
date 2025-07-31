@@ -28,6 +28,7 @@ export interface DatabaseCollection {
   website_url?: string;
   free_notes?: string;
   ca?: string;
+  strict_token?: string;
   // Theme-related fields
   theme_primary_color?: string | null;
   theme_secondary_color?: string | null;
@@ -65,6 +66,7 @@ export interface Collection {
   telegram_url?: string;
   dexscreener_url?: string;
   ca?: string;
+  strict_token?: string;
   pumpfun_url?: string;
   website_url?: string;
   free_notes?: string;

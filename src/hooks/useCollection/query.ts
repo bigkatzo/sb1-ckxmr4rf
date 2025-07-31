@@ -20,6 +20,7 @@ export function getCollectionQuery(slug: string, includeHidden: boolean = false)
       website_url,
       free_notes,
       ca,
+      strict_token,
       theme_primary_color,
       theme_secondary_color,
       theme_background_color,

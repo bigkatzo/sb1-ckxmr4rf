@@ -18,6 +18,11 @@ interface TransactionDetails {
   amount: number;
   buyer: string;
   recipient: string;
+  // Add strict token properties
+  isStrictTokenPayment?: boolean;
+  strictTokenAddress?: string;
+  strictTokenSymbol?: string;
+  strictTokenName?: string;
 }
 
 const MAX_RETRIES = 30;
