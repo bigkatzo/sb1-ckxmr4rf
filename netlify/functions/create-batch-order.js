@@ -622,12 +622,18 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
           
           if (jupiterData && jupiterData.outAmount) {
             // Calculate the rate from Jupiter's output amount
-            const outputDecimals = jupiterData.outputDecimals || 6;
+            // Use 5 decimal places specifically for SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3
+            let outputDecimals = jupiterData.outputDecimals || 6;
+            if (targetTokenAddress === 'SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3') {
+              outputDecimals = 5;
+              console.log(`Using 5 decimal places for SNS token: ${targetTokenAddress}`);
+            }
+            
             const outputAmount = parseInt(jupiterData.outAmount) / Math.pow(10, outputDecimals);
             const rate = outputAmount / amount; // Since we used 1 unit as input
             
             if (rate && rate > 0) {
-              console.log(`Jupiter API fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
+              console.log(`Jupiter API fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using ${outputDecimals} decimals)`);
               return rate;
             }
           }
