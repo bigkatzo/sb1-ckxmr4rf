@@ -215,10 +215,18 @@ async function createCustomDataEntry(orderId, productId, walletAddress, customiz
  */
 const getProductPrice = async (productId, selectedOptions) => {
   try {
-    // Fetch the product with its variants from Supabase
+    // Fetch the product with its variants and collection information from Supabase
     const { data: product, error } = await supabase
       .from('products')
-      .select('price, variants, base_currency')
+      .select(`
+        price, 
+        variants, 
+        base_currency,
+        collection:collection_id (
+          id,
+          strict_token
+        )
+      `)
       .eq('id', productId)
       .single();
 
@@ -235,13 +243,19 @@ const getProductPrice = async (productId, selectedOptions) => {
     // Ensure baseCurrency has a default value
     const baseCurrency = product.base_currency?.toUpperCase() || 'SOL';
 
+    // Get collection information
+    const collection = product.collection;
+    const strictToken = collection?.strict_token;
+
     // If no variants or no selected options, return base price
     if (!product.variants || !selectedOptions || Object.keys(selectedOptions).length === 0) {
       return {
         price: product.price,
         baseCurrency: baseCurrency,
         variantKey: null,
-        variantSelections: []
+        variantSelections: [],
+        collectionId: collection?.id,
+        strictToken: strictToken
       };
     }
 
@@ -283,7 +297,9 @@ const getProductPrice = async (productId, selectedOptions) => {
           price: variantPrice,
           baseCurrency: baseCurrency,
           variantKey,
-          variantSelections
+          variantSelections,
+          collectionId: collection?.id,
+          strictToken: strictToken
         };
       }
     }
@@ -293,7 +309,9 @@ const getProductPrice = async (productId, selectedOptions) => {
       price: product.price,
       baseCurrency: baseCurrency,
       variantKey: variantKey || null,
-      variantSelections
+      variantSelections,
+      collectionId: collection?.id,
+      strictToken: strictToken
     };
 
   } catch (error) {
@@ -479,13 +497,8 @@ exports.handler = async (event, context) => {
       currencyUnit = 'USDC'; // Stripe payments are always in USDC
     } else if (paymentMetadata?.paymentMethod === 'spl-tokens') {
       // For SPL tokens, check if any product has a strict token requirement
-      const hasStrictTokenProduct = items.some(item => item.product.collectionStrictToken);
-      if (hasStrictTokenProduct && paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol) {
-        // This is a strict token payment - merchant receives the token, not converted to USDC
-        currencyUnit = paymentMetadata.tokenSymbol.toUpperCase();
-      } else {
-        currencyUnit = 'USDC'; // Regular SPL token payments are converted to USDC
-      }
+      // We'll determine this after fetching product data from backend
+      currencyUnit = 'USDC'; // Default to USDC, will be updated if strict token is found
     } else if (paymentMetadata?.paymentMethod === 'cross-chain') {
       currencyUnit = 'USDC'; // Cross-chain payments are in USDC
     } else {
@@ -503,7 +516,7 @@ exports.handler = async (event, context) => {
         throw new Error(`Missing collectionId for product: ${product.name}`);
       }
       
-      const { price, variantKey, variantSelections, baseCurrency } = await getProductPrice(
+      const { price, variantKey, variantSelections, baseCurrency, strictToken } = await getProductPrice(
         product.id,
         item.selectedOptions
       );
@@ -512,35 +525,37 @@ exports.handler = async (event, context) => {
 
       let itemTotalInTarget;
       let conversionRate;
+      let itemCurrencyUnit = currencyUnit; // Default to global currency unit
       
-      // Check if this is a strict token payment
-      const isStrictTokenPayment = product.collectionStrictToken && 
+      // Check if this is a strict token payment using backend data
+      const isStrictTokenPayment = strictToken && 
         paymentMetadata?.paymentMethod === 'spl-tokens' && 
-        paymentMetadata?.tokenAddress === product.collectionStrictToken;
+        strictToken === paymentMetadata.tokenAddress;
       
       if (isStrictTokenPayment) {
-        // For strict token payments, convert from base currency to strict token
+        // For strict token payments, set currency unit to the strict token symbol
+        itemCurrencyUnit = paymentMetadata.tokenSymbol.toUpperCase();
+        
+        // Convert from base currency to strict token
         conversionRate = await getTokenConversionRate(
           baseCurrency, 
           paymentMetadata.tokenAddress, 
           paymentMetadata.tokenSymbol
         );
         
-        // Convert the item total from base currency to strict token amount
         itemTotalInTarget = itemTotalInBase * conversionRate;
         
-        console.log(`Strict token payment: Converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${paymentMetadata.tokenSymbol} (rate: ${conversionRate})`);
+        console.log(`Strict token payment: Converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (rate: ${conversionRate})`);
       } else {
-        // Convert item total from base currency to target currency
-        if (baseCurrency.toUpperCase() === currencyUnit) {
+        if (baseCurrency.toUpperCase() === itemCurrencyUnit) {
           itemTotalInTarget = itemTotalInBase;
-        } else if (baseCurrency.toUpperCase() === 'SOL' && currencyUnit === 'USDC') {
+        } else if (baseCurrency.toUpperCase() === 'SOL' && itemCurrencyUnit === 'USDC') {
           itemTotalInTarget = itemTotalInBase * solRate;
-        } else if (baseCurrency.toUpperCase() === 'USDC' && currencyUnit === 'SOL') {
+        } else if (baseCurrency.toUpperCase() === 'USDC' && itemCurrencyUnit === 'SOL') {
           itemTotalInTarget = itemTotalInBase / solRate;
         } else {
           // Handle any other currency conversion scenarios
-          console.warn(`Unsupported currency conversion: ${baseCurrency} to ${currencyUnit}, using base currency`);
+          console.warn(`Unsupported currency conversion: ${baseCurrency} to ${itemCurrencyUnit}, using base currency`);
           itemTotalInTarget = itemTotalInBase;
         }
       }
@@ -565,7 +580,9 @@ exports.handler = async (event, context) => {
         itemTotal: itemTotalInTarget,
         quantity,
         baseCurrency,
-        isStrictTokenPayment,
+        isStrictTokenPayment: isStrictTokenPayment,
+        itemCurrencyUnit, // Store the currency unit for this specific item
+        strictToken, // Store the strict token from backend
         ...(isStrictTokenPayment && {
           strictTokenAddress: paymentMetadata.tokenAddress,
           strictTokenSymbol: paymentMetadata.tokenSymbol,
@@ -576,19 +593,25 @@ exports.handler = async (event, context) => {
 
       console.log(
         `Processed item: ${product.name}, Base Price: ${price} ${baseCurrency}, Qty: ${quantity}, ` +
-        `Converted Total: ${itemTotalInTarget.toFixed(4)} ${isStrictTokenPayment ? paymentMetadata.tokenSymbol : currencyUnit}, Merchant: ${merchantWallet.substring(0, 6)}...`
+        `Converted Total: ${itemTotalInTarget.toFixed(4)} ${itemCurrencyUnit}, Merchant: ${merchantWallet.substring(0, 6)}...`
       );
     }
 
+    // Determine the final currency unit for the batch
+    // If any item is a strict token payment, use that token symbol
+    const hasStrictTokenItems = processedItems.some(item => item.isStrictTokenPayment);
+    const finalCurrencyUnit = hasStrictTokenItems ? 
+      processedItems.find(item => item.isStrictTokenPayment)?.itemCurrencyUnit : 
+      currencyUnit;
 
     console.log('Merchant wallet amounts:', 
       Object.entries(walletAmounts).map(([wallet, amount]) => 
-        `${wallet.substring(0, 6)}...: ${amount.toFixed(4)} ${currencyUnit}`
+        `${wallet.substring(0, 6)}...: ${amount.toFixed(4)} ${finalCurrencyUnit}`
       )
     );
 
     // Log total payment amount for the batch
-    console.log(`Total payment amount: ${totalPaymentForBatch.toFixed(4)} ${currencyUnit}`);
+    console.log(`Total payment amount: ${totalPaymentForBatch.toFixed(4)} ${finalCurrencyUnit}`);
 
     // Verify and apply discount
     const couponCode = paymentMetadata?.couponCode;
@@ -614,15 +637,15 @@ exports.handler = async (event, context) => {
             let discountAmount;
             if (coupon.discount_type === 'fixed_sol') {
               // Convert fixed SOL discount to target currency
-              if (currencyUnit === 'SOL') {
+              if (finalCurrencyUnit === 'SOL') {
                 discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
-              } else if (currencyUnit === 'USDC') {
+              } else if (finalCurrencyUnit === 'USDC') {
                 // Convert SOL discount to USDC
                 const discountInUSDC = coupon.discount_value * solRate;
                 discountAmount = Math.min(discountInUSDC, totalPaymentForBatch);
               } else {
                 // For strict token payments, convert SOL discount to the strict token
-                const hasStrictTokenProduct = items.some(item => item.product.collectionStrictToken);
+                const hasStrictTokenProduct = processedItems.some(item => item.strictToken);
                 if (hasStrictTokenProduct && paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol) {
                   // Convert SOL discount to strict token
                   const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, paymentMetadata.tokenSymbol);
@@ -638,7 +661,7 @@ exports.handler = async (event, context) => {
             }
             
             couponDiscount = discountAmount;
-            console.log(`Coupon ${couponCode} applied: ${couponDiscount.toFixed(4)} ${currencyUnit} discount (original: ${coupon.discount_value} ${coupon.discount_type === 'fixed_sol' ? 'SOL' : '%'})`);
+            console.log(`Coupon ${couponCode} applied: ${couponDiscount.toFixed(4)} ${finalCurrencyUnit} discount (original: ${coupon.discount_value} ${coupon.discount_type === 'fixed_sol' ? 'SOL' : '%'})`);
           }
         }
       } catch (error) {
@@ -654,11 +677,11 @@ exports.handler = async (event, context) => {
     const fee = 0;
     
     // Log fee calculation details
-    console.log(`Fee calculation: Payment method: ${paymentMethod}, Charge fee methods: ${chargeFeeMethods.join(', ')}, Multiple wallets: ${Object.keys(walletAmounts).length > 1}, Free order: ${isFreeOrder}, Fee: ${fee.toFixed(4)} ${currencyUnit}`);
+    console.log(`Fee calculation: Payment method: ${paymentMethod}, Charge fee methods: ${chargeFeeMethods.join(', ')}, Multiple wallets: ${Object.keys(walletAmounts).length > 1}, Free order: ${isFreeOrder}, Fee: ${fee.toFixed(4)} ${finalCurrencyUnit}`);
     
     totalPaymentForBatch = isFreeOrder ? 0 : totalPaymentForBatch + fee - couponDiscount;
     
-    console.log(`Final calculation: Original: ${originalPrice.toFixed(4)} ${currencyUnit}, Coupon discount: ${couponDiscount.toFixed(4)} ${currencyUnit}, Fee: ${fee.toFixed(4)} ${currencyUnit}, Final total: ${totalPaymentForBatch.toFixed(4)} ${currencyUnit}`);
+    console.log(`Final calculation: Original: ${originalPrice.toFixed(4)} ${finalCurrencyUnit}, Coupon discount: ${couponDiscount.toFixed(4)} ${finalCurrencyUnit}, Fee: ${fee.toFixed(4)} ${finalCurrencyUnit}, Final total: ${totalPaymentForBatch.toFixed(4)} ${finalCurrencyUnit}`);
 
     let transactionSignature;
     if (isFreeOrder) {
@@ -709,11 +732,11 @@ exports.handler = async (event, context) => {
           walletAmounts,
           originalPrice,
           receiverWallet,
-          currencyUnit, // Add the target currency unit
-          // Add strict token information
-          isStrictTokenPayment: product.collectionStrictToken && 
+          currencyUnit: finalCurrencyUnit, // Use the final currency unit for the batch
+          // Add strict token information using backend data
+          isStrictTokenPayment: processedItem.strictToken && 
             paymentMetadata?.paymentMethod === 'spl-tokens' && 
-            paymentMetadata?.tokenAddress === product.collectionStrictToken,
+            processedItem.strictToken === paymentMetadata?.tokenAddress,
           strictTokenAddress: paymentMetadata?.tokenAddress,
           strictTokenSymbol: paymentMetadata?.tokenSymbol,
           strictTokenName: paymentMetadata?.tokenName,
@@ -854,10 +877,10 @@ exports.handler = async (event, context) => {
       totalItems: processedItems.length,
       success: createdOrders.length === processedItems.length,
       isFreeOrder,
-      totalPaymentForBatch: `${totalPaymentForBatch.toFixed(4)} ${currencyUnit}`,
-      fee: `${fee.toFixed(4)} ${currencyUnit}`,
-      couponDiscount: `${couponDiscount.toFixed(4)} ${currencyUnit}`,
-      originalPrice: `${originalPrice.toFixed(4)} ${currencyUnit}`,
+      totalPaymentForBatch: `${totalPaymentForBatch.toFixed(4)} ${finalCurrencyUnit}`,
+      fee: `${fee.toFixed(4)} ${finalCurrencyUnit}`,
+      couponDiscount: `${couponDiscount.toFixed(4)} ${finalCurrencyUnit}`,
+      originalPrice: `${originalPrice.toFixed(4)} ${finalCurrencyUnit}`,
       merchantWallets: Object.keys(walletAmounts).length,
       customDataEntries: customDataResults.length
     });
@@ -880,7 +903,7 @@ exports.handler = async (event, context) => {
         originalPrice,
         walletAmounts,
         customDataResults,
-        currencyUnit // Include the currency unit in response
+        currencyUnit: finalCurrencyUnit // Use the final currency unit in response
       })
     };
   } catch (error) {
