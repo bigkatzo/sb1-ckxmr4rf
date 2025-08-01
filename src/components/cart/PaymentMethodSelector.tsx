@@ -692,10 +692,32 @@ export function PaymentMethodSelector({
     setShowPriceDetails(false);
     setShowCustomTokenInput(false);
     
-    const paymentMethod: PaymentMethod = { 
-      type: method.type,
-      defaultToken: method.type === 'default' ? defaultToken : undefined
-    };
+    let paymentMethod: PaymentMethod;
+    
+    if (method.type === 'cross-chain') {
+      // For cross-chain payments, set up with default chain and USDC
+      const defaultChain = SUPPORTED_CHAINS[0];
+      const usdcAddress = USDC_ADDRESSES[defaultChain.id as keyof typeof USDC_ADDRESSES];
+      
+      paymentMethod = {
+        type: 'cross-chain',
+        tokenAddress: usdcAddress,
+        chainId: defaultChain.id,
+        chainName: defaultChain.name,
+        tokenSymbol: 'USDC',
+        tokenName: 'USD Coin'
+      };
+      
+      console.log('Cross-chain payment method selected:', paymentMethod);
+    } else {
+      paymentMethod = { 
+        type: method.type,
+        defaultToken: method.type === 'default' ? defaultToken : undefined
+      };
+      
+      console.log('Payment method selected:', paymentMethod);
+    }
+    
     onMethodChange(paymentMethod);
     
     // Reset total price display when changing payment methods
@@ -803,6 +825,8 @@ export function PaymentMethodSelector({
   const getSelectedMethodLabel = () => {
     if (!selectedMethod) return 'Select Payment Method';
     
+    console.log('Getting selected method label for:', selectedMethod);
+    
     switch (selectedMethod.type) {
       case 'default':
         return `Pay with ${selectedMethod.defaultToken?.toUpperCase() || 'USDC'}`;
@@ -814,7 +838,7 @@ export function PaymentMethodSelector({
         }
         return 'Pay with SPL Tokens';
       case 'cross-chain':
-        return `${selectedMethod.chainName} USDC Payment`;
+        return `${selectedMethod.chainName || 'Cross-Chain'} USDC Payment`;
       default:
         return 'Select Payment Method';
     }
