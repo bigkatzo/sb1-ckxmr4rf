@@ -1,12 +1,6 @@
-import {getSolanaPrice} from './price-conversion'
+import { getSolanaPrice } from './price-conversion';
+import { convertCurrency, roundUpForDisplay } from './currencyUtils';
 
-/**
- * Format a price with currency conversion.
- * @param price Price in base currency (basePrice).
- * @param paymentMethodType Target currency for display ('SOL' or 'USDC').
- * @param basePrice The currency the price is currently in ('SOL' or 'USDC').
- * @returns Formatted price as string in the target payment method.
- */
 export async function formatPrice(
   price: number,
   paymentMethodType: string = 'SOL',
@@ -18,16 +12,26 @@ export async function formatPrice(
   if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
       const solRate = rate ?? (await getSolanaPrice()); // USD value of 1 SOL
     if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
-      convertedPrice = Math.ceil((price * solRate) * 100) / 100;
+      convertedPrice = convertCurrency(price, basePrice, paymentMethodType, solRate);
     } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
-      convertedPrice = Math.ceil((price / solRate) * 100) / 100;
+      convertedPrice = convertCurrency(price, basePrice, paymentMethodType, solRate);
     }
   }
 
-  const formattedValue = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(convertedPrice);
+  // Round up for display
+  const displayPrice = roundUpForDisplay(convertedPrice, paymentMethodType);
+
+  // Format with appropriate decimal places
+  const currencyUpper = paymentMethodType.toUpperCase();
+  let formattedValue: string;
+  
+  if (currencyUpper === 'SOL') {
+    // For SOL, show up to 2 decimal places (since we're rounding up to whole units)
+    formattedValue = displayPrice.toFixed(2).replace(/\.?0+$/, '');
+  } else {
+    // For USD/USDC, show up to 2 decimal places
+    formattedValue = displayPrice.toFixed(2).replace(/\.?0+$/, '');
+  }
 
   console.log(`Formatted price: ${formattedValue} ${paymentMethodType.toUpperCase()}`);
 
@@ -45,16 +49,26 @@ export function formatPriceWithRate(
   if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
       const solRate = rate; // USD value of 1 SOL
     if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
-      convertedPrice = Math.ceil((price * solRate) * 100) / 100;
+      convertedPrice = convertCurrency(price, basePrice, paymentMethodType, solRate);
     } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
-      convertedPrice = Math.ceil((price / solRate) * 100) / 100;
+      convertedPrice = convertCurrency(price, basePrice, paymentMethodType, solRate);
     }
   }
 
-  const formattedValue = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(convertedPrice);
+  // Round up for display
+  const displayPrice = roundUpForDisplay(convertedPrice, paymentMethodType);
+
+  // Format with appropriate decimal places
+  const currencyUpper = paymentMethodType.toUpperCase();
+  let formattedValue: string;
+  
+  if (currencyUpper === 'SOL') {
+    // For SOL, show up to 2 decimal places (since we're rounding up to whole units)
+    formattedValue = displayPrice.toFixed(2).replace(/\.?0+$/, '');
+  } else {
+    // For USD/USDC, show up to 2 decimal places
+    formattedValue = displayPrice.toFixed(2).replace(/\.?0+$/, '');
+  }
 
   console.log(`Formatted price: ${formattedValue} ${paymentMethodType.toUpperCase()}`);
 
@@ -79,21 +93,31 @@ export function formatPriceWithIcon(
 
   if (basePrice.toUpperCase() !== paymentMethodType.toUpperCase()) {
     if (basePrice.toUpperCase() === 'SOL' && paymentMethodType.toUpperCase() === 'USDC') {
-      convertedPrice = Math.ceil((price * rate) * 100) / 100;
+      convertedPrice = convertCurrency(price, basePrice, paymentMethodType, rate);
     } else if (basePrice.toUpperCase() === 'USDC' && paymentMethodType.toUpperCase() === 'SOL') {
-      convertedPrice = Math.ceil((price / rate) * 100) / 100;
+      convertedPrice = convertCurrency(price, basePrice, paymentMethodType, rate);
     }
   }
 
-  const formattedValue = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(convertedPrice);
+  // Round up for display
+  const displayPrice = roundUpForDisplay(convertedPrice, paymentMethodType);
+
+  // Format with appropriate decimal places
+  const currencyUpper = paymentMethodType.toUpperCase();
+  let formattedValue: string;
+  
+  if (currencyUpper === 'SOL') {
+    // For SOL, show up to 2 decimal places (since we're rounding up to whole units)
+    formattedValue = displayPrice.toFixed(2).replace(/\.?0+$/, '');
+  } else {
+    // For USD/USDC, show up to 2 decimal places
+    formattedValue = displayPrice.toFixed(2).replace(/\.?0+$/, '');
+  }
 
   return {
     text: `${formattedValue} ${paymentMethodType.toUpperCase()}`,
     symbol: paymentMethodType.toUpperCase(),
-    amount: convertedPrice
+    amount: displayPrice
   };
 }
 

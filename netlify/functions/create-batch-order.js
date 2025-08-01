@@ -29,6 +29,104 @@ const ALLOWED_MIME_TYPES = [
   'image/gif'
 ];
 
+/**
+ * Currency utility functions for precise calculations
+ * Uses integer arithmetic to avoid floating-point precision loss
+ */
+
+// Convert a price to the smallest currency unit (cents for USD, lamports for SOL, etc.)
+const toSmallestUnit = (price, currency) => {
+  const currencyUpper = currency.toUpperCase();
+  
+  // For USD/USDC, use cents (2 decimal places)
+  if (currencyUpper === 'USD' || currencyUpper === 'USDC') {
+    return Math.round(price * 100);
+  }
+  
+  // For SOL, use lamports (9 decimal places)
+  if (currencyUpper === 'SOL') {
+    return Math.round(price * 1e9);
+  }
+  
+  // Default to 2 decimal places for other currencies
+  return Math.round(price * 100);
+};
+
+// Convert from smallest currency unit back to display format
+const fromSmallestUnit = (smallestUnit, currency) => {
+  const currencyUpper = currency.toUpperCase();
+  
+  // For USD/USDC, convert from cents
+  if (currencyUpper === 'USD' || currencyUpper === 'USDC') {
+    return smallestUnit / 100;
+  }
+  
+  // For SOL, convert from lamports
+  if (currencyUpper === 'SOL') {
+    return smallestUnit / 1e9;
+  }
+  
+  // Default to 2 decimal places for other currencies
+  return smallestUnit / 100;
+};
+
+// Convert price from one currency to another using precise arithmetic (no rounding)
+const convertCurrency = (price, fromCurrency, toCurrency, solRate) => {
+  const fromUpper = fromCurrency.toUpperCase();
+  const toUpper = toCurrency.toUpperCase();
+  
+  // If currencies are the same, no conversion needed
+  if (fromUpper === toUpper) {
+    return price;
+  }
+  
+  // Convert to smallest units for precise calculation
+  const priceInSmallestUnit = toSmallestUnit(price, fromCurrency);
+  
+  let convertedSmallestUnit;
+  
+  if (fromUpper === 'SOL' && toUpper === 'USDC') {
+    // SOL → USDC: multiply by solRate
+    convertedSmallestUnit = Math.round(priceInSmallestUnit * solRate * 100 / 1e9);
+  } else if (fromUpper === 'USDC' && toUpper === 'SOL') {
+    // USDC → SOL: divide by solRate
+    convertedSmallestUnit = Math.round(priceInSmallestUnit * 1e9 / (solRate * 100));
+  } else {
+    // For other conversions, use the same logic as before but with precise arithmetic
+    if (fromUpper === 'SOL' && toUpper === 'USD') {
+      convertedSmallestUnit = Math.round(priceInSmallestUnit * solRate * 100 / 1e9);
+    } else if (fromUpper === 'USD' && toUpper === 'SOL') {
+      convertedSmallestUnit = Math.round(priceInSmallestUnit * 1e9 / (solRate * 100));
+    } else {
+      // Default case - assume same conversion as SOL/USDC
+      convertedSmallestUnit = priceInSmallestUnit;
+    }
+  }
+  
+  // Convert back to display format (no rounding - keep precise value)
+  return fromSmallestUnit(convertedSmallestUnit, toCurrency);
+};
+
+// Calculate total price with precise arithmetic (no rounding)
+const calculateTotalPrice = (items, targetCurrency, solRate) => {
+  // Convert all prices to smallest units in target currency and sum them
+  const totalInSmallestUnit = items.reduce((total, item) => {
+    const itemPrice = item.price;
+    const baseCurrency = item.baseCurrency || 'SOL';
+    
+    // Convert item price to target currency using precise arithmetic
+    const convertedPrice = convertCurrency(itemPrice, baseCurrency, targetCurrency, solRate);
+    
+    // Convert to smallest unit and multiply by quantity
+    const itemTotalInSmallestUnit = toSmallestUnit(convertedPrice, targetCurrency) * item.quantity;
+    
+    return total + itemTotalInSmallestUnit;
+  }, 0);
+  
+  // Convert back to display format (no rounding - keep precise value)
+  return fromSmallestUnit(totalInSmallestUnit, targetCurrency);
+};
+
 // Initialize Supabase with service role credentials
 let supabase;
 try {
@@ -377,121 +475,103 @@ const getSolanaRate = async () => {
 }
 
 /**
- * Fetch token decimals from multiple sources
- */
-const getTokenDecimals = async (tokenAddress) => {
-  try {
-    // Try Solscan API first
-    try {
-      const response = await fetch(`https://api.solscan.io/token/meta?token=${tokenAddress}`, {
-        timeout: 3000
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data && data.data.decimals !== undefined) {
-          console.log(`Fetched token decimals from Solscan for ${tokenAddress}: ${data.data.decimals}`);
-          return data.data.decimals;
-        }
-      }
-    } catch (error) {
-      console.warn('Solscan API error for token decimals:', error);
-    }
-
-    // Try Birdeye API as fallback
-    try {
-      const response = await fetch(`https://public-api.birdeye.so/public/token_list?address=${tokenAddress}`, {
-        timeout: 3000
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data && data.data.length > 0 && data.data[0].decimals !== undefined) {
-          console.log(`Fetched token decimals from Birdeye for ${tokenAddress}: ${data.data[0].decimals}`);
-          return data.data[0].decimals;
-        }
-      }
-    } catch (error) {
-      console.warn('Birdeye API error for token decimals:', error);
-    }
-
-    // Try Jupiter API as final fallback
-    try {
-      const response = await fetch(`https://tokens.jup.ag/token/${tokenAddress}`, {
-        timeout: 3000
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.decimals !== undefined) {
-          console.log(`Fetched token decimals from Jupiter for ${tokenAddress}: ${data.decimals}`);
-          return data.decimals;
-        }
-      }
-    } catch (error) {
-      console.warn('Jupiter API error for token decimals:', error);
-    }
-
-    // Default fallback based on known tokens
-    if (tokenAddress === 'So11111111111111111111111111111111111111112') {
-      return 9; // SOL
-    } else if (tokenAddress === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
-      return 6; // USDC
-    } else {
-      console.warn(`Could not fetch decimals for ${tokenAddress}, using default: 6`);
-      return 6; // Default for most SPL tokens
-    }
-  } catch (error) {
-    console.error('Error fetching token decimals:', error);
-    return 6; // Default fallback
-  }
-};
-
-/**
- * Get token conversion rate from base currency to target token
+ * Get token conversion rate from base currency to target token using DexScreener API
  * For strict token payments, we need to convert from baseCurrency to the strict token
  */
 const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTokenSymbol) => {
   try {
-    // Use Jupiter API for real-time token conversion rates
+    // Use DexScreener API for real-time token conversion rates
     if (targetTokenAddress && baseCurrency) {
       try {
-        // First, fetch token decimals for accurate conversion
-        const tokenDecimals = await getTokenDecimals(targetTokenAddress);
-        console.log(`Using ${tokenDecimals} decimals for token ${targetTokenSymbol} (${targetTokenAddress})`);
-
-        // Jupiter API endpoint for getting quote
-        const jupiterUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${baseCurrency === 'SOL' ? 'So11111111111111111111111111111111111111112' : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'}&outputMint=${targetTokenAddress}&amount=${Math.floor(1000000)}&slippageBps=50`;
+        // Get the base currency mint address
+        const baseCurrencyMint = baseCurrency === 'SOL' 
+          ? 'So11111111111111111111111111111111111111112' 
+          : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
         
-        console.log(`Fetching Jupiter quote for ${baseCurrency} to ${targetTokenSymbol} (${targetTokenAddress})`);
+        // DexScreener API endpoint for getting pair data
+        const dexScreenerUrl = `https://api.dexscreener.com/latest/dex/tokens/${targetTokenAddress}`;
         
-        const response = await fetch(jupiterUrl);
+        console.log(`Fetching DexScreener quote for ${baseCurrency} to ${targetTokenSymbol} (${targetTokenAddress})`);
+        
+        const response = await fetch(dexScreenerUrl);
         if (!response.ok) {
-          throw new Error(`Jupiter API error: ${response.status} ${response.statusText}`);
+          throw new Error(`DexScreener API error: ${response.status} ${response.statusText}`);
         }
         
-        const quoteData = await response.json();
+        const data = await response.json();
         
-        if (quoteData && quoteData.outAmount && quoteData.inAmount) {
-          // Calculate the conversion rate using correct decimals
-          const inAmount = parseFloat(quoteData.inAmount);
-          const outAmount = parseFloat(quoteData.outAmount);
-          
-          if (inAmount > 0 && outAmount > 0) {
-            // Convert outAmount to human-readable format using correct decimals
-            const outAmountHuman = outAmount / Math.pow(10, tokenDecimals);
-            const inAmountHuman = inAmount / Math.pow(10, baseCurrency === 'SOL' ? 9 : 6);
+        if (data && data.pairs && data.pairs.length > 0) {
+          // Find the pair that matches our base currency
+          const targetPair = data.pairs.find(pair => {
+            const baseToken = pair.baseToken?.address?.toLowerCase();
+            const quoteToken = pair.quoteToken?.address?.toLowerCase();
+            const targetAddress = targetTokenAddress.toLowerCase();
+            const baseAddress = baseCurrencyMint.toLowerCase();
             
-            const rate = outAmountHuman / inAmountHuman;
-            console.log(`Jupiter conversion rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using ${tokenDecimals} decimals)`);
-            return rate;
+            // Check if either token matches our target and the other matches our base
+            return (baseToken === targetAddress && quoteToken === baseAddress) ||
+                   (baseToken === baseAddress && quoteToken === targetAddress);
+          });
+          
+          if (targetPair) {
+            // Determine which token is base and which is quote
+            const isBaseTokenTarget = targetPair.baseToken?.address?.toLowerCase() === targetTokenAddress.toLowerCase();
+            
+            console.log('DexScreener pair found:', {
+              baseToken: targetPair.baseToken?.address,
+              quoteToken: targetPair.quoteToken?.address,
+              priceNative: targetPair.priceNative,
+              priceUsd: targetPair.priceUsd,
+              isBaseTokenTarget,
+              targetAddress: targetTokenAddress,
+              baseCurrencyMint
+            });
+            
+            let rate;
+            if (isBaseTokenTarget) {
+              // If target token is base token, use priceNative to calculate rate
+              // priceNative is the price of base token in quote token
+              const priceNative = parseFloat(targetPair.priceNative);
+              
+              if (priceNative > 0) {
+                rate = priceNative;
+                console.log(`Target is base token, using priceNative directly: ${rate}`);
+              }
+            } else {
+              // If target token is quote token, use priceNative to calculate rate
+              // priceNative is the price of base token in quote token, so we need to invert it
+              const priceNative = parseFloat(targetPair.priceNative);
+              
+              if (priceNative > 0) {
+                rate = 1 / priceNative;
+                console.log(`Target is quote token, inverting priceNative: 1/${priceNative} = ${rate}`);
+              }
+            }
+            
+            if (rate && rate > 0) {
+              console.log(`DexScreener conversion rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
+              return rate;
+            }
+          }
+          
+          // If no matching pair found, try to find any pair with the target token
+          const anyPair = data.pairs[0];
+          if (anyPair && anyPair.priceUsd) {
+            const targetPriceUsd = parseFloat(anyPair.priceUsd);
+            const basePriceUsd = baseCurrency === 'SOL' ? await getSolanaRate() : 1; // USDC is $1
+            
+            if (targetPriceUsd > 0 && basePriceUsd > 0) {
+              const rate = basePriceUsd / targetPriceUsd;
+              console.log(`DexScreener fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using USD price)`);
+              return rate;
+            }
           }
         }
         
-        throw new Error('Invalid quote data from Jupiter API');
+        throw new Error('No valid pair data found from DexScreener API');
         
-      } catch (jupiterError) {
-        console.error('Error fetching Jupiter quote:', jupiterError);
+      } catch (dexScreenerError) {
+        console.error('Error fetching DexScreener quote:', dexScreenerError);
         
         // Fallback to CoinGecko for common tokens
         try {
@@ -638,32 +718,35 @@ exports.handler = async (event, context) => {
           paymentMetadata.tokenSymbol
         );
         
-        itemTotalInTarget = itemTotalInBase * conversionRate;
+        // The rate tells us how much base currency equals 1 target token
+        // So for itemTotalInBase base currency, we get itemTotalInBase / conversionRate target tokens
+        itemTotalInTarget = itemTotalInBase / conversionRate;
         
         console.log(`Strict token payment: Converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (rate: ${conversionRate})`);
       } else {
-        if (baseCurrency.toUpperCase() === itemCurrencyUnit) {
-          itemTotalInTarget = itemTotalInBase;
-        } else if (baseCurrency.toUpperCase() === 'SOL' && itemCurrencyUnit === 'USDC') {
-          itemTotalInTarget = itemTotalInBase * solRate;
-        } else if (baseCurrency.toUpperCase() === 'USDC' && itemCurrencyUnit === 'SOL') {
-          itemTotalInTarget = itemTotalInBase / solRate;
-        } else {
-          // Handle any other currency conversion scenarios
-          console.warn(`Unsupported currency conversion: ${baseCurrency} to ${itemCurrencyUnit}, using base currency`);
-          itemTotalInTarget = itemTotalInBase;
-        }
+        // Use precise currency conversion
+        itemTotalInTarget = convertCurrency(itemTotalInBase, baseCurrency, itemCurrencyUnit, solRate);
+        
+        console.log(`Currency conversion: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (precise calculation)`);
       }
 
       const merchantWallet = await getMerchantWallet(collectionId);
 
-      // Add to merchant wallet amounts
+      // Add to merchant wallet amounts using precise arithmetic
       if (!walletAmounts[merchantWallet]) {
         walletAmounts[merchantWallet] = 0;
       }
-      walletAmounts[merchantWallet] += itemTotalInTarget;
+      // Convert to smallest units for precise addition
+      const currentAmountInSmallestUnit = toSmallestUnit(walletAmounts[merchantWallet], itemCurrencyUnit);
+      const itemAmountInSmallestUnit = toSmallestUnit(itemTotalInTarget, itemCurrencyUnit);
+      const newAmountInSmallestUnit = currentAmountInSmallestUnit + itemAmountInSmallestUnit;
+      walletAmounts[merchantWallet] = fromSmallestUnit(newAmountInSmallestUnit, itemCurrencyUnit);
 
-      totalPaymentForBatch += itemTotalInTarget;
+      // Add to total payment using precise arithmetic
+      const totalInSmallestUnit = toSmallestUnit(totalPaymentForBatch, itemCurrencyUnit);
+      const itemTotalInSmallestUnit = toSmallestUnit(itemTotalInTarget, itemCurrencyUnit);
+      const newTotalInSmallestUnit = totalInSmallestUnit + itemTotalInSmallestUnit;
+      totalPaymentForBatch = fromSmallestUnit(newTotalInSmallestUnit, itemCurrencyUnit);
 
       // Store processed item data
       processedItems.push({
@@ -688,7 +771,7 @@ exports.handler = async (event, context) => {
 
       console.log(
         `Processed item: ${product.name}, Base Price: ${price} ${baseCurrency}, Qty: ${quantity}, ` +
-        `Converted Total: ${itemTotalInTarget.toFixed(4)} ${itemCurrencyUnit}, Merchant: ${merchantWallet.substring(0, 6)}...`
+        `Converted Total: ${itemTotalInTarget} ${itemCurrencyUnit}, Merchant: ${merchantWallet.substring(0, 6)}...`
       );
     }
 
@@ -701,12 +784,12 @@ exports.handler = async (event, context) => {
 
     console.log('Merchant wallet amounts:', 
       Object.entries(walletAmounts).map(([wallet, amount]) => 
-        `${wallet.substring(0, 6)}...: ${amount.toFixed(4)} ${finalCurrencyUnit}`
+        `${wallet.substring(0, 6)}...: ${amount} ${finalCurrencyUnit}`
       )
     );
 
-    // Log total payment amount for the batch
-    console.log(`Total payment amount: ${totalPaymentForBatch.toFixed(4)} ${finalCurrencyUnit}`);
+    // Log total payment amount for the batch (exact value, no rounding)
+    console.log(`Total payment amount: ${totalPaymentForBatch} ${finalCurrencyUnit}`);
 
     // Verify and apply discount
     const couponCode = paymentMetadata?.couponCode;
@@ -731,32 +814,36 @@ exports.handler = async (event, context) => {
           if (isValid) {
             let discountAmount;
             if (coupon.discount_type === 'fixed_sol') {
-              // Convert fixed SOL discount to target currency
+              // Convert fixed SOL discount to target currency using precise arithmetic
               if (finalCurrencyUnit === 'SOL') {
                 discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
               } else if (finalCurrencyUnit === 'USDC') {
-                // Convert SOL discount to USDC
-                const discountInUSDC = coupon.discount_value * solRate;
+                // Convert SOL discount to USDC using precise arithmetic
+                const discountInUSDC = convertCurrency(coupon.discount_value, 'SOL', 'USDC', solRate);
                 discountAmount = Math.min(discountInUSDC, totalPaymentForBatch);
               } else {
                 // For strict token payments, convert SOL discount to the strict token
                 const hasStrictTokenProduct = processedItems.some(item => item.strictToken);
                 if (hasStrictTokenProduct && paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol) {
-                  // Convert SOL discount to strict token
+                  // Convert SOL discount to strict token using precise arithmetic
                   const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, paymentMetadata.tokenSymbol);
-                  const discountInStrictToken = coupon.discount_value * conversionRate;
+                  // The rate tells us how much SOL equals 1 target token
+                  // So for coupon.discount_value SOL, we get coupon.discount_value / conversionRate target tokens
+                  const discountInStrictToken = coupon.discount_value / conversionRate;
                   discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
                 } else {
                   discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
                 }
               }
             } else {
-              // Percentage discount
-              discountAmount = (totalPaymentForBatch * coupon.discount_value) / 100;
+              // Percentage discount - use precise arithmetic
+              const discountInSmallestUnit = toSmallestUnit(totalPaymentForBatch, finalCurrencyUnit);
+              const percentageInSmallestUnit = Math.round(discountInSmallestUnit * coupon.discount_value / 100);
+              discountAmount = fromSmallestUnit(percentageInSmallestUnit, finalCurrencyUnit);
             }
             
             couponDiscount = discountAmount;
-            console.log(`Coupon ${couponCode} applied: ${couponDiscount.toFixed(4)} ${finalCurrencyUnit} discount (original: ${coupon.discount_value} ${coupon.discount_type === 'fixed_sol' ? 'SOL' : '%'})`);
+            console.log(`Coupon ${couponCode} applied: ${couponDiscount} ${finalCurrencyUnit} discount (original: ${coupon.discount_value} ${coupon.discount_type === 'fixed_sol' ? 'SOL' : '%'})`);
           }
         }
       } catch (error) {
@@ -772,11 +859,25 @@ exports.handler = async (event, context) => {
     const fee = 0;
     
     // Log fee calculation details
-    console.log(`Fee calculation: Payment method: ${paymentMethod}, Charge fee methods: ${chargeFeeMethods.join(', ')}, Multiple wallets: ${Object.keys(walletAmounts).length > 1}, Free order: ${isFreeOrder}, Fee: ${fee.toFixed(4)} ${finalCurrencyUnit}`);
+    console.log(`Fee calculation: Payment method: ${paymentMethod}, Charge fee methods: ${chargeFeeMethods.join(', ')}, Multiple wallets: ${Object.keys(walletAmounts).length > 1}, Free order: ${isFreeOrder}, Fee: ${fee} ${finalCurrencyUnit}`);
     
-    totalPaymentForBatch = isFreeOrder ? 0 : totalPaymentForBatch + fee - couponDiscount;
+    // Calculate final total using precise arithmetic
+    if (isFreeOrder) {
+      totalPaymentForBatch = 0;
+    } else {
+      // Convert to smallest units for precise calculation
+      const totalInSmallestUnit = toSmallestUnit(totalPaymentForBatch, finalCurrencyUnit);
+      const feeInSmallestUnit = toSmallestUnit(fee, finalCurrencyUnit);
+      const discountInSmallestUnit = toSmallestUnit(couponDiscount, finalCurrencyUnit);
+      
+      // Add fee and subtract discount
+      const finalTotalInSmallestUnit = totalInSmallestUnit + feeInSmallestUnit - discountInSmallestUnit;
+      
+      // Convert back to display format
+      totalPaymentForBatch = fromSmallestUnit(finalTotalInSmallestUnit, finalCurrencyUnit);
+    }
     
-    console.log(`Final calculation: Original: ${originalPrice.toFixed(4)} ${finalCurrencyUnit}, Coupon discount: ${couponDiscount.toFixed(4)} ${finalCurrencyUnit}, Fee: ${fee.toFixed(4)} ${finalCurrencyUnit}, Final total: ${totalPaymentForBatch.toFixed(4)} ${finalCurrencyUnit}`);
+    console.log(`Final calculation: Original: ${originalPrice} ${finalCurrencyUnit}, Coupon discount: ${couponDiscount} ${finalCurrencyUnit}, Fee: ${fee} ${finalCurrencyUnit}, Final total: ${totalPaymentForBatch} ${finalCurrencyUnit}`);
 
     let transactionSignature;
     if (isFreeOrder) {
@@ -972,10 +1073,10 @@ exports.handler = async (event, context) => {
       totalItems: processedItems.length,
       success: createdOrders.length === processedItems.length,
       isFreeOrder,
-      totalPaymentForBatch: `${totalPaymentForBatch.toFixed(4)} ${finalCurrencyUnit}`,
-      fee: `${fee.toFixed(4)} ${finalCurrencyUnit}`,
-      couponDiscount: `${couponDiscount.toFixed(4)} ${finalCurrencyUnit}`,
-      originalPrice: `${originalPrice.toFixed(4)} ${finalCurrencyUnit}`,
+      totalPaymentForBatch: `${totalPaymentForBatch} ${finalCurrencyUnit}`,
+      fee: `${fee} ${finalCurrencyUnit}`,
+      couponDiscount: `${couponDiscount} ${finalCurrencyUnit}`,
+      originalPrice: `${originalPrice} ${finalCurrencyUnit}`,
       merchantWallets: Object.keys(walletAmounts).length,
       customDataEntries: customDataResults.length
     });

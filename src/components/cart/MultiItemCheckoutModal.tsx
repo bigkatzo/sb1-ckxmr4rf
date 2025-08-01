@@ -24,6 +24,7 @@ import { useModifiedPrice } from '../../hooks/useModifiedPrice.ts';
 import { useSolanaPrice } from '../../utils/price-conversion.ts';
 import { useCurrency } from '../../contexts/CurrencyContext.tsx';
 import { PublicKey } from '@solana/web3.js';
+import { calculateTotalPrice } from '../../utils/currencyUtils';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -413,24 +414,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   // };
 
   const calculateSubtotal = (): number => {
-    // Convert each item's price from its base currency to the target currency before summing
-    return items.reduce((total, item) => {
-      const itemPrice = item.priceInfo?.modifiedPrice || item.product.price;
-      const itemBaseCurrency = item.product.baseCurrency?.toUpperCase() || 'SOL';
-      
-      let convertedPrice = itemPrice;
-      
-      // Convert price if base currency differs from target currency
-      if (itemBaseCurrency !== currency.toUpperCase()) {
-        if (itemBaseCurrency === 'SOL' && currency.toUpperCase() === 'USDC') {
-          convertedPrice = itemPrice * (solRate ?? 180); // SOL → USDC
-        } else if (itemBaseCurrency === 'USDC' && currency.toUpperCase() === 'SOL') {
-          convertedPrice = itemPrice / (solRate ?? 180); // USDC → SOL
-        }
-      }
-      
-      return total + (convertedPrice * item.quantity);
-    }, 0);
+    return calculateTotalPrice(items, currency, solRate ?? 180);
   };
   
   // Calculate total price of all items in cart (converted to target currency)

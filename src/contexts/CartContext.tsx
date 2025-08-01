@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Product } from '../types/variants';
 import { verifyProductAccess } from '../utils/productAccessVerification';
+import { calculateTotalPrice } from '../utils/currencyUtils';
 
 // Interface for price information
 export interface CartItemPriceInfo {
@@ -129,23 +130,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
 // Calculate total price of all items in the cart in the desired currency
 const getTotalPrice = (currency: string = 'SOL', solRate: number = 180): number => {
-  return items.reduce((total, item) => {
-    const itemPrice = item.priceInfo?.modifiedPrice || item.product.price;
-    const baseCurrency = item.product?.baseCurrency?.toUpperCase() ?? 'SOL'; // Default to SOL if not specified
-
-    let convertedPrice = itemPrice;
-
-    // Convert price if base currency differs from target currency
-    if (baseCurrency !== currency) {
-      if (baseCurrency === 'SOL' && currency === 'USDC') {
-        convertedPrice = itemPrice * solRate; // SOL → USDC
-      } else if (baseCurrency === 'USDC' && currency === 'SOL') {
-        convertedPrice = itemPrice / solRate; // USDC → SOL
-      }
-    }
-
-    return total + convertedPrice * item.quantity;
-  }, 0);
+  return calculateTotalPrice(items, currency, solRate);
 };
 
   const addItem = (
