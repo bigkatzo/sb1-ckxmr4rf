@@ -151,6 +151,7 @@
         https://solana.public-rpc.com wss://solana.public-rpc.com
         https://api.mainnet-beta.solana.com wss://api.mainnet-beta.solana.com
         https://api.coingecko.com
+        https://*.dexscreener.com https://api.dexscreener.com
         https://fonts.googleapis.com https://fonts.gstatic.com
         https://*.metaplex.com https://cdn.metaplex.com https://arweave.net https://*.arweave.net
         https://*.genesysgo.net https://*.solana.com
