@@ -43,7 +43,7 @@ async function verifyTokenHolding(walletAddress, tokenMintAddress, minAmount) {
       return { isValid: false, error: 'Invalid input parameters', balance: 0 };
     }
 
-    const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('devnet'));
+    const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
 
     const accounts = await connection.getTokenAccountsByOwner(
       new PublicKey(walletAddress),
