@@ -519,7 +519,7 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
         const jupiterData = await jupiterResponse.json();
         
         if (jupiterData && jupiterData.outAmount) {
-          // Calculate the rate from Jupiter's output amount
+          // Jupiter returns the exact output amount for the input amount we provided
           // Use 5 decimal places specifically for SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3
           let outputDecimals = jupiterData.outputDecimals || 6;
           if (targetTokenAddress === 'SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3') {
@@ -528,10 +528,12 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
           }
           
           const outputAmount = parseInt(jupiterData.outAmount) / Math.pow(10, outputDecimals);
-          const rate = outputAmount; // Since we used 1 unit as input, outputAmount is the rate
+          // Since we used 1 unit as input, outputAmount is the exact amount of target token we get for 1 base currency
+          // This is our rate: how much target token we get for 1 base currency
+          const rate = outputAmount;
           
           if (rate && rate > 0) {
-            console.log(`Jupiter API rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using ${outputDecimals} decimals)`);
+            console.log(`Jupiter API: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (exact output amount)`);
             return rate;
           }
         }
@@ -594,15 +596,19 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
                 const priceNative = parseFloat(targetPair.priceNative);
                 
                 if (priceNative > 0) {
-                  rate = priceNative;
-                  console.log(`Target is base token, using priceNative directly: ${rate}`);
+                  // priceNative represents how much base currency equals 1 target token
+                  // We need to invert it to get how much target token we get for 1 base currency
+                  rate = 1 / priceNative;
+                  console.log(`Target is base token, inverting priceNative: 1/${priceNative} = ${rate}`);
                 }
               } else {
                 // If target token is quote token, use priceNative to calculate rate
-                // priceNative is the price of base token in quote token, so we need to invert it
+                // priceNative is the price of base token in quote token
                 const priceNative = parseFloat(targetPair.priceNative);
                 
                 if (priceNative > 0) {
+                  // priceNative represents how much base currency equals 1 target token
+                  // We need to invert it to get how much target token we get for 1 base currency
                   rate = 1 / priceNative;
                   console.log(`Target is quote token, inverting priceNative: 1/${priceNative} = ${rate}`);
                 }
@@ -621,6 +627,7 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
               const basePriceUsd = baseCurrency === 'SOL' ? await getSolanaRate() : 1; // USDC is $1
               
               if (targetPriceUsd > 0 && basePriceUsd > 0) {
+                // Calculate how much target token we get for 1 base currency
                 const rate = basePriceUsd / targetPriceUsd;
                 console.log(`DexScreener USD fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using USD price)`);
                 return rate;
@@ -640,9 +647,12 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
             
             if (response.ok) {
               const data = await response.json();
-              const rate = data[baseCurrency.toLowerCase()]?.[targetTokenSymbol.toLowerCase()];
+              const coinGeckoRate = data[baseCurrency.toLowerCase()]?.[targetTokenSymbol.toLowerCase()];
               
-              if (rate) {
+              if (coinGeckoRate) {
+                // CoinGecko returns how much target token you get for 1 base currency
+                // This is exactly what we need
+                const rate = coinGeckoRate;
                 console.log(`CoinGecko final fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
                 return rate;
               }
@@ -782,7 +792,7 @@ exports.handler = async (event, context) => {
               paymentMetadata.tokenAddress, 
               paymentMetadata.tokenSymbol
             );
-            itemTotalInTarget = itemTotalInBase / conversionRate;
+            itemTotalInTarget = itemTotalInBase * conversionRate;
             console.log(`SPL strict token - converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (rate: ${conversionRate})`);
           }
         } else {
