@@ -534,7 +534,7 @@ exports.handler = async (event, context) => {
       
       if (isStrictTokenPayment) {
         // For strict token payments, set currency unit to the strict token symbol
-        itemCurrencyUnit = paymentMetadata.tokenSymbol.toUpperCase();
+        itemCurrencyUnit = paymentMetadata.tokenSymbol?.toUpperCase() || 'SNS';
         
         // Convert from base currency to strict token
         conversionRate = await getTokenConversionRate(
