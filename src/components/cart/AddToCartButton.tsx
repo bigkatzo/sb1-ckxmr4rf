@@ -104,19 +104,33 @@ export function AddToCartButton({
     const productHasStrictToken = Boolean(product.collectionStrictToken);
     const hasOtherItemsInCart = items.length > 0;
     
-    if (productHasStrictToken && hasOtherItemsInCart) {
-      // Check if any existing items have different strict tokens
-      const existingStrictTokens = items
-        .map(item => item.product.collectionStrictToken)
-        .filter(Boolean);
+    if (hasOtherItemsInCart) {
+      // Check if there are any existing items with strict tokens
+      const existingStrictTokenItems = items.filter(item => item.product.collectionStrictToken);
+      const existingNonStrictTokenItems = items.filter(item => !item.product.collectionStrictToken);
       
-      const hasDifferentStrictTokens = existingStrictTokens.some(
-        existingToken => existingToken !== product.collectionStrictToken
-      );
-      
-      if (hasDifferentStrictTokens) {
-        toast.error('You cannot add this item to cart with other tokens. Please clear your cart first.');
+      // Case 1: New item has strict token, but cart has non-strict items
+      if (productHasStrictToken && existingNonStrictTokenItems.length > 0) {
+        toast.error('You cannot add items with strict token requirements to a cart with regular items. Please clear your cart first.');
         return;
+      }
+      
+      // Case 2: New item doesn't have strict token, but cart has strict token items
+      if (!productHasStrictToken && existingStrictTokenItems.length > 0) {
+        toast.error('You cannot add regular items to a cart with strict token requirements. Please clear your cart first.');
+        return;
+      }
+      
+      // Case 3: New item has strict token, and cart has strict token items with different tokens
+      if (productHasStrictToken && existingStrictTokenItems.length > 0) {
+        const hasDifferentStrictTokens = existingStrictTokenItems.some(
+          item => item.product.collectionStrictToken !== product.collectionStrictToken
+        );
+        
+        if (hasDifferentStrictTokens) {
+          toast.error('You cannot add items with different strict token requirements. Please clear your cart first.');
+          return;
+        }
       }
     }
     

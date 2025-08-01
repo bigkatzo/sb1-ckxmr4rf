@@ -97,10 +97,30 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     items.every(item => item.product.collectionStrictToken === collectionStrictToken));
 
   // Check for mixed cart with strict tokens - prevent checkout if items have different strict tokens
-  const hasMixedStrictTokens = items.some(item => {
-    const itemStrictToken = item.product.collectionStrictToken;
-    return itemStrictToken && itemStrictToken !== collectionStrictToken;
-  });
+  // OR if there are strict token items mixed with non-strict token items
+  const hasMixedStrictTokens = (() => {
+    // If there are no strict token items, no mixing issue
+    if (!items.some(item => item.product.collectionStrictToken)) {
+      return false;
+    }
+    
+    // If there are strict token items, check for mixing
+    const strictTokenItems = items.filter(item => item.product.collectionStrictToken);
+    const nonStrictTokenItems = items.filter(item => !item.product.collectionStrictToken);
+    
+    // If there are both strict and non-strict items, that's mixing
+    if (strictTokenItems.length > 0 && nonStrictTokenItems.length > 0) {
+      return true;
+    }
+    
+    // If all items have strict tokens, check if they're different
+    if (strictTokenItems.length > 0 && nonStrictTokenItems.length === 0) {
+      const firstStrictToken = strictTokenItems[0].product.collectionStrictToken;
+      return strictTokenItems.some(item => item.product.collectionStrictToken !== firstStrictToken);
+    }
+    
+    return false;
+  })();
 
   // Use strict token if available, otherwise use recommended CAs
   const recommendedCas = collectionStrictToken 
@@ -1059,7 +1079,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                   {hasMixedStrictTokens && (
                     <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                       <p className="text-red-400 text-sm">
-                        Cannot checkout items with different strict tokens. Please separate items with different collection tokens into separate orders.
+                        Cannot checkout items with strict token requirements mixed with regular items. Items that require specific collection tokens must be purchased separately from items that don't have token restrictions.
                       </p>
                     </div>
                   )}
