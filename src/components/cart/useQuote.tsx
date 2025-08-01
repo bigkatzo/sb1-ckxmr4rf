@@ -1,3 +1,5 @@
+import { tokenService } from '../../services/tokenService';
+
 // Types for API responses
 interface JupiterQuoteResponse {
   inputMint: string;
@@ -10,6 +12,8 @@ interface JupiterQuoteResponse {
   platformFee?: any;
   priceImpactPct: string;
   routePlan: any[];
+  inputDecimals: number;
+  outputDecimals: number;
 }
 
 interface DeBridgeQuoteResponse {
@@ -122,7 +126,28 @@ const getJupiterQuote = async (
   slippageBps: number = 50 // 0.5% slippage
 ): Promise<JupiterQuoteResponse | null> => {
   try {
-    const amountInSmallestUnit = Math.floor(amount * 1e6); // Assuming 6 decimals
+    // First, fetch token decimals for accurate conversion
+    let inputDecimals = 6; // Default fallback
+    let outputDecimals = 6; // Default fallback
+    
+    try {
+      // Fetch input token decimals
+      const inputTokenInfo = await tokenService.getTokenInfo(inputMint);
+      inputDecimals = inputTokenInfo.decimals || 6;
+      console.log(`Fetched input token decimals for ${inputMint}: ${inputDecimals}`);
+      
+      // Fetch output token decimals
+      const outputTokenInfo = await tokenService.getTokenInfo(outputMint);
+      outputDecimals = outputTokenInfo.decimals || 6;
+      console.log(`Fetched output token decimals for ${outputMint}: ${outputDecimals}`);
+    } catch (error) {
+      console.warn(`Failed to fetch token decimals, using defaults:`, error);
+      // Fallback to known token decimals
+      if (inputMint === 'So11111111111111111111111111111111111111112') inputDecimals = 9;
+      if (outputMint === 'So11111111111111111111111111111111111111112') outputDecimals = 9;
+    }
+
+    const amountInSmallestUnit = Math.floor(amount * Math.pow(10, inputDecimals));
     
     const url = `https://quote-api.jup.ag/v6/quote?` +
       `inputMint=${inputMint}&` +
@@ -144,7 +169,13 @@ const getJupiterQuote = async (
     }
 
     const data = await response.json();
-    return data;
+    
+    // Add decimals information to the response for later use
+    return {
+      ...data,
+      inputDecimals,
+      outputDecimals
+    };
   } catch (error) {
     console.error('Jupiter quote error:', error);
     return null;
@@ -227,8 +258,8 @@ const handleGetPriceQuote = async (
       }
 
       // Parse the quote response
-      const inputAmount = parseInt(quote.inAmount) / 1e6; // Assuming 6 decimals
-      const outputAmount = parseInt(quote.outAmount) / 1e6;
+      const inputAmount = parseInt(quote.inAmount) / Math.pow(10, quote.inputDecimals);
+      const outputAmount = parseInt(quote.outAmount) / Math.pow(10, quote.outputDecimals);
       const exchangeRate = outputAmount / inputAmount;
       
       // Get USD price

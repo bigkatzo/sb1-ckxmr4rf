@@ -148,10 +148,28 @@ export function usePayment() {
     amount: number,
     slippageBps: number = 300 // 3% default slippage
   ): Promise<SwapQuote> => {
+    // First, fetch token decimals for accurate amount formatting
+    let inputDecimals = 6; // Default fallback
+    
+    try {
+      // Import tokenService dynamically to avoid circular dependencies
+      const { tokenService } = await import('../services/tokenService');
+      const inputTokenInfo = await tokenService.getTokenInfo(inputMint);
+      inputDecimals = inputTokenInfo.decimals || 6;
+      console.log(`Fetched input token decimals for ${inputMint}: ${inputDecimals}`);
+    } catch (error) {
+      console.warn(`Failed to fetch token decimals for ${inputMint}, using default:`, error);
+      // Fallback to known token decimals
+      if (inputMint === 'So11111111111111111111111111111111111111112') inputDecimals = 9;
+    }
+
+    // Convert amount to smallest unit using correct decimals
+    const amountInSmallestUnit = Math.floor(amount * Math.pow(10, inputDecimals));
+    
     const params = new URLSearchParams({
       inputMint,
       outputMint,
-      amount: amount.toString(),
+      amount: amountInSmallestUnit.toString(),
       slippageBps: slippageBps.toString(),
       swapMode: 'ExactOut',
       onlyDirectRoutes: 'false',

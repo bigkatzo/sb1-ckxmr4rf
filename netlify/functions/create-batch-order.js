@@ -377,6 +377,77 @@ const getSolanaRate = async () => {
 }
 
 /**
+ * Fetch token decimals from multiple sources
+ */
+const getTokenDecimals = async (tokenAddress) => {
+  try {
+    // Try Solscan API first
+    try {
+      const response = await fetch(`https://api.solscan.io/token/meta?token=${tokenAddress}`, {
+        timeout: 3000
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data && data.data.decimals !== undefined) {
+          console.log(`Fetched token decimals from Solscan for ${tokenAddress}: ${data.data.decimals}`);
+          return data.data.decimals;
+        }
+      }
+    } catch (error) {
+      console.warn('Solscan API error for token decimals:', error);
+    }
+
+    // Try Birdeye API as fallback
+    try {
+      const response = await fetch(`https://public-api.birdeye.so/public/token_list?address=${tokenAddress}`, {
+        timeout: 3000
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data && data.data.length > 0 && data.data[0].decimals !== undefined) {
+          console.log(`Fetched token decimals from Birdeye for ${tokenAddress}: ${data.data[0].decimals}`);
+          return data.data[0].decimals;
+        }
+      }
+    } catch (error) {
+      console.warn('Birdeye API error for token decimals:', error);
+    }
+
+    // Try Jupiter API as final fallback
+    try {
+      const response = await fetch(`https://tokens.jup.ag/token/${tokenAddress}`, {
+        timeout: 3000
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.decimals !== undefined) {
+          console.log(`Fetched token decimals from Jupiter for ${tokenAddress}: ${data.decimals}`);
+          return data.decimals;
+        }
+      }
+    } catch (error) {
+      console.warn('Jupiter API error for token decimals:', error);
+    }
+
+    // Default fallback based on known tokens
+    if (tokenAddress === 'So11111111111111111111111111111111111111112') {
+      return 9; // SOL
+    } else if (tokenAddress === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
+      return 6; // USDC
+    } else {
+      console.warn(`Could not fetch decimals for ${tokenAddress}, using default: 6`);
+      return 6; // Default for most SPL tokens
+    }
+  } catch (error) {
+    console.error('Error fetching token decimals:', error);
+    return 6; // Default fallback
+  }
+};
+
+/**
  * Get token conversion rate from base currency to target token
  * For strict token payments, we need to convert from baseCurrency to the strict token
  */
@@ -385,6 +456,10 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
     // Use Jupiter API for real-time token conversion rates
     if (targetTokenAddress && baseCurrency) {
       try {
+        // First, fetch token decimals for accurate conversion
+        const tokenDecimals = await getTokenDecimals(targetTokenAddress);
+        console.log(`Using ${tokenDecimals} decimals for token ${targetTokenSymbol} (${targetTokenAddress})`);
+
         // Jupiter API endpoint for getting quote
         const jupiterUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${baseCurrency === 'SOL' ? 'So11111111111111111111111111111111111111112' : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'}&outputMint=${targetTokenAddress}&amount=${Math.floor(1000000)}&slippageBps=50`;
         
@@ -398,13 +473,17 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
         const quoteData = await response.json();
         
         if (quoteData && quoteData.outAmount && quoteData.inAmount) {
-          // Calculate the conversion rate
+          // Calculate the conversion rate using correct decimals
           const inAmount = parseFloat(quoteData.inAmount);
           const outAmount = parseFloat(quoteData.outAmount);
           
           if (inAmount > 0 && outAmount > 0) {
-            const rate = outAmount / inAmount;
-            console.log(`Jupiter conversion rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
+            // Convert outAmount to human-readable format using correct decimals
+            const outAmountHuman = outAmount / Math.pow(10, tokenDecimals);
+            const inAmountHuman = inAmount / Math.pow(10, baseCurrency === 'SOL' ? 9 : 6);
+            
+            const rate = outAmountHuman / inAmountHuman;
+            console.log(`Jupiter conversion rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using ${tokenDecimals} decimals)`);
             return rate;
           }
         }

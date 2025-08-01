@@ -260,6 +260,18 @@ export function PaymentMethodSelector({
     await new Promise(resolve => setTimeout(resolve, 800));
     
     try {
+      // First, fetch token info to get the correct decimals
+      let tokenDecimals = 6; // Default fallback
+      try {
+        const tokenInfo = await tokenService.getTokenInfo(tokenAddress);
+        tokenDecimals = tokenInfo.decimals || 6;
+        console.log(`Fetched token decimals for ${tokenAddress}: ${tokenDecimals}`);
+      } catch (error) {
+        console.warn(`Failed to fetch token decimals for ${tokenAddress}, using default:`, error);
+        // Fallback to default decimals based on known tokens
+        tokenDecimals = tokenAddress === 'So11111111111111111111111111111111111111112' ? 9 : 6;
+      }
+
       // Use the base currency for conversion
       const outputMint = currency === 'usdc' 
         ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' // USDC
@@ -278,8 +290,7 @@ export function PaymentMethodSelector({
       
       const quoteData = await quoteResponse.json();
       
-      // Get token decimals - assume 6 for most SPL tokens, 9 for SOL
-      const tokenDecimals = tokenAddress === 'So11111111111111111111111111111111111111112' ? 9 : 6;
+      // Use the fetched token decimals instead of assuming
       const tokenAmount = (parseFloat(quoteData.outAmount) / Math.pow(10, tokenDecimals)).toFixed(6);
       
       // Calculate the correct exchange rate: how much base currency per 1 token
