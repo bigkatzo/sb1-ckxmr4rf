@@ -475,174 +475,175 @@ const getSolanaRate = async () => {
 }
 
 /**
- * Get token conversion rate from base currency to target token using DexScreener API
+ * Get token conversion rate from base currency to target token using Jupiter API as primary, DexScreener as fallback
  * For strict token payments, we need to convert from baseCurrency to the strict token
  */
 const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTokenSymbol) => {
   try {
-    // Use DexScreener API for real-time token conversion rates
     if (targetTokenAddress && baseCurrency) {
+      // Jupiter API as primary method
       try {
+        console.log(`Attempting Jupiter API for ${baseCurrency} to ${targetTokenSymbol} (${targetTokenAddress})`);
+        
         // Get the base currency mint address
         const baseCurrencyMint = baseCurrency === 'SOL' 
           ? 'So11111111111111111111111111111111111111112' 
           : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
         
-        // DexScreener API endpoint for getting pair data
-        const dexScreenerUrl = `https://api.dexscreener.com/latest/dex/tokens/${targetTokenAddress}`;
+        // Use 1 unit of base currency for the quote
+        const amount = 1;
+        const inputDecimals = baseCurrency === 'SOL' ? 9 : 6; // SOL has 9 decimals, USDC has 6
+        const amountInSmallestUnit = Math.floor(amount * Math.pow(10, inputDecimals));
         
-        console.log(`Fetching DexScreener quote for ${baseCurrency} to ${targetTokenSymbol} (${targetTokenAddress})`);
+        const jupiterUrl = `https://quote-api.jup.ag/v6/quote?` +
+          `inputMint=${baseCurrencyMint}&` +
+          `outputMint=${targetTokenAddress}&` +
+          `amount=${amountInSmallestUnit}&` +
+          `slippageBps=50&` +
+          `onlyDirectRoutes=false&` +
+          `asLegacyTransaction=false`;
         
-        const response = await fetch(dexScreenerUrl);
-        if (!response.ok) {
-          throw new Error(`DexScreener API error: ${response.status} ${response.statusText}`);
+        const jupiterResponse = await fetch(jupiterUrl);
+        if (!jupiterResponse.ok) {
+          throw new Error(`Jupiter API error: ${jupiterResponse.status} ${jupiterResponse.statusText}`);
         }
         
-        const data = await response.json();
+        const jupiterData = await jupiterResponse.json();
         
-        if (data && data.pairs && data.pairs.length > 0) {
-          // Find the pair that matches our base currency
-          const targetPair = data.pairs.find(pair => {
-            const baseToken = pair.baseToken?.address?.toLowerCase();
-            const quoteToken = pair.quoteToken?.address?.toLowerCase();
-            const targetAddress = targetTokenAddress.toLowerCase();
-            const baseAddress = baseCurrencyMint.toLowerCase();
-            
-            // Check if either token matches our target and the other matches our base
-            return (baseToken === targetAddress && quoteToken === baseAddress) ||
-                   (baseToken === baseAddress && quoteToken === targetAddress);
-          });
-          
-          if (targetPair) {
-            // Determine which token is base and which is quote
-            const isBaseTokenTarget = targetPair.baseToken?.address?.toLowerCase() === targetTokenAddress.toLowerCase();
-            
-            console.log('DexScreener pair found:', {
-              baseToken: targetPair.baseToken?.address,
-              quoteToken: targetPair.quoteToken?.address,
-              priceNative: targetPair.priceNative,
-              priceUsd: targetPair.priceUsd,
-              isBaseTokenTarget,
-              targetAddress: targetTokenAddress,
-              baseCurrencyMint
-            });
-            
-            let rate;
-            if (isBaseTokenTarget) {
-              // If target token is base token, use priceNative to calculate rate
-              // priceNative is the price of base token in quote token
-              const priceNative = parseFloat(targetPair.priceNative);
-              
-              if (priceNative > 0) {
-                rate = priceNative;
-                console.log(`Target is base token, using priceNative directly: ${rate}`);
-              }
-            } else {
-              // If target token is quote token, use priceNative to calculate rate
-              // priceNative is the price of base token in quote token, so we need to invert it
-              const priceNative = parseFloat(targetPair.priceNative);
-              
-              if (priceNative > 0) {
-                rate = 1 / priceNative;
-                console.log(`Target is quote token, inverting priceNative: 1/${priceNative} = ${rate}`);
-              }
-            }
-            
-            if (rate && rate > 0) {
-              console.log(`DexScreener conversion rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
-              return rate;
-            }
+        if (jupiterData && jupiterData.outAmount) {
+          // Calculate the rate from Jupiter's output amount
+          // Use 5 decimal places specifically for SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3
+          let outputDecimals = jupiterData.outputDecimals || 6;
+          if (targetTokenAddress === 'SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3') {
+            outputDecimals = 5;
+            console.log(`Using 5 decimal places for SNS token: ${targetTokenAddress}`);
           }
           
-          // If no matching pair found, try to find any pair with the target token
-          const anyPair = data.pairs[0];
-          if (anyPair && anyPair.priceUsd) {
-            const targetPriceUsd = parseFloat(anyPair.priceUsd);
-            const basePriceUsd = baseCurrency === 'SOL' ? await getSolanaRate() : 1; // USDC is $1
-            
-            if (targetPriceUsd > 0 && basePriceUsd > 0) {
-              const rate = basePriceUsd / targetPriceUsd;
-              console.log(`DexScreener fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using USD price)`);
-              return rate;
-            }
+          const outputAmount = parseInt(jupiterData.outAmount) / Math.pow(10, outputDecimals);
+          const rate = outputAmount / amount; // Since we used 1 unit as input
+          
+          if (rate && rate > 0) {
+            console.log(`Jupiter API rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using ${outputDecimals} decimals)`);
+            return rate;
           }
         }
         
-        throw new Error('No valid pair data found from DexScreener API');
+        throw new Error('Invalid Jupiter API response');
         
-      } catch (dexScreenerError) {
-        console.error('Error fetching DexScreener quote:', dexScreenerError);
+      } catch (jupiterError) {
+        console.error('Jupiter API failed, trying DexScreener fallback:', jupiterError);
         
-        // Fallback to CoinGecko for common tokens
+        // DexScreener API as fallback
         try {
-          const coinGeckoUrl = `https://api.coingecko.com/api/v3/simple/price?ids=${baseCurrency.toLowerCase()}&vs_currencies=${targetTokenSymbol.toLowerCase()}`;
-          const response = await fetch(coinGeckoUrl);
-          
-          if (response.ok) {
-            const data = await response.json();
-            const rate = data[baseCurrency.toLowerCase()]?.[targetTokenSymbol.toLowerCase()];
-            
-            if (rate) {
-              console.log(`CoinGecko fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
-              return rate;
-            }
-          }
-        } catch (coinGeckoError) {
-          console.error('CoinGecko fallback also failed:', coinGeckoError);
-        }
-        
-        // Jupiter API fallback
-        try {
-          console.log(`Attempting Jupiter API fallback for ${baseCurrency} to ${targetTokenSymbol} (${targetTokenAddress})`);
-          
           // Get the base currency mint address
           const baseCurrencyMint = baseCurrency === 'SOL' 
             ? 'So11111111111111111111111111111111111111112' 
             : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
           
-          // Use 1 unit of base currency for the quote
-          const amount = 1;
-          const inputDecimals = baseCurrency === 'SOL' ? 9 : 6; // SOL has 9 decimals, USDC has 6
-          const amountInSmallestUnit = Math.floor(amount * Math.pow(10, inputDecimals));
+          // DexScreener API endpoint for getting pair data
+          const dexScreenerUrl = `https://api.dexscreener.com/latest/dex/tokens/${targetTokenAddress}`;
           
-          const jupiterUrl = `https://quote-api.jup.ag/v6/quote?` +
-            `inputMint=${baseCurrencyMint}&` +
-            `outputMint=${targetTokenAddress}&` +
-            `amount=${amountInSmallestUnit}&` +
-            `slippageBps=50&` +
-            `onlyDirectRoutes=false&` +
-            `asLegacyTransaction=false`;
+          console.log(`Fetching DexScreener fallback quote for ${baseCurrency} to ${targetTokenSymbol} (${targetTokenAddress})`);
           
-          const jupiterResponse = await fetch(jupiterUrl);
-          if (!jupiterResponse.ok) {
-            throw new Error(`Jupiter API error: ${jupiterResponse.status} ${jupiterResponse.statusText}`);
+          const response = await fetch(dexScreenerUrl);
+          if (!response.ok) {
+            throw new Error(`DexScreener API error: ${response.status} ${response.statusText}`);
           }
           
-          const jupiterData = await jupiterResponse.json();
+          const data = await response.json();
           
-          if (jupiterData && jupiterData.outAmount) {
-            // Calculate the rate from Jupiter's output amount
-            // Use 5 decimal places specifically for SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3
-            let outputDecimals = jupiterData.outputDecimals || 6;
-            if (targetTokenAddress === 'SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3') {
-              outputDecimals = 5;
-              console.log(`Using 5 decimal places for SNS token: ${targetTokenAddress}`);
+          if (data && data.pairs && data.pairs.length > 0) {
+            // Find the pair that matches our base currency
+            const targetPair = data.pairs.find(pair => {
+              const baseToken = pair.baseToken?.address?.toLowerCase();
+              const quoteToken = pair.quoteToken?.address?.toLowerCase();
+              const targetAddress = targetTokenAddress.toLowerCase();
+              const baseAddress = baseCurrencyMint.toLowerCase();
+              
+              // Check if either token matches our target and the other matches our base
+              return (baseToken === targetAddress && quoteToken === baseAddress) ||
+                     (baseToken === baseAddress && quoteToken === targetAddress);
+            });
+            
+            if (targetPair) {
+              // Determine which token is base and which is quote
+              const isBaseTokenTarget = targetPair.baseToken?.address?.toLowerCase() === targetTokenAddress.toLowerCase();
+              
+              console.log('DexScreener pair found:', {
+                baseToken: targetPair.baseToken?.address,
+                quoteToken: targetPair.quoteToken?.address,
+                priceNative: targetPair.priceNative,
+                priceUsd: targetPair.priceUsd,
+                isBaseTokenTarget,
+                targetAddress: targetTokenAddress,
+                baseCurrencyMint
+              });
+              
+              let rate;
+              if (isBaseTokenTarget) {
+                // If target token is base token, use priceNative to calculate rate
+                // priceNative is the price of base token in quote token
+                const priceNative = parseFloat(targetPair.priceNative);
+                
+                if (priceNative > 0) {
+                  rate = priceNative;
+                  console.log(`Target is base token, using priceNative directly: ${rate}`);
+                }
+              } else {
+                // If target token is quote token, use priceNative to calculate rate
+                // priceNative is the price of base token in quote token, so we need to invert it
+                const priceNative = parseFloat(targetPair.priceNative);
+                
+                if (priceNative > 0) {
+                  rate = 1 / priceNative;
+                  console.log(`Target is quote token, inverting priceNative: 1/${priceNative} = ${rate}`);
+                }
+              }
+              
+              if (rate && rate > 0) {
+                console.log(`DexScreener fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
+                return rate;
+              }
             }
             
-            const outputAmount = parseInt(jupiterData.outAmount) / Math.pow(10, outputDecimals);
-            const rate = outputAmount / amount; // Since we used 1 unit as input
-            
-            if (rate && rate > 0) {
-              console.log(`Jupiter API fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using ${outputDecimals} decimals)`);
-              return rate;
+            // If no matching pair found, try to find any pair with the target token
+            const anyPair = data.pairs[0];
+            if (anyPair && anyPair.priceUsd) {
+              const targetPriceUsd = parseFloat(anyPair.priceUsd);
+              const basePriceUsd = baseCurrency === 'SOL' ? await getSolanaRate() : 1; // USDC is $1
+              
+              if (targetPriceUsd > 0 && basePriceUsd > 0) {
+                const rate = basePriceUsd / targetPriceUsd;
+                console.log(`DexScreener USD fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using USD price)`);
+                return rate;
+              }
             }
           }
           
-          throw new Error('Invalid Jupiter API response');
+          throw new Error('No valid pair data found from DexScreener API');
           
-        } catch (jupiterError) {
-          console.error('Jupiter API fallback also failed:', jupiterError);
-          throw new Error(`Failed to get conversion rate for ${baseCurrency} to ${targetTokenSymbol}. DexScreener, CoinGecko, and Jupiter APIs all failed.`);
+        } catch (dexScreenerError) {
+          console.error('DexScreener fallback also failed:', dexScreenerError);
+          
+          // Final fallback to CoinGecko for common tokens
+          try {
+            const coinGeckoUrl = `https://api.coingecko.com/api/v3/simple/price?ids=${baseCurrency.toLowerCase()}&vs_currencies=${targetTokenSymbol.toLowerCase()}`;
+            const response = await fetch(coinGeckoUrl);
+            
+            if (response.ok) {
+              const data = await response.json();
+              const rate = data[baseCurrency.toLowerCase()]?.[targetTokenSymbol.toLowerCase()];
+              
+              if (rate) {
+                console.log(`CoinGecko final fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
+                return rate;
+              }
+            }
+          } catch (coinGeckoError) {
+            console.error('CoinGecko final fallback also failed:', coinGeckoError);
+          }
+          
+          throw new Error(`Failed to get conversion rate for ${baseCurrency} to ${targetTokenSymbol}. Jupiter, DexScreener, and CoinGecko APIs all failed.`);
         }
       }
     }
