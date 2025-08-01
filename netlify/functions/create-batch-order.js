@@ -470,7 +470,7 @@ const getSolanaRate = async () => {
   } catch (error) {
     console.error('Error converting USDC to SOL:', error);
     // If there's an error, return a default rate
-    return 180;
+    return error;
   } 
 }
 
@@ -480,6 +480,12 @@ const getSolanaRate = async () => {
  */
 const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTokenSymbol) => {
   try {
+    // Early return for same currency conversions
+    if (baseCurrency.toUpperCase() === targetTokenSymbol?.toUpperCase()) {
+      console.log(`Same currency conversion detected: ${baseCurrency} to ${targetTokenSymbol} - returning rate 1`);
+      return 1;
+    }
+    
     if (targetTokenAddress && baseCurrency) {
       // Jupiter API as primary method
       try {
@@ -648,7 +654,7 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
       }
     }
 
-    throw new Error(`No conversion rate found for ${baseCurrency} to ${targetTokenSymbol}`);
+    throw new Error(`No conversion rate found for ${baseCurrency} to ${targetTokenSymbol ?? 'Token'}`);
 
   } catch (error) {
     console.error('Error getting token conversion rate:', error);
@@ -711,8 +717,6 @@ exports.handler = async (event, context) => {
     // Process each item to calculate pricing and merchant wallet amounts
     const processedItems = [];
     
-    const solRate = await getSolanaRate();
-    
     // Determine the target currency unit based on payment method and default token
     let currencyUnit = 'USDC'; // Default fallback
     if (paymentMetadata?.paymentMethod === 'default') {
@@ -731,6 +735,9 @@ exports.handler = async (event, context) => {
     }
 
     console.log(`Payment method: ${paymentMetadata?.paymentMethod}, Default token: ${paymentMetadata?.defaultToken}, Currency unit: ${currencyUnit}`);
+
+    // Initialize solRate as null - will be fetched only when needed
+    let solRate = null;
 
     for (const item of items) {
       const quantity = Math.max(1, Number(item.quantity) || 1);
@@ -755,29 +762,50 @@ exports.handler = async (event, context) => {
       let itemCurrencyUnit = currencyUnit; // Default to global currency unit
       
       // Check if this is a strict token payment using backend data
-      const isStrictTokenPayment = !!strictToken;
+      const isStrictTokenPayment = !!strictToken && paymentMetadata?.paymentMethod === 'spl-tokens';
       
       if (isStrictTokenPayment) {
         // For strict token payments, set currency unit to the strict token symbol
         itemCurrencyUnit = paymentMetadata.tokenSymbol?.toUpperCase() || 'SNS';
         
-        // Convert from base currency to strict token
-        conversionRate = await getTokenConversionRate(
-          baseCurrency, 
-          paymentMetadata.tokenAddress, 
-          paymentMetadata.tokenSymbol
-        );
-        
-        // The rate tells us how much base currency equals 1 target token
-        // So for itemTotalInBase base currency, we get itemTotalInBase / conversionRate target tokens
-        itemTotalInTarget = itemTotalInBase / conversionRate;
-        
-        console.log(`Strict token payment: Converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (rate: ${conversionRate})`);
+        // Check if base currency and target currency are the same
+        if (baseCurrency.toUpperCase() === itemCurrencyUnit) {
+          // Same currency - no conversion needed
+          itemTotalInTarget = itemTotalInBase;
+          conversionRate = 1;
+          console.log(`Same currency conversion: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget} ${itemCurrencyUnit} (no conversion needed)`);
+        } else {
+          // Convert from base currency to strict token
+          conversionRate = await getTokenConversionRate(
+            baseCurrency, 
+            paymentMetadata.tokenAddress, 
+            paymentMetadata.tokenSymbol
+          );
+          
+          // The rate tells us how much base currency equals 1 target token
+          // So for itemTotalInBase base currency, we get itemTotalInBase / conversionRate target tokens
+          itemTotalInTarget = itemTotalInBase / conversionRate;
+          
+          console.log(`Strict token payment: Converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (rate: ${conversionRate})`);
+        }
       } else {
-        // Use precise currency conversion
-        itemTotalInTarget = convertCurrency(itemTotalInBase, baseCurrency, itemCurrencyUnit, solRate);
-        
-        console.log(`Currency conversion: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (precise calculation)`);
+        // Check if base currency and target currency are the same
+        if (baseCurrency.toUpperCase() === itemCurrencyUnit) {
+          // Same currency - no conversion needed
+          itemTotalInTarget = itemTotalInBase;
+          console.log(`Same currency conversion: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget} ${itemCurrencyUnit} (no conversion needed)`);
+        } else {
+          // Use precise currency conversion
+          // Only fetch solRate if we need SOL to USDC conversion
+          if (!solRate && (baseCurrency.toUpperCase() === 'SOL' && itemCurrencyUnit === 'USDC' || 
+                          baseCurrency.toUpperCase() === 'USDC' && itemCurrencyUnit === 'SOL')) {
+            solRate = await getSolanaRate();
+          }
+          
+          itemTotalInTarget = convertCurrency(itemTotalInBase, baseCurrency, itemCurrencyUnit, solRate);
+          
+          console.log(`Currency conversion: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (precise calculation)`);
+        }
       }
 
       const merchantWallet = await getMerchantWallet(collectionId);
@@ -869,18 +897,29 @@ exports.handler = async (event, context) => {
                 discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
               } else if (finalCurrencyUnit === 'USDC') {
                 // Convert SOL discount to USDC using precise arithmetic
+                // Only fetch solRate if not already fetched
+                if (!solRate) {
+                  solRate = await getSolanaRate();
+                }
                 const discountInUSDC = convertCurrency(coupon.discount_value, 'SOL', 'USDC', solRate);
                 discountAmount = Math.min(discountInUSDC, totalPaymentForBatch);
               } else {
-                // For strict token payments, convert SOL discount to the strict token
+                // For strict token payments, check if the strict token is SOL
                 const hasStrictTokenProduct = processedItems.some(item => item.strictToken);
                 if (hasStrictTokenProduct && paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol) {
-                  // Convert SOL discount to strict token using precise arithmetic
-                  const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, paymentMetadata.tokenSymbol);
-                  // The rate tells us how much SOL equals 1 target token
-                  // So for coupon.discount_value SOL, we get coupon.discount_value / conversionRate target tokens
-                  const discountInStrictToken = coupon.discount_value / conversionRate;
-                  discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
+                  const strictTokenSymbol = paymentMetadata.tokenSymbol?.toUpperCase();
+                  
+                  if (strictTokenSymbol === 'SOL') {
+                    // If strict token is SOL, no conversion needed
+                    discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
+                  } else {
+                    // Convert SOL discount to strict token using precise arithmetic
+                    const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, paymentMetadata.tokenSymbol);
+                    // The rate tells us how much SOL equals 1 target token
+                    // So for coupon.discount_value SOL, we get coupon.discount_value / conversionRate target tokens
+                    const discountInStrictToken = coupon.discount_value / conversionRate;
+                    discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
+                  }
                 } else {
                   discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
                 }
