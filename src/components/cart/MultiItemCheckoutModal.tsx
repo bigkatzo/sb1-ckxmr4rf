@@ -104,9 +104,14 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   // Use strict token if available, otherwise use recommended CAs
   const recommendedCas = collectionStrictToken 
     ? [collectionStrictToken]
-    : items
-        .map(item => item.product.collectionCa)
-        .filter((ca): ca is string => ca != null && ca !== undefined);
+    : (() => {
+        const validCollectionCas = items
+          .map(item => item.product.collectionCa)
+          .filter((ca): ca is string => ca != null && ca !== undefined);
+        
+        // Only return the first valid collectionCa, or empty array if none
+        return validCollectionCas.length > 0 ? [validCollectionCas[0]] : [];
+      })();
 
   // Utility function to convert customization data to variantId:value format
   const convertCustomizationDataToVariantFormat = (item: CartItem) => {

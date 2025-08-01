@@ -358,6 +358,61 @@ const getSolanaRate = async () => {
   } 
 }
 
+/**
+ * Get token conversion rate from base currency to target token
+ * For strict token payments, we need to convert from baseCurrency to the strict token
+ */
+const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTokenSymbol) => {
+  try {
+    // For now, we'll use mock rates for demonstration
+    // In production, you'd call Jupiter API or CoinGecko for real-time rates
+    const mockRates = {
+      // SOL to various tokens
+      'SOL': {
+        'USDC': 1/180, // 1 SOL = 180 USDC, so 1 USDC = 1/180 SOL
+        'USDT': 1/180,
+        'BONK': 1/0.000001, // Example token
+        'JUP': 1/0.5, // Example token
+      },
+      // USDC to various tokens  
+      'USDC': {
+        'SOL': 1/180, // 1 USDC = 1/180 SOL
+        'USDT': 1, // 1:1 for stablecoins
+        'BONK': 1/0.000001, // Example token
+        'JUP': 1/0.5, // Example token
+      }
+    };
+
+    // Get the conversion rate
+    const rate = mockRates[baseCurrency]?.[targetTokenSymbol];
+    
+    if (rate) {
+      console.log(`Token conversion rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
+      return rate;
+    }
+
+    // If no mock rate found, try to get from Jupiter API for Solana tokens
+    if (targetTokenAddress && baseCurrency === 'SOL') {
+      try {
+        // Jupiter API call would go here
+        // For now, return a default rate
+        console.log(`No mock rate found for ${baseCurrency} to ${targetTokenSymbol}, using default rate`);
+        return 1; // Default 1:1 rate
+      } catch (error) {
+        console.error('Error fetching Jupiter quote:', error);
+        return 1; // Default fallback
+      }
+    }
+
+    console.log(`No conversion rate found for ${baseCurrency} to ${targetTokenSymbol}, using 1:1 rate`);
+    return 1; // Default 1:1 rate
+
+  } catch (error) {
+    console.error('Error getting token conversion rate:', error);
+    return 1; // Default fallback
+  }
+};
+
 exports.handler = async (event, context) => {
   // Enable CORS for frontend
   const headers = {
@@ -456,6 +511,7 @@ exports.handler = async (event, context) => {
       const itemTotalInBase = price * quantity;
 
       let itemTotalInTarget;
+      let conversionRate;
       
       // Check if this is a strict token payment
       const isStrictTokenPayment = product.collectionStrictToken && 
@@ -463,10 +519,17 @@ exports.handler = async (event, context) => {
         paymentMetadata?.tokenAddress === product.collectionStrictToken;
       
       if (isStrictTokenPayment) {
-        // For strict token payments, use the base currency price directly
-        // The merchant receives the token, not converted to USDC
-        itemTotalInTarget = itemTotalInBase;
-        console.log(`Strict token payment: Using base currency price directly - ${itemTotalInBase} ${baseCurrency}`);
+        // For strict token payments, convert from base currency to strict token
+        conversionRate = await getTokenConversionRate(
+          baseCurrency, 
+          paymentMetadata.tokenAddress, 
+          paymentMetadata.tokenSymbol
+        );
+        
+        // Convert the item total from base currency to strict token amount
+        itemTotalInTarget = itemTotalInBase * conversionRate;
+        
+        console.log(`Strict token payment: Converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${paymentMetadata.tokenSymbol} (rate: ${conversionRate})`);
       } else {
         // Convert item total from base currency to target currency
         if (baseCurrency.toUpperCase() === currencyUnit) {
@@ -502,11 +565,18 @@ exports.handler = async (event, context) => {
         itemTotal: itemTotalInTarget,
         quantity,
         baseCurrency,
+        isStrictTokenPayment,
+        ...(isStrictTokenPayment && {
+          strictTokenAddress: paymentMetadata.tokenAddress,
+          strictTokenSymbol: paymentMetadata.tokenSymbol,
+          strictTokenName: paymentMetadata.tokenName,
+          conversionRate
+        })
       });
 
       console.log(
         `Processed item: ${product.name}, Base Price: ${price} ${baseCurrency}, Qty: ${quantity}, ` +
-        `Converted Total: ${itemTotalInTarget.toFixed(4)} ${currencyUnit}, Merchant: ${merchantWallet.substring(0, 6)}...`
+        `Converted Total: ${itemTotalInTarget.toFixed(4)} ${isStrictTokenPayment ? paymentMetadata.tokenSymbol : currencyUnit}, Merchant: ${merchantWallet.substring(0, 6)}...`
       );
     }
 
@@ -551,7 +621,16 @@ exports.handler = async (event, context) => {
                 const discountInUSDC = coupon.discount_value * solRate;
                 discountAmount = Math.min(discountInUSDC, totalPaymentForBatch);
               } else {
-                discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
+                // For strict token payments, convert SOL discount to the strict token
+                const hasStrictTokenProduct = items.some(item => item.product.collectionStrictToken);
+                if (hasStrictTokenProduct && paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol) {
+                  // Convert SOL discount to strict token
+                  const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, paymentMetadata.tokenSymbol);
+                  const discountInStrictToken = coupon.discount_value * conversionRate;
+                  discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
+                } else {
+                  discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
+                }
               }
             } else {
               // Percentage discount
@@ -638,6 +717,9 @@ exports.handler = async (event, context) => {
           strictTokenAddress: paymentMetadata?.tokenAddress,
           strictTokenSymbol: paymentMetadata?.tokenSymbol,
           strictTokenName: paymentMetadata?.tokenName,
+          ...(processedItem.isStrictTokenPayment && {
+            conversionRate: processedItem.conversionRate
+          })
         };
         
         // Create order using the database function
@@ -692,9 +774,16 @@ exports.handler = async (event, context) => {
             quantity: quantity,
             totalItemsInBatch: processedItems.length,
             price: actualPrice,
-            itemTotal: actualPrice * quantity,
+            itemTotal: itemTotal, // Use the converted itemTotal instead of actualPrice * quantity
             variantKey,
-            baseCurrency: baseCurrency // Include baseCurrency in response
+            baseCurrency: baseCurrency, // Include baseCurrency in response
+            ...(processedItem.isStrictTokenPayment && {
+              isStrictTokenPayment: true,
+              strictTokenAddress: processedItem.strictTokenAddress,
+              strictTokenSymbol: processedItem.strictTokenSymbol,
+              strictTokenName: processedItem.strictTokenName,
+              conversionRate: processedItem.conversionRate
+            })
           });
         } else {
           throw new Error(`Failed to create order: No order ID returned for product ${product.name}`);
