@@ -78,7 +78,7 @@ async function verifyTokenHolding(walletAddress, tokenMintAddress, minAmount) {
   }
 }
 
-export async function verifyEligibilityAccess(coupon, walletAddress, productCollectionIds) {
+exports.verifyEligibilityAccess = async function verifyEligibilityAccess(coupon, walletAddress, productCollectionIds) {
   try {
     if (!coupon) {
       return {
@@ -160,7 +160,7 @@ export async function verifyEligibilityAccess(coupon, walletAddress, productColl
       error: 'Failed to verify eligibility'
     };
   }
-}
+};
 
 exports.handler = async (event, context) => {
   if (event.httpMethod !== 'POST') {
@@ -210,7 +210,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const eligibilityResult = await verifyEligibilityAccess(
+    const eligibilityResult = await exports.verifyEligibilityAccess(
       coupon,
       walletAddress,
       productCollectionIds
