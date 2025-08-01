@@ -40,16 +40,16 @@ const toSmallestUnit = (price, currency) => {
   
   // For USD/USDC, use cents (2 decimal places)
   if (currencyUpper === 'USD' || currencyUpper === 'USDC') {
-    return Math.round(price * 100);
+    return price * 100;
   }
   
   // For SOL, use lamports (9 decimal places)
   if (currencyUpper === 'SOL') {
-    return Math.round(price * 1e9);
+    return price * 1e9;
   }
   
   // Default to 2 decimal places for other currencies
-  return Math.round(price * 100);
+  return price * 100;
 };
 
 // Convert from smallest currency unit back to display format
@@ -87,16 +87,16 @@ const convertCurrency = (price, fromCurrency, toCurrency, solRate) => {
   
   if (fromUpper === 'SOL' && toUpper === 'USDC') {
     // SOL → USDC: multiply by solRate
-    convertedSmallestUnit = Math.round(priceInSmallestUnit * solRate * 100 / 1e9);
+    convertedSmallestUnit = priceInSmallestUnit * solRate * 100 / 1e9;
   } else if (fromUpper === 'USDC' && toUpper === 'SOL') {
     // USDC → SOL: divide by solRate
-    convertedSmallestUnit = Math.round(priceInSmallestUnit * 1e9 / (solRate * 100));
+    convertedSmallestUnit = priceInSmallestUnit * 1e9 / (solRate * 100);
   } else {
     // For other conversions, use the same logic as before but with precise arithmetic
     if (fromUpper === 'SOL' && toUpper === 'USD') {
-      convertedSmallestUnit = Math.round(priceInSmallestUnit * solRate * 100 / 1e9);
+      convertedSmallestUnit = priceInSmallestUnit * solRate * 100 / 1e9;
     } else if (fromUpper === 'USD' && toUpper === 'SOL') {
-      convertedSmallestUnit = Math.round(priceInSmallestUnit * 1e9 / (solRate * 100));
+      convertedSmallestUnit = priceInSmallestUnit * 1e9 / (solRate * 100);
     } else {
       // Default case - assume same conversion as SOL/USDC
       convertedSmallestUnit = priceInSmallestUnit;
@@ -499,7 +499,7 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
         // Use 1 unit of base currency for the quote
         const amount = 1;
         const inputDecimals = baseCurrency === 'SOL' ? 9 : 6; // SOL has 9 decimals, USDC has 6
-        const amountInSmallestUnit = Math.floor(amount * Math.pow(10, inputDecimals));
+        const amountInSmallestUnit = amount * Math.pow(10, inputDecimals);
 
         console.log(`Jupiter API URL: ${amountInSmallestUnit}, ${baseCurrencyMint}, ${targetTokenAddress}`);
         
@@ -528,7 +528,7 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
           }
           
           const outputAmount = parseInt(jupiterData.outAmount) / Math.pow(10, outputDecimals);
-          const rate = outputAmount / amount; // Since we used 1 unit as input
+          const rate = outputAmount; // Since we used 1 unit as input, outputAmount is the rate
           
           if (rate && rate > 0) {
             console.log(`Jupiter API rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol} (using ${outputDecimals} decimals)`);
@@ -954,7 +954,7 @@ exports.handler = async (event, context) => {
             } else {
               // Percentage discount - use precise arithmetic
               const discountInSmallestUnit = toSmallestUnit(totalPaymentForBatch, finalCurrencyUnit);
-              const percentageInSmallestUnit = Math.round(discountInSmallestUnit * coupon.discount_value / 100);
+              const percentageInSmallestUnit = discountInSmallestUnit * coupon.discount_value / 100;
               discountAmount = fromSmallestUnit(percentageInSmallestUnit, finalCurrencyUnit);
             }
             
