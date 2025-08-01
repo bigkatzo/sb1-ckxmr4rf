@@ -133,7 +133,7 @@ async function verifySolanaTransactionDetails(signature, expectedDetails) {
     const isStrictTokenPayment = expectedDetails?.isStrictTokenPayment;
     const strictTokenAddress = expectedDetails?.strictTokenAddress;
 
-    if (!tokenMint || tokenMint === 'sol') {
+    if ((!tokenMint || tokenMint === 'sol') && !isStrictTokenPayment) {
       const preBalances = tx.meta.preBalances;
       const postBalances = tx.meta.postBalances;
 
