@@ -766,7 +766,7 @@ exports.handler = async (event, context) => {
       // 2. SPL-TOKENS PAYMENT METHOD
       else if (paymentMetadata?.paymentMethod === 'spl-tokens') {
         // Check if this item has a strict token requirement
-        if (strictToken) {
+        if (strictToken && strictToken.toUpperCase() !== 'NULL') {
           // i) Strict token scenario - convert to the strict token
           itemCurrencyUnit = paymentMetadata.tokenSymbol?.toUpperCase() || 'SNS';
           
@@ -869,7 +869,7 @@ exports.handler = async (event, context) => {
         itemTotal: itemTotalInTarget,
         quantity,
         baseCurrency,
-        isStrictTokenPayment: !!strictToken && paymentMetadata?.paymentMethod === 'spl-tokens',
+        isStrictTokenPayment: !!strictToken && strictToken.toUpperCase() !== 'NULL' && paymentMetadata?.paymentMethod === 'spl-tokens',
         itemCurrencyUnit, // Store the currency unit for this specific item
         strictToken, // Store the strict token from backend
         ...(!!strictToken && paymentMetadata?.paymentMethod === 'spl-tokens' && {
