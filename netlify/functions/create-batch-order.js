@@ -591,18 +591,61 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
           console.error('CoinGecko fallback also failed:', coinGeckoError);
         }
         
-        // Final fallback - log warning and return 1:1 rate
-        console.warn(`Could not get conversion rate for ${baseCurrency} to ${targetTokenSymbol}, using 1:1 rate as fallback`);
-        return 1;
+        // Jupiter API fallback
+        try {
+          console.log(`Attempting Jupiter API fallback for ${baseCurrency} to ${targetTokenSymbol} (${targetTokenAddress})`);
+          
+          // Get the base currency mint address
+          const baseCurrencyMint = baseCurrency === 'SOL' 
+            ? 'So11111111111111111111111111111111111111112' 
+            : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+          
+          // Use 1 unit of base currency for the quote
+          const amount = 1;
+          const inputDecimals = baseCurrency === 'SOL' ? 9 : 6; // SOL has 9 decimals, USDC has 6
+          const amountInSmallestUnit = Math.floor(amount * Math.pow(10, inputDecimals));
+          
+          const jupiterUrl = `https://quote-api.jup.ag/v6/quote?` +
+            `inputMint=${baseCurrencyMint}&` +
+            `outputMint=${targetTokenAddress}&` +
+            `amount=${amountInSmallestUnit}&` +
+            `slippageBps=50&` +
+            `onlyDirectRoutes=false&` +
+            `asLegacyTransaction=false`;
+          
+          const jupiterResponse = await fetch(jupiterUrl);
+          if (!jupiterResponse.ok) {
+            throw new Error(`Jupiter API error: ${jupiterResponse.status} ${jupiterResponse.statusText}`);
+          }
+          
+          const jupiterData = await jupiterResponse.json();
+          
+          if (jupiterData && jupiterData.outAmount) {
+            // Calculate the rate from Jupiter's output amount
+            const outputDecimals = jupiterData.outputDecimals || 6;
+            const outputAmount = parseInt(jupiterData.outAmount) / Math.pow(10, outputDecimals);
+            const rate = outputAmount / amount; // Since we used 1 unit as input
+            
+            if (rate && rate > 0) {
+              console.log(`Jupiter API fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
+              return rate;
+            }
+          }
+          
+          throw new Error('Invalid Jupiter API response');
+          
+        } catch (jupiterError) {
+          console.error('Jupiter API fallback also failed:', jupiterError);
+          throw new Error(`Failed to get conversion rate for ${baseCurrency} to ${targetTokenSymbol}. DexScreener, CoinGecko, and Jupiter APIs all failed.`);
+        }
       }
     }
 
-    console.log(`No conversion rate found for ${baseCurrency} to ${targetTokenSymbol}, using 1:1 rate`);
-    return 1; // Default 1:1 rate
+    throw new Error(`No conversion rate found for ${baseCurrency} to ${targetTokenSymbol}`);
 
   } catch (error) {
     console.error('Error getting token conversion rate:', error);
-    return 1; // Default fallback
+    throw error; // Re-throw the error instead of returning 1
   }
 };
 
