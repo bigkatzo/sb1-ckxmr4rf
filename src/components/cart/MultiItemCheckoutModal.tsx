@@ -107,7 +107,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     : (() => {
         const validCollectionCas = items
           .map(item => item.product.collectionCa)
-          .filter((ca): ca is string => ca != null && ca !== undefined);
+          .filter((ca): ca is string => ca != null && ca !== undefined && ca.trim() !== '');
         
         // Only return the first valid collectionCa, or empty array if none
         return validCollectionCas.length > 0 ? [validCollectionCas[0]] : [];

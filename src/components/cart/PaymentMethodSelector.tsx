@@ -145,18 +145,19 @@ export function PaymentMethodSelector({
 
     setLoadingRecommendedCAs(true);
     try {
-      // Use the new token service to fetch multiple tokens at once
-      const tokenInfos = await tokenService.getMultipleTokens(addresses);
+      // Only fetch the first token from the recommendedCAs array
+      const firstAddress = addresses[0];
+      const tokenInfo = await tokenService.getTokenInfo(firstAddress);
       
-      const results = tokenInfos.map((tokenInfo, index) => ({
-        address: addresses[index],
+      const result = {
+        address: firstAddress,
         name: tokenInfo.name,
         symbol: tokenInfo.symbol,
         decimals: tokenInfo.decimals || 6,
         logoUrl: tokenInfo.logoURI
-      }));
+      };
 
-      setFetchedRecommendedCAs(results);
+      setFetchedRecommendedCAs([result]);
     } catch (error) {
       console.error('Failed to fetch recommended CA info:', error);
       setFetchedRecommendedCAs([]);
