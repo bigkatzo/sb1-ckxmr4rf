@@ -382,43 +382,59 @@ const getSolanaRate = async () => {
  */
 const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTokenSymbol) => {
   try {
-    // For now, we'll use mock rates for demonstration
-    // In production, you'd call Jupiter API or CoinGecko for real-time rates
-    const mockRates = {
-      // SOL to various tokens
-      'SOL': {
-        'USDC': 1/180, // 1 SOL = 180 USDC, so 1 USDC = 1/180 SOL
-        'USDT': 1/180,
-        'BONK': 1/0.000001, // Example token
-        'JUP': 1/0.5, // Example token
-      },
-      // USDC to various tokens  
-      'USDC': {
-        'SOL': 1/180, // 1 USDC = 1/180 SOL
-        'USDT': 1, // 1:1 for stablecoins
-        'BONK': 1/0.000001, // Example token
-        'JUP': 1/0.5, // Example token
-      }
-    };
-
-    // Get the conversion rate
-    const rate = mockRates[baseCurrency]?.[targetTokenSymbol];
-    
-    if (rate) {
-      console.log(`Token conversion rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
-      return rate;
-    }
-
-    // If no mock rate found, try to get from Jupiter API for Solana tokens
-    if (targetTokenAddress && baseCurrency === 'SOL') {
+    // Use Jupiter API for real-time token conversion rates
+    if (targetTokenAddress && baseCurrency) {
       try {
-        // Jupiter API call would go here
-        // For now, return a default rate
-        console.log(`No mock rate found for ${baseCurrency} to ${targetTokenSymbol}, using default rate`);
-        return 1; // Default 1:1 rate
-      } catch (error) {
-        console.error('Error fetching Jupiter quote:', error);
-        return 1; // Default fallback
+        // Jupiter API endpoint for getting quote
+        const jupiterUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${baseCurrency === 'SOL' ? 'So11111111111111111111111111111111111111112' : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'}&outputMint=${targetTokenAddress}&amount=${Math.floor(1000000)}&slippageBps=50`;
+        
+        console.log(`Fetching Jupiter quote for ${baseCurrency} to ${targetTokenSymbol} (${targetTokenAddress})`);
+        
+        const response = await fetch(jupiterUrl);
+        if (!response.ok) {
+          throw new Error(`Jupiter API error: ${response.status} ${response.statusText}`);
+        }
+        
+        const quoteData = await response.json();
+        
+        if (quoteData && quoteData.outAmount && quoteData.inAmount) {
+          // Calculate the conversion rate
+          const inAmount = parseFloat(quoteData.inAmount);
+          const outAmount = parseFloat(quoteData.outAmount);
+          
+          if (inAmount > 0 && outAmount > 0) {
+            const rate = outAmount / inAmount;
+            console.log(`Jupiter conversion rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
+            return rate;
+          }
+        }
+        
+        throw new Error('Invalid quote data from Jupiter API');
+        
+      } catch (jupiterError) {
+        console.error('Error fetching Jupiter quote:', jupiterError);
+        
+        // Fallback to CoinGecko for common tokens
+        try {
+          const coinGeckoUrl = `https://api.coingecko.com/api/v3/simple/price?ids=${baseCurrency.toLowerCase()}&vs_currencies=${targetTokenSymbol.toLowerCase()}`;
+          const response = await fetch(coinGeckoUrl);
+          
+          if (response.ok) {
+            const data = await response.json();
+            const rate = data[baseCurrency.toLowerCase()]?.[targetTokenSymbol.toLowerCase()];
+            
+            if (rate) {
+              console.log(`CoinGecko fallback rate: 1 ${baseCurrency} = ${rate} ${targetTokenSymbol}`);
+              return rate;
+            }
+          }
+        } catch (coinGeckoError) {
+          console.error('CoinGecko fallback also failed:', coinGeckoError);
+        }
+        
+        // Final fallback - log warning and return 1:1 rate
+        console.warn(`Could not get conversion rate for ${baseCurrency} to ${targetTokenSymbol}, using 1:1 rate as fallback`);
+        return 1;
       }
     }
 
@@ -521,6 +537,8 @@ exports.handler = async (event, context) => {
         item.selectedOptions
       );
 
+      console.log(price, baseCurrency, strictToken);
+
       const itemTotalInBase = price * quantity;
 
       let itemTotalInTarget;
@@ -528,9 +546,7 @@ exports.handler = async (event, context) => {
       let itemCurrencyUnit = currencyUnit; // Default to global currency unit
       
       // Check if this is a strict token payment using backend data
-      const isStrictTokenPayment = strictToken && 
-        paymentMetadata?.paymentMethod === 'spl-tokens' && 
-        strictToken === paymentMetadata.tokenAddress;
+      const isStrictTokenPayment = !!strictToken;
       
       if (isStrictTokenPayment) {
         // For strict token payments, set currency unit to the strict token symbol
