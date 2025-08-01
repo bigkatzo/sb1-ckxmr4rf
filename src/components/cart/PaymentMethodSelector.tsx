@@ -4,6 +4,8 @@ import { Coins, CreditCard, Wallet, Link, Search, Copy, Check, AlertTriangle, Ch
 import { Button } from '../ui/Button';
 import { toast } from 'react-toastify';
 import { tokenService } from '../../services/tokenService';
+import { SOLANA_CONNECTION } from '../../config/solana';
+import { PublicKey } from '@solana/web3.js';
 
 export interface PaymentMethod {
   type: 'default' | 'stripe' | 'spl-tokens' | 'cross-chain';
@@ -255,143 +257,229 @@ export function PaymentMethodSelector({
     }
   };
 
-// DexScreener API price quote function
-  const getDexScreenerPriceQuote = async (tokenAddress: string): Promise<PriceQuote> => {
-    await new Promise(resolve => setTimeout(resolve, 800));
+// Jupiter API price quote function (primary method)
+const getJupiterPriceQuote = async (tokenAddress: string, baseCurrency: 'sol' | 'usdc', totalAmount: number): Promise<PriceQuote> => {
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  try {
+    // Get the base currency mint address
+    const baseCurrencyMint = baseCurrency === 'usdc' 
+      ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' 
+      : 'So11111111111111111111111111111111111111112';
+    
+    console.log(`Fetching Jupiter quote for ${baseCurrency.toUpperCase()} to ${tokenInfo?.symbol || 'TOKEN'} (${tokenAddress})`);
+    
+    // First, fetch token decimals using Solana connection for accurate conversion
+    let inputDecimals = 6; // Default fallback
+    let outputDecimals = 6; // Default fallback
     
     try {
-      // Get the base currency mint address
-      const baseCurrencyMint = currency.toLowerCase() === 'usdc' 
-        ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' 
-        : 'So11111111111111111111111111111111111111112';
-      
-      // DexScreener API endpoint for getting pair data
-      const dexScreenerUrl = `https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`;
-      
-      console.log(`Fetching DexScreener quote for ${currency.toUpperCase()} to ${tokenInfo?.symbol || 'TOKEN'} (${tokenAddress})`);
-      
-      const response = await fetch(dexScreenerUrl);
-      if (!response.ok) {
-        throw new Error(`DexScreener API error: ${response.status} ${response.statusText}`);
+      // Get base currency decimals from Solana
+      const baseMint = new PublicKey(baseCurrencyMint);
+      const baseMintInfo = await SOLANA_CONNECTION.getParsedAccountInfo(baseMint);
+      if (baseMintInfo.value && 'parsed' in baseMintInfo.value.data) {
+        inputDecimals = (baseMintInfo.value.data as any).parsed.info.decimals;
+        console.log(`Fetched base currency decimals for ${baseCurrency}: ${inputDecimals}`);
       }
       
-      const data = await response.json();
-      
-      if (data && data.pairs && data.pairs.length > 0) {
-        // Find the pair that matches our base currency
-        const targetPair = data.pairs.find((pair: any) => {
-          const baseToken = pair.baseToken?.address?.toLowerCase();
-          const quoteToken = pair.quoteToken?.address?.toLowerCase();
-          const targetAddress = tokenAddress.toLowerCase();
-          const baseAddress = baseCurrencyMint.toLowerCase();
-          
-          // Check if either token matches our target and the other matches our base
-          return (baseToken === targetAddress && quoteToken === baseAddress) ||
-                 (baseToken === baseAddress && quoteToken === targetAddress);
-        });
-        
-        if (targetPair) {
-          // Determine which token is base and which is quote
-          const isBaseTokenTarget = targetPair.baseToken?.address?.toLowerCase() === tokenAddress.toLowerCase();
-          
-          console.log('DexScreener pair found:', {
-            baseToken: targetPair.baseToken?.address,
-            quoteToken: targetPair.quoteToken?.address,
-            priceNative: targetPair.priceNative,
-            priceUsd: targetPair.priceUsd,
-            isBaseTokenTarget,
-            targetAddress: tokenAddress,
-            baseCurrencyMint
-          });
-          
-          let rate;
-          if (isBaseTokenTarget) {
-            // If target token is base token, use priceNative to calculate rate
-            // priceNative is the price of base token in quote token
-            const priceNative = parseFloat(targetPair.priceNative);
-            
-            if (priceNative > 0) {
-              rate = priceNative;
-              console.log(`Target is base token, using priceNative directly: ${rate}`);
-            }
-          } else {
-            // If target token is quote token, use priceNative to calculate rate
-            // priceNative is the price of base token in quote token, so we need to invert it
-            const priceNative = parseFloat(targetPair.priceNative);
-            
-            if (priceNative > 0) {
-              rate = 1 / priceNative;
-              console.log(`Target is quote token, inverting priceNative: 1/${priceNative} = ${rate}`);
-            }
-          }
-          
-          if (rate && rate > 0) {
-            // Calculate how much target token we get for our base currency amount
-            // If rate is "1 base = X target", then for totalAmount base we get: totalAmount / rate
-            const tokenAmount = (totalAmount / rate).toFixed(6);
-            
-            console.log(`Final calculation: ${totalAmount} ${currency.toUpperCase()} / ${rate} = ${tokenAmount} ${tokenInfo?.symbol || 'TOKEN'}`);
-            
-            return {
-              tokenAmount,
-              tokenSymbol: tokenInfo?.symbol || 'TOKEN',
-              tokenName: tokenInfo?.name || 'Custom Token',
-              usdValue: totalAmount.toFixed(6),
-              exchangeRate: rate.toFixed(6),
-              loading: false
-            };
-          }
-        }
-        
-        // If no matching pair found, try to find any pair with the target token
-        const anyPair = data.pairs[0];
-        if (anyPair && anyPair.priceUsd) {
-          const targetPriceUsd = parseFloat(anyPair.priceUsd);
-          const basePriceUsd = currency === 'sol' ? (solRate || 180) : 1; // USDC is $1
-          
-          if (targetPriceUsd > 0 && basePriceUsd > 0) {
-            const rate = basePriceUsd / targetPriceUsd;
-            // Calculate how much target token we get for our base currency amount
-            // If rate is "1 base = X target", then for totalAmount base we get: totalAmount / rate
-            const tokenAmount = (totalAmount / rate).toFixed(6);
-            
-            console.log(`USD fallback calculation: ${totalAmount} ${currency.toUpperCase()} / ${rate} = ${tokenAmount} ${tokenInfo?.symbol || 'TOKEN'}`);
-            
-            return {
-              tokenAmount,
-              tokenSymbol: tokenInfo?.symbol || 'TOKEN',
-              tokenName: tokenInfo?.name || 'Custom Token',
-              usdValue: totalAmount.toFixed(6),
-              exchangeRate: rate.toFixed(6),
-              loading: false
-            };
-          }
-        }
+      // Get target token decimals from Solana
+      const targetMint = new PublicKey(tokenAddress);
+      const targetMintInfo = await SOLANA_CONNECTION.getParsedAccountInfo(targetMint);
+      if (targetMintInfo.value && 'parsed' in targetMintInfo.value.data) {
+        outputDecimals = (targetMintInfo.value.data as any).parsed.info.decimals;
+        console.log(`Fetched target token decimals for ${tokenAddress}: ${outputDecimals}`);
       }
-      
-      throw new Error('No valid pair data found from DexScreener API');
-      
     } catch (error) {
-      console.error('DexScreener API error:', error);
-      const mockRates: { [key: string]: number } = {
-        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1.00, // USDT
-        '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump': 0.85, // FARTCOIN
-        'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 0.000025, // BONK
-      };
+      console.warn(`Failed to fetch token decimals from Solana, using defaults:`, error);
+      // Fallback to known token decimals
+      if (baseCurrencyMint === 'So11111111111111111111111111111111111111112') inputDecimals = 9;
+      if (tokenAddress === 'So11111111111111111111111111111111111111112') outputDecimals = 9;
+    }
+
+    // Convert total amount to smallest unit using correct decimals
+    const amountInSmallestUnit = Math.floor(totalAmount * Math.pow(10, inputDecimals));
+    
+    // Jupiter API endpoint for getting quote
+    const jupiterUrl = `https://quote-api.jup.ag/v6/quote?` +
+      `inputMint=${baseCurrencyMint}&` +
+      `outputMint=${tokenAddress}&` +
+      `amount=${amountInSmallestUnit}&` +
+      `slippageBps=50&` +
+      `onlyDirectRoutes=false&` +
+      `asLegacyTransaction=false`;
+    
+    const response = await fetch(jupiterUrl);
+    if (!response.ok) {
+      throw new Error(`Jupiter API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data && data.outAmount) {
+      // Calculate the output amount in human-readable format
+      const outputAmount = parseInt(data.outAmount) / Math.pow(10, outputDecimals);
       
-      const rate = mockRates[tokenAddress] || Math.random() * 100;
-      const tokenAmount = (totalAmount / rate).toFixed(6);
+      // Calculate exchange rate (how much target token per 1 base currency)
+      const exchangeRate = outputAmount / totalAmount;
+      
+      console.log(`Jupiter quote calculation: ${totalAmount} ${baseCurrency.toUpperCase()} → ${outputAmount} ${tokenInfo?.symbol || 'TOKEN'}`);
+      console.log(`Exchange rate: 1 ${baseCurrency.toUpperCase()} = ${exchangeRate} ${tokenInfo?.symbol || 'TOKEN'}`);
       
       return {
-        tokenAmount,
+        tokenAmount: outputAmount.toFixed(6),
         tokenSymbol: tokenInfo?.symbol || 'TOKEN',
         tokenName: tokenInfo?.name || 'Custom Token',
         usdValue: totalAmount.toFixed(6),
-        exchangeRate: rate.toFixed(6),
+        exchangeRate: exchangeRate.toFixed(6),
         loading: false
       };
     }
-  };
+    
+    throw new Error('No valid quote data from Jupiter API');
+    
+  } catch (error) {
+    console.error('Jupiter API error:', error);
+    throw error; // Re-throw to trigger fallback
+  }
+};
+
+// DexScreener API price quote function (fallback method)
+const getDexScreenerPriceQuote = async (tokenAddress: string): Promise<PriceQuote> => {
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  try {
+    // Get the base currency mint address
+    const baseCurrencyMint = currency.toLowerCase() === 'usdc' 
+      ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' 
+      : 'So11111111111111111111111111111111111111112';
+    
+    // DexScreener API endpoint for getting pair data
+    const dexScreenerUrl = `https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`;
+    
+    console.log(`Fetching DexScreener fallback quote for ${currency.toUpperCase()} to ${tokenInfo?.symbol || 'TOKEN'} (${tokenAddress})`);
+    
+    const response = await fetch(dexScreenerUrl);
+    if (!response.ok) {
+      throw new Error(`DexScreener API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data && data.pairs && data.pairs.length > 0) {
+      // Find the pair that matches our base currency
+      const targetPair = data.pairs.find((pair: any) => {
+        const baseToken = pair.baseToken?.address?.toLowerCase();
+        const quoteToken = pair.quoteToken?.address?.toLowerCase();
+        const targetAddress = tokenAddress.toLowerCase();
+        const baseAddress = baseCurrencyMint.toLowerCase();
+        
+        // Check if either token matches our target and the other matches our base
+        return (baseToken === targetAddress && quoteToken === baseAddress) ||
+               (baseToken === baseAddress && quoteToken === targetAddress);
+      });
+      
+      if (targetPair) {
+        // Determine which token is base and which is quote
+        const isBaseTokenTarget = targetPair.baseToken?.address?.toLowerCase() === tokenAddress.toLowerCase();
+        
+        console.log('DexScreener pair found:', {
+          baseToken: targetPair.baseToken?.address,
+          quoteToken: targetPair.quoteToken?.address,
+          priceNative: targetPair.priceNative,
+          priceUsd: targetPair.priceUsd,
+          isBaseTokenTarget,
+          targetAddress: tokenAddress,
+          baseCurrencyMint
+        });
+        
+        let rate;
+        if (isBaseTokenTarget) {
+          // If target token is base token, use priceNative to calculate rate
+          // priceNative is the price of base token in quote token
+          const priceNative = parseFloat(targetPair.priceNative);
+          
+          if (priceNative > 0) {
+            rate = priceNative;
+            console.log(`Target is base token, using priceNative directly: ${rate}`);
+          }
+        } else {
+          // If target token is quote token, use priceNative to calculate rate
+          // priceNative is the price of base token in quote token, so we need to invert it
+          const priceNative = parseFloat(targetPair.priceNative);
+          
+          if (priceNative > 0) {
+            rate = 1 / priceNative;
+            console.log(`Target is quote token, inverting priceNative: 1/${priceNative} = ${rate}`);
+          }
+        }
+        
+        if (rate && rate > 0) {
+          // Calculate how much target token we get for our base currency amount
+          // If rate is "1 base = X target", then for totalAmount base we get: totalAmount / rate
+          const tokenAmount = (totalAmount / rate).toFixed(6);
+          
+          console.log(`Final calculation: ${totalAmount} ${currency.toUpperCase()} / ${rate} = ${tokenAmount} ${tokenInfo?.symbol || 'TOKEN'}`);
+          
+          return {
+            tokenAmount,
+            tokenSymbol: tokenInfo?.symbol || 'TOKEN',
+            tokenName: tokenInfo?.name || 'Custom Token',
+            usdValue: totalAmount.toFixed(6),
+            exchangeRate: rate.toFixed(6),
+            loading: false
+          };
+        }
+      }
+      
+      // If no matching pair found, try to find any pair with the target token
+      const anyPair = data.pairs[0];
+      if (anyPair && anyPair.priceUsd) {
+        const targetPriceUsd = parseFloat(anyPair.priceUsd);
+        const basePriceUsd = currency === 'sol' ? (solRate || 180) : 1; // USDC is $1
+        
+        if (targetPriceUsd > 0 && basePriceUsd > 0) {
+          const rate = basePriceUsd / targetPriceUsd;
+          // Calculate how much target token we get for our base currency amount
+          // If rate is "1 base = X target", then for totalAmount base we get: totalAmount / rate
+          const tokenAmount = (totalAmount / rate).toFixed(6);
+          
+          console.log(`USD fallback calculation: ${totalAmount} ${currency.toUpperCase()} / ${rate} = ${tokenAmount} ${tokenInfo?.symbol || 'TOKEN'}`);
+          
+          return {
+            tokenAmount,
+            tokenSymbol: tokenInfo?.symbol || 'TOKEN',
+            tokenName: tokenInfo?.name || 'Custom Token',
+            usdValue: totalAmount.toFixed(6),
+            exchangeRate: rate.toFixed(6),
+            loading: false
+          };
+        }
+      }
+    }
+    
+    throw new Error('No valid pair data found from DexScreener API');
+    
+  } catch (error) {
+    console.error('DexScreener API error:', error);
+    const mockRates: { [key: string]: number } = {
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 1.00, // USDT
+      '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump': 0.85, // FARTCOIN
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 0.000025, // BONK
+    };
+    
+    const rate = mockRates[tokenAddress] || Math.random() * 100;
+    const tokenAmount = (totalAmount / rate).toFixed(6);
+    
+    return {
+      tokenAmount,
+      tokenSymbol: tokenInfo?.symbol || 'TOKEN',
+      tokenName: tokenInfo?.name || 'Custom Token',
+      usdValue: totalAmount.toFixed(6),
+      exchangeRate: rate.toFixed(6),
+      loading: false
+    };
+  }
+};
 
   // Function to get price quote
   const fetchPriceQuote = async (tokenAddress?: string, chainId?: number) => {
@@ -412,9 +500,17 @@ export function PaymentMethodSelector({
           ? await onGetPriceQuote('', chainId.toString())
           : await getDeBridgePriceQuote(chainId);
       } else if (tokenAddress) {
-        quote = onGetPriceQuote 
-          ? await onGetPriceQuote(tokenAddress)
-          : await getDexScreenerPriceQuote(tokenAddress);
+        // Try Jupiter first, then fallback to DexScreener
+        // Jupiter provides more accurate quotes with proper decimal handling
+        // DexScreener is used as fallback when Jupiter fails
+        try {
+          quote = onGetPriceQuote 
+            ? await onGetPriceQuote(tokenAddress)
+            : await getJupiterPriceQuote(tokenAddress, currency, totalAmount);
+        } catch (jupiterError) {
+          console.warn('Jupiter quote failed, trying DexScreener fallback:', jupiterError);
+          quote = await getDexScreenerPriceQuote(tokenAddress);
+        }
       } else {
         throw new Error('No token address or chain ID provided');
       }
@@ -428,7 +524,7 @@ export function PaymentMethodSelector({
         usdValue: '0',
         exchangeRate: '0',
         loading: false,
-        error: 'Failed to get price quote'
+        error: 'Failed to get price quote from Jupiter and DexScreener'
       });
     }
   };
@@ -493,157 +589,280 @@ export function PaymentMethodSelector({
     });
 
     try {
-      // Convert between SOL and USDC using DexScreener API
+      // Convert between SOL and USDC using Jupiter API as primary, DexScreener as fallback
       if (targetToken === 'sol' && currency === 'usdc') {
         // Convert USDC to SOL
         const solMint = 'So11111111111111111111111111111111111111112';
         const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
         
-        // Use DexScreener API to get SOL/USDC pair data
-        const dexScreenerUrl = `https://api.dexscreener.com/latest/dex/pairs/solana/${solMint}`;
-        
-        const response = await fetch(dexScreenerUrl);
-        if (response.ok) {
-          const data = await response.json();
+        try {
+          // Try Jupiter API first
+          console.log('Attempting Jupiter API for USDC → SOL conversion');
           
-          if (data && data.pairs && data.pairs.length > 0) {
-            // Find the SOL/USDC pair
-            const solUsdcPair = data.pairs.find((pair: any) => {
-              const baseToken = pair.baseToken?.address?.toLowerCase();
-              const quoteToken = pair.quoteToken?.address?.toLowerCase();
-              const solAddress = solMint.toLowerCase();
-              const usdcAddress = usdcMint.toLowerCase();
-              
-              return (baseToken === solAddress && quoteToken === usdcAddress) ||
-                     (baseToken === usdcAddress && quoteToken === solAddress);
-            });
+          // Get token decimals from Solana
+          let inputDecimals = 6; // USDC default
+          let outputDecimals = 9; // SOL default
+          
+          try {
+            const usdcMintKey = new PublicKey(usdcMint);
+            const usdcMintInfo = await SOLANA_CONNECTION.getParsedAccountInfo(usdcMintKey);
+            if (usdcMintInfo.value && 'parsed' in usdcMintInfo.value.data) {
+              inputDecimals = (usdcMintInfo.value.data as any).parsed.info.decimals;
+            }
             
-            if (solUsdcPair) {
-              // Determine which token is base and which is quote
-              const isSolBase = solUsdcPair.baseToken?.address?.toLowerCase() === solMint.toLowerCase();
+            const solMintKey = new PublicKey(solMint);
+            const solMintInfo = await SOLANA_CONNECTION.getParsedAccountInfo(solMintKey);
+            if (solMintInfo.value && 'parsed' in solMintInfo.value.data) {
+              outputDecimals = (solMintInfo.value.data as any).parsed.info.decimals;
+            }
+          } catch (error) {
+            console.warn('Failed to fetch token decimals from Solana, using defaults:', error);
+          }
+          
+          const amountInSmallestUnit = Math.floor(totalAmount * Math.pow(10, inputDecimals));
+          
+          const jupiterUrl = `https://quote-api.jup.ag/v6/quote?` +
+            `inputMint=${usdcMint}&` +
+            `outputMint=${solMint}&` +
+            `amount=${amountInSmallestUnit}&` +
+            `slippageBps=50&` +
+            `onlyDirectRoutes=false&` +
+            `asLegacyTransaction=false`;
+          
+          const response = await fetch(jupiterUrl);
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data && data.outAmount) {
+              const solAmount = parseInt(data.outAmount) / Math.pow(10, outputDecimals);
+              const rate = solAmount / totalAmount;
               
-              console.log('SOL/USDC pair found:', {
-                baseToken: solUsdcPair.baseToken?.address,
-                quoteToken: solUsdcPair.quoteToken?.address,
-                priceNative: solUsdcPair.priceNative,
-                priceUsd: solUsdcPair.priceUsd,
-                isSolBase,
-                conversion: `${currency} → ${targetToken}`
+              console.log(`Jupiter USDC→SOL calculation: ${totalAmount} USDC → ${solAmount} SOL`);
+              
+              const solQuote = {
+                tokenAmount: solAmount.toFixed(6),
+                tokenSymbol: 'SOL',
+                tokenName: 'Solana',
+                usdValue: totalAmount.toFixed(6),
+                exchangeRate: rate.toFixed(6),
+                loading: false
+              };
+              setDefaultTokenQuote(solQuote);
+              
+              // Update total price display
+              if (onTotalPriceChange) {
+                onTotalPriceChange(solQuote.tokenAmount, 'SOL');
+              }
+              return;
+            }
+          }
+          
+          throw new Error('Jupiter API failed for USDC→SOL conversion');
+        } catch (jupiterError) {
+          console.warn('Jupiter API failed, trying DexScreener fallback:', jupiterError);
+          
+          // Fallback to DexScreener
+          const dexScreenerUrl = `https://api.dexscreener.com/latest/dex/pairs/solana/${solMint}`;
+          
+          const response = await fetch(dexScreenerUrl);
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data && data.pairs && data.pairs.length > 0) {
+              // Find the SOL/USDC pair
+              const solUsdcPair = data.pairs.find((pair: any) => {
+                const baseToken = pair.baseToken?.address?.toLowerCase();
+                const quoteToken = pair.quoteToken?.address?.toLowerCase();
+                const solAddress = solMint.toLowerCase();
+                const usdcAddress = usdcMint.toLowerCase();
+                
+                return (baseToken === solAddress && quoteToken === usdcAddress) ||
+                       (baseToken === usdcAddress && quoteToken === solAddress);
               });
               
-              let rate;
-              if (isSolBase) {
-                // If SOL is base token, priceNative is SOL price in USDC
-                const priceNative = parseFloat(solUsdcPair.priceNative);
-                if (priceNative > 0) {
-                  rate = priceNative; // 1 SOL = rate USDC
-                  console.log(`SOL is base, using priceNative directly: 1 SOL = ${rate} USDC`);
-                }
-              } else {
-                // If SOL is quote token, priceNative is USDC price in SOL
-                const priceNative = parseFloat(solUsdcPair.priceNative);
-                if (priceNative > 0) {
-                  rate = 1 / priceNative; // 1 USDC = 1/rate SOL
-                  console.log(`SOL is quote, inverting priceNative: 1 USDC = ${1/priceNative} SOL`);
-                }
-              }
-              
-              if (rate && rate > 0) {
-                // For USDC → SOL: if rate is "1 SOL = X USDC", then for totalAmount USDC we get: totalAmount / rate SOL
-                const solAmount = (totalAmount / rate).toFixed(6);
+              if (solUsdcPair) {
+                // Determine which token is base and which is quote
+                const isSolBase = solUsdcPair.baseToken?.address?.toLowerCase() === solMint.toLowerCase();
                 
-                console.log(`USDC→SOL calculation: ${totalAmount} USDC / ${rate} = ${solAmount} SOL`);
-                
-                const solQuote = {
-                  tokenAmount: solAmount,
-                  tokenSymbol: 'SOL',
-                  tokenName: 'Solana',
-                  usdValue: totalAmount.toFixed(6),
-                  exchangeRate: rate.toFixed(2),
-                  loading: false
-                };
-                setDefaultTokenQuote(solQuote);
-                
-                // Update total price display
-                if (onTotalPriceChange) {
-                  onTotalPriceChange(solQuote.tokenAmount, 'SOL');
+                let rate;
+                if (isSolBase) {
+                  // If SOL is base token, priceNative is SOL price in USDC
+                  const priceNative = parseFloat(solUsdcPair.priceNative);
+                  if (priceNative > 0) {
+                    rate = priceNative; // 1 SOL = rate USDC
+                  }
+                } else {
+                  // If SOL is quote token, priceNative is USDC price in SOL
+                  const priceNative = parseFloat(solUsdcPair.priceNative);
+                  if (priceNative > 0) {
+                    rate = 1 / priceNative; // 1 USDC = 1/rate SOL
+                  }
                 }
-                return;
+                
+                if (rate && rate > 0) {
+                  // For USDC → SOL: if rate is "1 SOL = X USDC", then for totalAmount USDC we get: totalAmount / rate SOL
+                  const solAmount = (totalAmount / rate).toFixed(6);
+                  
+                  console.log(`DexScreener USDC→SOL calculation: ${totalAmount} USDC / ${rate} = ${solAmount} SOL`);
+                  
+                  const solQuote = {
+                    tokenAmount: solAmount,
+                    tokenSymbol: 'SOL',
+                    tokenName: 'Solana',
+                    usdValue: totalAmount.toFixed(6),
+                    exchangeRate: rate.toFixed(2),
+                    loading: false
+                  };
+                  setDefaultTokenQuote(solQuote);
+                  
+                  // Update total price display
+                  if (onTotalPriceChange) {
+                    onTotalPriceChange(solQuote.tokenAmount, 'SOL');
+                  }
+                  return;
+                }
               }
             }
           }
+          
+          throw new Error('Failed to get SOL quote from DexScreener');
         }
-        
-        throw new Error('Failed to get SOL quote from DexScreener');
       } else if (targetToken === 'usdc' && currency === 'sol') {
         // Convert SOL to USDC
         const solMint = 'So11111111111111111111111111111111111111112';
         const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
         
-        // Use DexScreener API to get SOL/USDC pair data
-        const dexScreenerUrl = `https://api.dexscreener.com/latest/dex/pairs/solana/${solMint}`;
-        
-        const response = await fetch(dexScreenerUrl);
-        if (response.ok) {
-          const data = await response.json();
+        try {
+          // Try Jupiter API first
+          console.log('Attempting Jupiter API for SOL → USDC conversion');
           
-          if (data && data.pairs && data.pairs.length > 0) {
-            // Find the SOL/USDC pair
-            const solUsdcPair = data.pairs.find((pair: any) => {
-              const baseToken = pair.baseToken?.address?.toLowerCase();
-              const quoteToken = pair.quoteToken?.address?.toLowerCase();
-              const solAddress = solMint.toLowerCase();
-              const usdcAddress = usdcMint.toLowerCase();
-              
-              return (baseToken === solAddress && quoteToken === usdcAddress) ||
-                     (baseToken === usdcAddress && quoteToken === solAddress);
-            });
+          // Get token decimals from Solana
+          let inputDecimals = 9; // SOL default
+          let outputDecimals = 6; // USDC default
+          
+          try {
+            const solMintKey = new PublicKey(solMint);
+            const solMintInfo = await SOLANA_CONNECTION.getParsedAccountInfo(solMintKey);
+            if (solMintInfo.value && 'parsed' in solMintInfo.value.data) {
+              inputDecimals = (solMintInfo.value.data as any).parsed.info.decimals;
+            }
             
-            if (solUsdcPair) {
-              // Determine which token is base and which is quote
-              const isSolBase = solUsdcPair.baseToken?.address?.toLowerCase() === solMint.toLowerCase();
+            const usdcMintKey = new PublicKey(usdcMint);
+            const usdcMintInfo = await SOLANA_CONNECTION.getParsedAccountInfo(usdcMintKey);
+            if (usdcMintInfo.value && 'parsed' in usdcMintInfo.value.data) {
+              outputDecimals = (usdcMintInfo.value.data as any).parsed.info.decimals;
+            }
+          } catch (error) {
+            console.warn('Failed to fetch token decimals from Solana, using defaults:', error);
+          }
+          
+          const amountInSmallestUnit = Math.floor(totalAmount * Math.pow(10, inputDecimals));
+          
+          const jupiterUrl = `https://quote-api.jup.ag/v6/quote?` +
+            `inputMint=${solMint}&` +
+            `outputMint=${usdcMint}&` +
+            `amount=${amountInSmallestUnit}&` +
+            `slippageBps=50&` +
+            `onlyDirectRoutes=false&` +
+            `asLegacyTransaction=false`;
+          
+          const response = await fetch(jupiterUrl);
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data && data.outAmount) {
+              const usdcAmount = parseInt(data.outAmount) / Math.pow(10, outputDecimals);
+              const rate = usdcAmount / totalAmount;
               
-              let rate;
-              if (isSolBase) {
-                // If SOL is base token, priceNative is SOL price in USDC
-                const priceNative = parseFloat(solUsdcPair.priceNative);
-                if (priceNative > 0) {
-                  rate = priceNative; // 1 SOL = rate USDC
-                }
-              } else {
-                // If SOL is quote token, priceNative is USDC price in SOL
-                const priceNative = parseFloat(solUsdcPair.priceNative);
-                if (priceNative > 0) {
-                  rate = 1 / priceNative; // 1 USDC = 1/rate SOL
-                }
+              console.log(`Jupiter SOL→USDC calculation: ${totalAmount} SOL → ${usdcAmount} USDC`);
+              
+              const usdcQuote = {
+                tokenAmount: usdcAmount.toFixed(6),
+                tokenSymbol: 'USDC',
+                tokenName: 'USD Coin',
+                usdValue: totalAmount.toFixed(6),
+                exchangeRate: rate.toFixed(6),
+                loading: false
+              };
+              setDefaultTokenQuote(usdcQuote);
+              
+              // Update total price display
+              if (onTotalPriceChange) {
+                onTotalPriceChange(usdcQuote.tokenAmount, 'USDC');
               }
+              return;
+            }
+          }
+          
+          throw new Error('Jupiter API failed for SOL→USDC conversion');
+        } catch (jupiterError) {
+          console.warn('Jupiter API failed, trying DexScreener fallback:', jupiterError);
+          
+          // Fallback to DexScreener
+          const dexScreenerUrl = `https://api.dexscreener.com/latest/dex/pairs/solana/${solMint}`;
+          
+          const response = await fetch(dexScreenerUrl);
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data && data.pairs && data.pairs.length > 0) {
+              // Find the SOL/USDC pair
+              const solUsdcPair = data.pairs.find((pair: any) => {
+                const baseToken = pair.baseToken?.address?.toLowerCase();
+                const quoteToken = pair.quoteToken?.address?.toLowerCase();
+                const solAddress = solMint.toLowerCase();
+                const usdcAddress = usdcMint.toLowerCase();
+                
+                return (baseToken === solAddress && quoteToken === usdcAddress) ||
+                       (baseToken === usdcAddress && quoteToken === solAddress);
+              });
               
-              if (rate && rate > 0) {
-                const usdcAmount = (totalAmount * rate).toFixed(6);
+              if (solUsdcPair) {
+                // Determine which token is base and which is quote
+                const isSolBase = solUsdcPair.baseToken?.address?.toLowerCase() === solMint.toLowerCase();
                 
-                console.log(`SOL→USDC calculation: ${totalAmount} SOL * ${rate} = ${usdcAmount} USDC`);
-                
-                const usdcQuote = {
-                  tokenAmount: usdcAmount,
-                  tokenSymbol: 'USDC',
-                  tokenName: 'USD Coin',
-                  usdValue: totalAmount.toFixed(6),
-                  exchangeRate: rate.toFixed(2),
-                  loading: false
-                };
-                setDefaultTokenQuote(usdcQuote);
-                
-                // Update total price display
-                if (onTotalPriceChange) {
-                  onTotalPriceChange(usdcQuote.tokenAmount, 'USDC');
+                let rate;
+                if (isSolBase) {
+                  // If SOL is base token, priceNative is SOL price in USDC
+                  const priceNative = parseFloat(solUsdcPair.priceNative);
+                  if (priceNative > 0) {
+                    rate = priceNative; // 1 SOL = rate USDC
+                  }
+                } else {
+                  // If SOL is quote token, priceNative is USDC price in SOL
+                  const priceNative = parseFloat(solUsdcPair.priceNative);
+                  if (priceNative > 0) {
+                    rate = 1 / priceNative; // 1 USDC = 1/rate SOL
+                  }
                 }
-                return;
+                
+                if (rate && rate > 0) {
+                  const usdcAmount = (totalAmount * rate).toFixed(6);
+                  
+                  console.log(`DexScreener SOL→USDC calculation: ${totalAmount} SOL * ${rate} = ${usdcAmount} USDC`);
+                  
+                  const usdcQuote = {
+                    tokenAmount: usdcAmount,
+                    tokenSymbol: 'USDC',
+                    tokenName: 'USD Coin',
+                    usdValue: totalAmount.toFixed(6),
+                    exchangeRate: rate.toFixed(2),
+                    loading: false
+                  };
+                  setDefaultTokenQuote(usdcQuote);
+                  
+                  // Update total price display
+                  if (onTotalPriceChange) {
+                    onTotalPriceChange(usdcQuote.tokenAmount, 'USDC');
+                  }
+                  return;
+                }
               }
             }
           }
+          
+          throw new Error('Failed to get USDC quote from DexScreener');
         }
-        
-        throw new Error('Failed to get USDC quote from DexScreener');
       }
     } catch (error) {
       console.error(`Failed to get ${targetToken} quote:`, error);
@@ -944,7 +1163,7 @@ export function PaymentMethodSelector({
                   {defaultTokenQuote.loading ? (
                     <div className="flex items-center gap-2 py-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                      <span className="text-sm text-gray-400">Fetching {defaultTokenQuote.tokenSymbol} price...</span>
+                      <span className="text-sm text-gray-400">Fetching {defaultTokenQuote.tokenSymbol} price via Jupiter...</span>
                     </div>
                   ) : defaultTokenQuote.error ? (
                     <div className="text-sm text-red-400 py-2">{defaultTokenQuote.error}</div>
@@ -1283,7 +1502,7 @@ export function PaymentMethodSelector({
                   {priceQuote.loading ? (
                     <div className="flex items-center gap-2 py-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                      <span className="text-sm text-gray-400">Fetching price via DexScreener...</span>
+                      <span className="text-sm text-gray-400">Fetching price via Jupiter...</span>
                     </div>
                   ) : priceQuote.error ? (
                     <div className="text-sm text-red-400 py-2">{priceQuote.error}</div>
@@ -1313,7 +1532,7 @@ export function PaymentMethodSelector({
                       </div>
                       {priceQuote.tokenSymbol !== currency.toUpperCase() && (
                         <div className="text-xs text-blue-400 mt-2">
-                          Will be swapped to {currency.toUpperCase()} via DexScreener
+                          Will be swapped to {currency.toUpperCase()} via Jupiter
                         </div>
                       )}
                     </div>

@@ -500,6 +500,8 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
         const amount = 1;
         const inputDecimals = baseCurrency === 'SOL' ? 9 : 6; // SOL has 9 decimals, USDC has 6
         const amountInSmallestUnit = Math.floor(amount * Math.pow(10, inputDecimals));
+
+        console.log(`Jupiter API URL: ${amountInSmallestUnit}, ${baseCurrencyMint}, ${targetTokenAddress}`);
         
         const jupiterUrl = `https://quote-api.jup.ag/v6/quote?` +
           `inputMint=${baseCurrencyMint}&` +
@@ -717,25 +719,6 @@ exports.handler = async (event, context) => {
     // Process each item to calculate pricing and merchant wallet amounts
     const processedItems = [];
     
-    // Determine the target currency unit based on payment method and default token
-    let currencyUnit = 'USDC'; // Default fallback
-    if (paymentMetadata?.paymentMethod === 'default') {
-      // For default payment method, use the defaultToken to determine currency
-      currencyUnit = paymentMetadata?.defaultToken?.toUpperCase() === 'SOL' ? 'SOL' : 'USDC';
-    } else if (paymentMetadata?.paymentMethod === 'stripe') {
-      currencyUnit = 'USDC'; // Stripe payments are always in USDC
-    } else if (paymentMetadata?.paymentMethod === 'spl-tokens') {
-      // For SPL tokens, check if any product has a strict token requirement
-      // We'll determine this after fetching product data from backend
-      currencyUnit = 'USDC'; // Default to USDC, will be updated if strict token is found
-    } else if (paymentMetadata?.paymentMethod === 'cross-chain') {
-      currencyUnit = 'USDC'; // Cross-chain payments are in USDC
-    } else {
-      currencyUnit = 'USDC'; // Default to USDC for any other payment method
-    }
-
-    console.log(`Payment method: ${paymentMetadata?.paymentMethod}, Default token: ${paymentMetadata?.defaultToken}, Currency unit: ${currencyUnit}`);
-
     // Initialize solRate as null - will be fetched only when needed
     let solRate = null;
 
@@ -759,52 +742,102 @@ exports.handler = async (event, context) => {
 
       let itemTotalInTarget;
       let conversionRate;
-      let itemCurrencyUnit = currencyUnit; // Default to global currency unit
+      let itemCurrencyUnit;
       
-      // Check if this is a strict token payment using backend data
-      const isStrictTokenPayment = !!strictToken && paymentMetadata?.paymentMethod === 'spl-tokens';
-      
-      if (isStrictTokenPayment) {
-        // For strict token payments, set currency unit to the strict token symbol
-        itemCurrencyUnit = paymentMetadata.tokenSymbol?.toUpperCase() || 'SNS';
+      // 1. DEFAULT PAYMENT METHOD
+      if (paymentMetadata?.paymentMethod === 'default') {
+        const defaultToken = paymentMetadata?.defaultToken?.toUpperCase() || 'USDC';
+        itemCurrencyUnit = defaultToken;
         
-        // Check if base currency and target currency are the same
-        if (baseCurrency.toUpperCase() === itemCurrencyUnit) {
+        // If base currency and default token are the same, no conversion needed
+        if (baseCurrency.toUpperCase() === defaultToken) {
+          itemTotalInTarget = itemTotalInBase;
+          conversionRate = 1;
+          console.log(`Default payment - same currency: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget} ${itemCurrencyUnit} (no conversion needed)`);
+        } else {
+          // Convert using solRate only for SOL/USDC conversions
+          if (!solRate) {
+            solRate = await getSolanaRate();
+          }
+          itemTotalInTarget = convertCurrency(itemTotalInBase, baseCurrency, itemCurrencyUnit, solRate);
+          console.log(`Default payment - converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit}`);
+        }
+      }
+      // 2. SPL-TOKENS PAYMENT METHOD
+      else if (paymentMetadata?.paymentMethod === 'spl-tokens') {
+        // Check if this item has a strict token requirement
+        if (strictToken) {
+          // i) Strict token scenario - convert to the strict token
+          itemCurrencyUnit = paymentMetadata.tokenSymbol?.toUpperCase() || 'SNS';
+          
+          if (baseCurrency.toUpperCase() === itemCurrencyUnit) {
+            // Same currency - no conversion needed
+            itemTotalInTarget = itemTotalInBase;
+            conversionRate = 1;
+            console.log(`SPL strict token - same currency: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget} ${itemCurrencyUnit} (no conversion needed)`);
+          } else {
+            // Convert from base currency to strict token
+            conversionRate = await getTokenConversionRate(
+              baseCurrency, 
+              paymentMetadata.tokenAddress, 
+              paymentMetadata.tokenSymbol
+            );
+            itemTotalInTarget = itemTotalInBase / conversionRate;
+            console.log(`SPL strict token - converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (rate: ${conversionRate})`);
+          }
+        } else {
+          // ii) Not strict token - convert to USDC
+          itemCurrencyUnit = 'USDC';
+          
+          if (baseCurrency.toUpperCase() === 'USDC') {
+            // Same currency - no conversion needed
+            itemTotalInTarget = itemTotalInBase;
+            conversionRate = 1;
+            console.log(`SPL non-strict token - same currency: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget} ${itemCurrencyUnit} (no conversion needed)`);
+          } else {
+            // Convert SOL to USDC using solRate
+            if (!solRate) {
+              solRate = await getSolanaRate();
+            }
+            itemTotalInTarget = convertCurrency(itemTotalInBase, baseCurrency, itemCurrencyUnit, solRate);
+            console.log(`SPL non-strict token - converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit}`);
+          }
+        }
+      }
+      // 3. STRIPE PAYMENT METHOD
+      else if (paymentMetadata?.paymentMethod === 'stripe') {
+        itemCurrencyUnit = 'USDC';
+        
+        if (baseCurrency.toUpperCase() === 'USDC') {
           // Same currency - no conversion needed
           itemTotalInTarget = itemTotalInBase;
           conversionRate = 1;
-          console.log(`Same currency conversion: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget} ${itemCurrencyUnit} (no conversion needed)`);
+          console.log(`Stripe payment - same currency: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget} ${itemCurrencyUnit} (no conversion needed)`);
         } else {
-          // Convert from base currency to strict token
-          conversionRate = await getTokenConversionRate(
-            baseCurrency, 
-            paymentMetadata.tokenAddress, 
-            paymentMetadata.tokenSymbol
-          );
-          
-          // The rate tells us how much base currency equals 1 target token
-          // So for itemTotalInBase base currency, we get itemTotalInBase / conversionRate target tokens
-          itemTotalInTarget = itemTotalInBase / conversionRate;
-          
-          console.log(`Strict token payment: Converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (rate: ${conversionRate})`);
-        }
-      } else {
-        // Check if base currency and target currency are the same
-        if (baseCurrency.toUpperCase() === itemCurrencyUnit) {
-          // Same currency - no conversion needed
-          itemTotalInTarget = itemTotalInBase;
-          console.log(`Same currency conversion: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget} ${itemCurrencyUnit} (no conversion needed)`);
-        } else {
-          // Use precise currency conversion
-          // Only fetch solRate if we need SOL to USDC conversion
-          if (!solRate && (baseCurrency.toUpperCase() === 'SOL' && itemCurrencyUnit === 'USDC' || 
-                          baseCurrency.toUpperCase() === 'USDC' && itemCurrencyUnit === 'SOL')) {
+          // Convert SOL to USDC using solRate
+          if (!solRate) {
             solRate = await getSolanaRate();
           }
-          
           itemTotalInTarget = convertCurrency(itemTotalInBase, baseCurrency, itemCurrencyUnit, solRate);
-          
-          console.log(`Currency conversion: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (precise calculation)`);
+          console.log(`Stripe payment - converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit}`);
+        }
+      }
+      // 4. OTHER PAYMENT METHODS (cross-chain, etc.) - default to USDC
+      else {
+        itemCurrencyUnit = 'USDC';
+        
+        if (baseCurrency.toUpperCase() === 'USDC') {
+          // Same currency - no conversion needed
+          itemTotalInTarget = itemTotalInBase;
+          conversionRate = 1;
+          console.log(`Other payment method - same currency: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget} ${itemCurrencyUnit} (no conversion needed)`);
+        } else {
+          // Convert SOL to USDC using solRate
+          if (!solRate) {
+            solRate = await getSolanaRate();
+          }
+          itemTotalInTarget = convertCurrency(itemTotalInBase, baseCurrency, itemCurrencyUnit, solRate);
+          console.log(`Other payment method - converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit}`);
         }
       }
 
@@ -836,10 +869,10 @@ exports.handler = async (event, context) => {
         itemTotal: itemTotalInTarget,
         quantity,
         baseCurrency,
-        isStrictTokenPayment: isStrictTokenPayment,
+        isStrictTokenPayment: !!strictToken && paymentMetadata?.paymentMethod === 'spl-tokens',
         itemCurrencyUnit, // Store the currency unit for this specific item
         strictToken, // Store the strict token from backend
-        ...(isStrictTokenPayment && {
+        ...(!!strictToken && paymentMetadata?.paymentMethod === 'spl-tokens' && {
           strictTokenAddress: paymentMetadata.tokenAddress,
           strictTokenSymbol: paymentMetadata.tokenSymbol,
           strictTokenName: paymentMetadata.tokenName,
@@ -856,9 +889,18 @@ exports.handler = async (event, context) => {
     // Determine the final currency unit for the batch
     // If any item is a strict token payment, use that token symbol
     const hasStrictTokenItems = processedItems.some(item => item.isStrictTokenPayment);
-    const finalCurrencyUnit = hasStrictTokenItems ? 
-      processedItems.find(item => item.isStrictTokenPayment)?.itemCurrencyUnit : 
-      currencyUnit;
+    let finalCurrencyUnit;
+    
+    if (hasStrictTokenItems) {
+      // If there are strict token items, use the strict token symbol
+      finalCurrencyUnit = processedItems.find(item => item.isStrictTokenPayment)?.itemCurrencyUnit || 'USDC';
+    } else if (paymentMetadata?.paymentMethod === 'default') {
+      // For default payment method, use the defaultToken
+      finalCurrencyUnit = paymentMetadata?.defaultToken?.toUpperCase() === 'SOL' ? 'SOL' : 'USDC';
+    } else {
+      // For all other payment methods (stripe, spl-tokens without strict tokens, cross-chain, etc.), use USDC
+      finalCurrencyUnit = 'USDC';
+    }
 
     console.log('Merchant wallet amounts:', 
       Object.entries(walletAmounts).map(([wallet, amount]) => 
@@ -892,37 +934,22 @@ exports.handler = async (event, context) => {
           if (isValid) {
             let discountAmount;
             if (coupon.discount_type === 'fixed_sol') {
-              // Convert fixed SOL discount to target currency using precise arithmetic
+              // Convert fixed SOL discount to target currency
               if (finalCurrencyUnit === 'SOL') {
+                // Same currency - no conversion needed
                 discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
               } else if (finalCurrencyUnit === 'USDC') {
-                // Convert SOL discount to USDC using precise arithmetic
-                // Only fetch solRate if not already fetched
+                // Convert SOL to USDC using solRate
                 if (!solRate) {
                   solRate = await getSolanaRate();
                 }
                 const discountInUSDC = convertCurrency(coupon.discount_value, 'SOL', 'USDC', solRate);
                 discountAmount = Math.min(discountInUSDC, totalPaymentForBatch);
               } else {
-                // For strict token payments, check if the strict token is SOL
-                const hasStrictTokenProduct = processedItems.some(item => item.strictToken);
-                if (hasStrictTokenProduct && paymentMetadata?.tokenAddress && paymentMetadata?.tokenSymbol) {
-                  const strictTokenSymbol = paymentMetadata.tokenSymbol?.toUpperCase();
-                  
-                  if (strictTokenSymbol === 'SOL') {
-                    // If strict token is SOL, no conversion needed
-                    discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
-                  } else {
-                    // Convert SOL discount to strict token using precise arithmetic
-                    const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, paymentMetadata.tokenSymbol);
-                    // The rate tells us how much SOL equals 1 target token
-                    // So for coupon.discount_value SOL, we get coupon.discount_value / conversionRate target tokens
-                    const discountInStrictToken = coupon.discount_value / conversionRate;
-                    discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
-                  }
-                } else {
-                  discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
-                }
+                // For strict token payments, convert SOL to strict token
+                const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, paymentMetadata.tokenSymbol);
+                const discountInStrictToken = coupon.discount_value / conversionRate;
+                discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
               }
             } else {
               // Percentage discount - use precise arithmetic
@@ -1019,12 +1046,10 @@ exports.handler = async (event, context) => {
           receiverWallet,
           currencyUnit: finalCurrencyUnit, // Use the final currency unit for the batch
           // Add strict token information using backend data
-          isStrictTokenPayment: processedItem.strictToken && 
-            paymentMetadata?.paymentMethod === 'spl-tokens' && 
-            processedItem.strictToken === paymentMetadata?.tokenAddress,
-          strictTokenAddress: paymentMetadata?.tokenAddress,
-          strictTokenSymbol: paymentMetadata?.tokenSymbol,
-          strictTokenName: paymentMetadata?.tokenName,
+          isStrictTokenPayment: processedItem.isStrictTokenPayment,
+          strictTokenAddress: processedItem.strictTokenAddress,
+          strictTokenSymbol: processedItem.strictTokenSymbol,
+          strictTokenName: processedItem.strictTokenName,
           ...(processedItem.isStrictTokenPayment && {
             conversionRate: processedItem.conversionRate
           })
