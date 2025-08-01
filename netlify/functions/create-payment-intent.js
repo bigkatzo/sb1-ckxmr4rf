@@ -58,7 +58,6 @@ exports.handler = async (event, context) => {
     } = JSON.parse(event.body);
     
     console.log('Payment details:', {
-      solAmount,
       walletAddress: walletAddress || 'stripe',
       orderId,
       batchOrderId,
@@ -130,15 +129,43 @@ exports.handler = async (event, context) => {
     });
 
     // Extract order information
-    // const totalAmount = existingOrder.amount;
     const paymentMetadata = existingOrder.payment_metadata;
+    
+    if (!paymentMetadata || typeof paymentMetadata !== 'object') {
+      console.error('Invalid payment metadata:', paymentMetadata);
+      return {
+        statusCode: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'Invalid payment metadata',
+          details: 'Payment metadata is missing or invalid'
+        })
+      };
+    }
+    
     const totalAmount = paymentMetadata.totalPaymentAmount;
+    
+    if (typeof totalAmount !== 'number' || totalAmount <= 0) {
+      console.error('Invalid total amount:', totalAmount);
+      return {
+        statusCode: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'Invalid payment amount',
+          details: `Total payment amount must be a positive number, received: ${totalAmount}`
+        })
+      };
+    }
 
-    // Regular payment flow for non-free orders
-    // Calculate USD amount, ensuring minimum of $0.50
-
-    const solPrice = await exports.getSolanaPrice();
-    const usdAmount = Math.max(totalAmount * solPrice, 0.50);
+    // The totalAmount is already in USD/USDC from the batch order creation
+    // For Stripe payments, we need to convert to cents and ensure minimum of $0.50
+    const usdAmount = Math.max(totalAmount, 0.50);
     const amountInCents = Math.round(usdAmount * 100);
 
     // Prepare Stripe metadata (flat key-value pairs only)
@@ -149,6 +176,22 @@ exports.handler = async (event, context) => {
       lastName: shippingInfo.contact_info?.lastName || ''
     };
     
+    // Validate shipping info
+    if (!shippingInfo?.shipping_address?.address || !shippingInfo?.shipping_address?.city || !shippingInfo?.shipping_address?.country) {
+      console.error('Missing required shipping information:', shippingInfo);
+      return {
+        statusCode: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'Missing shipping information',
+          details: 'Address, city, and country are required'
+        })
+      };
+    }
+    
     // Create FLAT metadata object with string values only
     const stripeMetadata = {
       orderIdStr: String(orderId || ''),
@@ -156,12 +199,17 @@ exports.handler = async (event, context) => {
       productNameStr: String(productName || '').substring(0, 100),
       customerName: `${simplifiedContact.firstName} ${simplifiedContact.lastName}`.substring(0, 100),
       walletStr: String(walletAddress || 'stripe').substring(0, 100),
-      amountStr: String(totalAmount || 0),
-      priceStr: String(solPrice || 0)
+      amountStr: String(totalAmount || 0)
     };
 
     console.log('Creating Stripe payment intent with metadata:', stripeMetadata);
     console.log('ORDER ID INCLUDED IN METADATA:', orderId);
+    console.log('Payment amount details:', {
+      totalAmount,
+      usdAmount,
+      amountInCents,
+      currency: 'USD'
+    });
 
     // Create a payment intent with the simplified metadata
     try {
@@ -261,7 +309,6 @@ exports.handler = async (event, context) => {
           orderId: orderId,
           batchOrderId: batchOrderId,
           paymentIntentId: paymentIntent.id,
-          solPrice,
           success: true,
         }),
       };

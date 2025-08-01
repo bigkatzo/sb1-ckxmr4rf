@@ -77,14 +77,12 @@ function StripeCheckoutForm({
   onSuccess,
   couponDiscount = 0,
   originalPrice = 0,
-  solPrice,
   shippingInfo
 }: {
   amount: number;
   onSuccess: (paymentIntentId: string, orderId?: string, batchOrderId?: string) => void;
   couponDiscount?: number;
   originalPrice?: number;
-  solPrice: number;
   shippingInfo: ShippingInfo;
 }) {
   const stripe = useStripe();
@@ -116,11 +114,10 @@ function StripeCheckoutForm({
     e.preventDefault();
     console.log('Payment submission initiated');
 
-    if (!stripe || !elements || !solPrice || paymentStatus === 'processing') {
+    if (!stripe || !elements || paymentStatus === 'processing') {
       console.log('Payment submission blocked:', { 
         hasStripe: !!stripe, 
         hasElements: !!elements, 
-        hasSolPrice: !!solPrice, 
         paymentStatus,
         isPaymentMethodSelected
       });
@@ -196,7 +193,7 @@ function StripeCheckoutForm({
             setError('Payment requires confirmation. Please try again.');
             setPaymentStatus('idle');
             break;
-            
+          
           case 'requires_action':
             setPaymentStatus('requires_action');
             break;
@@ -217,7 +214,7 @@ function StripeCheckoutForm({
       setError('An unexpected error occurred. Please try again.');
       setPaymentStatus('error');
     }
-  }, [stripe, elements, solPrice, paymentStatus, onSuccess]);
+  }, [stripe, elements, paymentStatus, onSuccess]);
 
   // Payment timeout effect
   React.useEffect(() => {
@@ -237,11 +234,9 @@ function StripeCheckoutForm({
     };
   }, [paymentStatus]);
 
-  if (solPrice === 0) {
-    return <Loading type={LoadingType.ACTION} text="Loading price data..." />;
-  }
-
-  const usdAmount = Math.max(amount * solPrice, 0.50).toFixed(2);
+  // The amount is already in USD/USDC, so we don't need to multiply by solPrice
+  // Just ensure minimum payment amount of $0.50
+  const usdAmount = Math.max(amount, 0.50).toFixed(2);
   const isProcessing = paymentStatus === 'processing' || paymentStatus === 'requires_action';
 
   return (
@@ -251,15 +246,15 @@ function StripeCheckoutForm({
           <span className="text-gray-300">Amount:</span>
           <div className="text-right">
             <span className="text-white font-medium">
-              ${usdAmount} <span className="text-gray-400">({amount.toFixed(2)} SOL)</span>
+              ${usdAmount}
             </span>
             {couponDiscount > 0 && originalPrice > 0 && (
               <div className="text-sm">
-                <span className="text-gray-400 line-through">${(originalPrice * solPrice).toFixed(2)}</span>
+                <span className="text-gray-400 line-through">${originalPrice.toFixed(2)}</span>
                 <span className="text-purple-400 ml-2">Coupon applied</span>
               </div>
             )}
-            {amount * solPrice < 0.50 && (
+            {amount < 0.50 && (
               <div className="text-sm text-yellow-400">
                 Adjusted to minimum payment amount ($0.50)
               </div>
@@ -267,7 +262,7 @@ function StripeCheckoutForm({
           </div>
         </div>
         <div className="text-xs text-gray-400">
-          Price updated in real-time based on current SOL/USD rate
+          Payment amount in USD
         </div>
       </div>
 
@@ -347,7 +342,6 @@ export function StripePaymentModal({
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [stripePromise, setStripePromise] = React.useState<Promise<Stripe | null> | null>(null);
-  const [solPrice, setSolPrice] = React.useState<number>(0);
   const { walletAddress } = useWallet();
   const orderProcessedRef = React.useRef(false);
 
@@ -451,7 +445,6 @@ export function StripePaymentModal({
         }
 
         console.log('Setting client secret:', data.clientSecret.substring(0, 10) + '...');
-        setSolPrice(data.solPrice || solPrice);
         
         setClientSecret(data.clientSecret);
       } catch (err) {
@@ -590,7 +583,6 @@ export function StripePaymentModal({
                 <StripeCheckoutForm 
                   amount={amount}
                   onSuccess={handlePaymentSuccess}
-                  solPrice={solPrice}
                   shippingInfo={shippingInfo}
                   couponDiscount={couponDiscount}
                   originalPrice={originalPrice}

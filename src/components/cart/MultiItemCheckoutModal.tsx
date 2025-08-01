@@ -1516,7 +1516,6 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         <StripePaymentModal
           onClose={() => setShowStripeModal(false)}
           onSuccess={handleStripeSuccess}
-          // this amount needs to be converted to usd if sol
           amount={orderData.price || 0}
           productName={`Batch Order - ${items.length} items`}
           orderId={orderData.batchOrderId}
