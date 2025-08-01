@@ -14,7 +14,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const COINGECKO_API = 'https://api.coingecko.com/api/v3';
 
-export async function getSolanaPrice() {
+exports.getSolanaPrice = async function getSolanaPrice() {
   try {
     const response = await fetch(
       `${COINGECKO_API}/simple/price?ids=solana&vs_currencies=usd`
@@ -137,7 +137,7 @@ exports.handler = async (event, context) => {
     // Regular payment flow for non-free orders
     // Calculate USD amount, ensuring minimum of $0.50
 
-    const solPrice = getSolanaPrice();
+    const solPrice = await exports.getSolanaPrice();
     const usdAmount = Math.max(totalAmount * solPrice, 0.50);
     const amountInCents = Math.round(usdAmount * 100);
 
