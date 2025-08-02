@@ -193,7 +193,7 @@ exports.handler = async (event, context) => {
 
   try {
     const { data: coupon, error } = await supabase
-      .from('coupon')
+      .from('coupons')
       .select('*')
       .eq('code', code.toUpperCase())
       .eq('status', 'active')
