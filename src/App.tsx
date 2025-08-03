@@ -15,6 +15,8 @@ import { CartDrawer } from './components/cart/CartDrawer';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { PageTransition } from './components/ui/PageTransition';
 import { PreviewBanner } from './components/ui/PreviewBanner';
+import { PWAInstallPrompt } from './components/ui/PWAInstallPrompt';
+import { PWAStatus } from './components/ui/PWAStatus';
 import { validateEnvironmentVariables } from './utils/env-validation';
 import { setupCachePreloader } from './lib/cache-preloader';
 import { setupRealtimeInvalidation } from './lib/cache';
@@ -98,27 +100,33 @@ function AppContent() {
     
     // Set up realtime health with longer delay to avoid blocking LCP
     const realtimeHealthTimer = setTimeout(() => {
-      setupRealtimeHealth();
-    }, 3000);
+      try {
+        setupRealtimeHealth();
+      } catch (err) {
+        console.error('Failed to set up realtime health monitoring:', err);
+      }
+    }, 6000);
     
     return () => {
-      cleanupPreloader();
-      cleanup();
+      clearTimeout(invalidationTimer);
       clearTimeout(serviceWorkerTimer);
       clearTimeout(realtimeHealthTimer);
-      clearTimeout(invalidationTimer);
       if (realtimeTimer) clearTimeout(realtimeTimer);
+      cleanupPreloader();
+      cleanup();
     };
-  }, [session]); // Add session as dependency
+  }, [session]);
 
   // Wrap the Outlet with PageTransition for smooth navigation
   return (
     <>
       <PreviewBanner />
-    <PageTransition>
-      <Outlet />
-      <CartDrawer />
-    </PageTransition>
+      <PageTransition>
+        <Outlet />
+        <CartDrawer />
+        <PWAInstallPrompt />
+        {import.meta.env.DEV && <PWAStatus />}
+      </PageTransition>
     </>
   );
 }
