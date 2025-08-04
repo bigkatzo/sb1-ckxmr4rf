@@ -62,6 +62,30 @@ const safeParseDate = (date: any): Date => {
   return new Date();
 };
 
+// Helper function to get currency and amount for an order
+const getOrderAmountAndCurrency = (order: Order) => {
+  // Use amount if available, otherwise fallback to amountSol
+  const amount = order.amount ?? order.amountSol;
+  
+  // Determine currency
+  let currency = 'SOL'; // Default to SOL
+  
+  if (order.amount !== null && order.amount !== undefined && order.payment_metadata?.currencyUnit) {
+    currency = order.payment_metadata.currencyUnit;
+  }
+  
+  return { amount, currency };
+};
+
+// Helper function to calculate total quantity from orders
+const calculateTotalQuantity = (orders: Order[]): number => {
+  return orders.reduce((total, order) => {
+    // Use quantity field, default to 1 if null/undefined
+    const quantity = order.quantity ?? 1;
+    return total + quantity;
+  }, 0);
+};
+
 // Update carrier type definition
 type Carrier = {
   key: number;
@@ -474,6 +498,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         "Wallet Address": "wallet_address",
         "Transaction": "transaction_signature",
         "SOL Amount": "ammount_sol",
+        "Amount": "amount",
+        "Quantity": "quantity",
         "Payment Metadata": "payment_metadata"
       };
 
@@ -546,7 +572,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
               case 'order_number':
                 return escapeCSV(order.order_number);
               case 'quantity':
-                return escapeCSV('1'); // Always 1 until we support multiple items per order
+                return escapeCSV(order.quantity ? order.quantity.toString() : '1');
               case 'product_sku':
                 return escapeCSV(order.product_sku || '');
               case 'product_name':
@@ -630,6 +656,10 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                 return escapeCSV(order.transactionSignature || '');
               case 'ammount_sol':
                 return escapeCSV(typeof order.amountSol === 'number' ? order.amountSol.toFixed(2) : '');
+              case 'amount':
+                return escapeCSV(getOrderAmountAndCurrency(order).amount.toFixed(2));
+              case 'quantity':
+                return escapeCSV(order.quantity ? order.quantity.toString() : '1');
               case 'payment_metadata':
                 return order.payment_metadata ? escapeCSV(JSON.stringify(order.payment_metadata)) : '';
               default:
@@ -1160,11 +1190,11 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         {/* Order Counter and Refresh Button */}
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-400">
-            Showing {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''}
+            Showing {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''} ({calculateTotalQuantity(filteredOrders)} items)
           </span>
           {dateFilter !== 'all' && (
             <span className="text-xs text-gray-500">
-              ({orders.length} total)
+              ({orders.length} total orders, {calculateTotalQuantity(orders)} total items)
             </span>
           )}
           {refreshOrders && (
@@ -1400,7 +1430,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                     {/* Price Section */}
                     <div className="flex flex-wrap gap-2 mt-4">
                       <div className="flex flex-col gap-2">
-                          <p className="text-gray-400 text-xs">Amount: {order.amountSol} SOL</p>
+                          <p className="text-gray-400 text-xs">Amount: {getOrderAmountAndCurrency(order).amount.toFixed(2)} {getOrderAmountAndCurrency(order).currency}</p>
                           <div className="flex flex-wrap items-center gap-1.5">
                             {renderPaymentMetadataTags(order)}
                           </div>
@@ -1410,7 +1440,9 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                     {/* Quantity Section */}
                     <div className="flex flex-wrap gap-2 mt-4">
                       <div className="flex flex-col gap-2">
-                          <p className="text-gray-400 text-xs">Quantity: *<b>{order.total_items_in_batch ?? 1}</b></p>
+                          {(order.quantity && order.quantity > 1) && (
+                            <p className="text-gray-400 text-xs">Quantity: <b>{order.quantity}</b></p>
+                          )}
                         </div>
                     </div>
 

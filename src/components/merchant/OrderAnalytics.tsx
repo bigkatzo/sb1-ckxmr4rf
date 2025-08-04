@@ -78,7 +78,9 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
         solAmount: 0,
         collection: order.collection_name
       };
-      existingProduct.quantity += 1;
+      // Use quantity field, default to 1 if null/undefined
+      const quantity = order.quantity ?? 1;
+      existingProduct.quantity += quantity;
       existingProduct.solAmount += order.amountSol;
       productMap.set(productKey, existingProduct);
     });
@@ -121,10 +123,16 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
     orders.filter(order => isWithinInterval(order.createdAt, timeRange)).length
   , [orders, timeRange]);
 
+  const totalQuantity = useMemo(() => 
+    orders
+      .filter(order => isWithinInterval(order.createdAt, timeRange))
+      .reduce((sum, order) => sum + (order.quantity ?? 1), 0)
+  , [orders, timeRange]);
+
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div className="bg-gray-800 rounded-lg p-3">
           <h3 className="text-xs font-medium text-gray-400">Total Sales</h3>
           <p className="mt-1 text-xl font-semibold text-white">{totalSales.toFixed(2)} SOL</p>
@@ -132,6 +140,10 @@ export function OrderAnalytics({ orders, timeRange }: OrderAnalyticsProps) {
         <div className="bg-gray-800 rounded-lg p-3">
           <h3 className="text-xs font-medium text-gray-400">Total Orders</h3>
           <p className="mt-1 text-xl font-semibold text-white">{totalOrders}</p>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-3">
+          <h3 className="text-xs font-medium text-gray-400">Total Items</h3>
+          <p className="mt-1 text-xl font-semibold text-white">{totalQuantity}</p>
         </div>
       </div>
 
