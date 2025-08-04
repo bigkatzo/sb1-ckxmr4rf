@@ -9,11 +9,14 @@
 const { createClient } = require('@supabase/supabase-js');
 const { v4: uuidv4 } = require('uuid');
 const { verifyEligibilityAccess } = require('./validate-coupons');
+const { createConnectionWithRetry } = require('./shared/rpc-service');
 
 // Environment variables
 const ENV = {
   SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  HELIUS_API_KEY: process.env.HELIUS_API_KEY || process.env.VITE_HELIUS_API_KEY || '',
+  ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY || process.env.VITE_ALCHEMY_API_KEY || ''
 };
 
 // Storage bucket for customization images
@@ -28,6 +31,40 @@ const ALLOWED_MIME_TYPES = [
   'image/webp',
   'image/gif'
 ];
+
+// Solana connection with retry logic (using existing shared service)
+let SOLANA_CONNECTION = null;
+
+/**
+ * Fetch token decimals from Solana blockchain
+ */
+async function getTokenDecimals(tokenAddress) {
+  try {
+    if (!SOLANA_CONNECTION) {
+      SOLANA_CONNECTION = await createConnectionWithRetry(ENV);
+    }
+
+    const { PublicKey } = require('@solana/web3.js');
+    const mint = new PublicKey(tokenAddress);
+    const mintInfo = await SOLANA_CONNECTION.getParsedAccountInfo(mint);
+    
+    if (mintInfo.value && 'parsed' in mintInfo.value.data) {
+      const decimals = mintInfo.value.data.parsed.info.decimals;
+      console.log(`Fetched token decimals for ${tokenAddress}: ${decimals}`);
+      return decimals;
+    }
+    
+    throw new Error('Invalid mint account data');
+  } catch (error) {
+    console.warn(`Failed to fetch token decimals from Solana for ${tokenAddress}, using defaults:`, error);
+    
+    // Fallback to known token decimals
+    if (tokenAddress === 'So11111111111111111111111111111111111111112') return 9; // SOL
+    
+    // Default to 6 decimals for unknown tokens
+    return 6;
+  }
+}
 
 /**
  * Currency utility functions for precise calculations
@@ -498,7 +535,17 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
         
         // Use 1 unit of base currency for the quote
         const amount = 1;
-        const inputDecimals = baseCurrency === 'SOL' ? 9 : 6; // SOL has 9 decimals, USDC has 6
+        
+        // Fetch input decimals dynamically from Solana blockchain
+        let inputDecimals;
+        try {
+          inputDecimals = await getTokenDecimals(baseCurrencyMint);
+          console.log(`Fetched input decimals from Solana for ${baseCurrencyMint}: ${inputDecimals}`);
+        } catch (error) {
+          console.warn(`Failed to fetch input decimals for ${baseCurrencyMint}, using defaults:`, error);
+          inputDecimals = baseCurrency === 'SOL' ? 9 : 6; // Fallback to known decimals
+        }
+        
         const amountInSmallestUnit = amount * Math.pow(10, inputDecimals);
 
         console.log(`Jupiter API URL: ${amountInSmallestUnit}, ${baseCurrencyMint}, ${targetTokenAddress}`);
@@ -520,11 +567,18 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
         
         if (jupiterData && jupiterData.outAmount) {
           // Jupiter returns the exact output amount for the input amount we provided
-          // Use 5 decimal places specifically for SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3
+          // Fetch token decimals dynamically from Solana blockchain
           let outputDecimals = jupiterData.outputDecimals || 6;
-          if (targetTokenAddress === 'SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3') {
-            outputDecimals = 5;
-            console.log(`Using 5 decimal places for SNS token: ${targetTokenAddress}`);
+          
+          // If Jupiter doesn't provide outputDecimals, fetch from Solana
+          if (!jupiterData.outputDecimals) {
+            try {
+              outputDecimals = await getTokenDecimals(targetTokenAddress);
+              console.log(`Fetched output decimals from Solana for ${targetTokenAddress}: ${outputDecimals}`);
+            } catch (error) {
+              console.warn(`Failed to fetch decimals for ${targetTokenAddress}, using default:`, error);
+              outputDecimals = 6; // Default fallback
+            }
           }
           
           const outputAmount = parseInt(jupiterData.outAmount) / Math.pow(10, outputDecimals);

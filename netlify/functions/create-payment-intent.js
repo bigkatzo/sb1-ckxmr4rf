@@ -146,7 +146,7 @@ exports.handler = async (event, context) => {
       };
     }
     
-    const totalAmount = paymentMetadata.totalPaymentAmount;
+    const totalAmount = existingOrder.total_amount_paid_for_batch || existingOrder.amount;
     
     if (typeof totalAmount !== 'number' || totalAmount <= 0) {
       console.error('Invalid total amount:', totalAmount);
