@@ -52,3 +52,20 @@ netlify/functions/manifest.json
 # Auto-generated types
 src/types/database.types.ts
 public/manifest.json
+
+# Android build artifacts and sensitive files
+*.apk
+*.aab
+*.apk.idsig
+*.keystore
+android.keystore
+store_icon.png
+manifest-checksum.txt
+build/
+.gradle/
+gradle/
+gradlew
+gradlew.bat
+settings.gradle
+gradle.properties
+twa-manifest.json

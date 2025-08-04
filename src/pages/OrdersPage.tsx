@@ -44,6 +44,27 @@ const safeParseDate = (date: any): Date => {
   return new Date();
 };
 
+// Helper function to get currency and amount for an order
+const getOrderAmountAndCurrency = (order: Order) => {
+  // Use amount if available, otherwise fallback to amountSol
+  const amount = order.amount ?? order.amountSol ?? 0;
+  
+  // Determine currency
+  let currency = 'SOL'; // Default to SOL
+  
+  if (order.amount !== null && order.amount !== undefined && order.payment_metadata?.currencyUnit) {
+    currency = order.payment_metadata.currencyUnit;
+  }
+  
+  return { amount, currency };
+};
+
+// Helper function to filter orders by status
+const filterOrdersByStatus = (orders: Order[], statusFilter: OrderStatus[]) => {
+  if (statusFilter.length === 0) return orders;
+  return orders.filter(order => statusFilter.includes(order.status));
+};
+
 export function OrdersPage() {
   const { walletAddress, walletAuthToken } = useWallet();
   const { orders, loading, error } = useOrders();
@@ -51,6 +72,9 @@ export function OrdersPage() {
   const prevWalletRef = useRef<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
   const { isAdmin } = useUserRole();
+  
+  // Status filter state
+  const [statusFilter, setStatusFilter] = useState<OrderStatus[]>([]);
   
   // Review menu state
   const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
@@ -390,7 +414,8 @@ export function OrdersPage() {
   };
 
   // Group the orders for display
-  const orderGroups = groupOrdersByBatch(orders);
+  const filteredOrders = filterOrdersByStatus(orders, statusFilter);
+  const orderGroups = groupOrdersByBatch(filteredOrders);
 
   if (!walletAddress) {
     return (
@@ -489,6 +514,38 @@ export function OrdersPage() {
         </div>
       </div>
       
+      {/* Status Filter */}
+      <div className="flex flex-wrap gap-2">
+        {(['draft', 'pending_payment', 'confirmed', 'preparing', 'shipped', 'delivered', 'cancelled'] as OrderStatus[]).map((status) => (
+          <button
+            key={status}
+            onClick={() => {
+              setStatusFilter(prev => 
+                prev.includes(status) 
+                  ? prev.filter(s => s !== status)
+                  : [...prev, status]
+              );
+            }}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              statusFilter.includes(status)
+                ? `${getStatusColor(status)} border border-current`
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+            }`}
+          >
+            {getStatusIcon(status)}
+            <span className="ml-1">{status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}</span>
+          </button>
+        ))}
+        {statusFilter.length > 0 && (
+          <button
+            onClick={() => setStatusFilter([])}
+            className="px-3 py-1.5 rounded-md text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+      
       {/* Debug panel - only visible to admins */}
       {isAdmin && debugMode && (
         <>
@@ -502,6 +559,12 @@ export function OrdersPage() {
           <Package className="h-12 w-12 text-gray-600 mb-4" />
           <h1 className="text-xl font-bold mb-2">No Orders Yet</h1>
           <p className="text-gray-400">You haven't placed any orders yet</p>
+        </div>
+      ) : orderGroups.length === 0 ? (
+        <div className="min-h-[50vh] flex flex-col items-center justify-center text-center">
+          <Package className="h-12 w-12 text-gray-600 mb-4" />
+          <h1 className="text-xl font-bold mb-2">No Orders Match Filters</h1>
+          <p className="text-gray-400">Try adjusting your status filters</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -580,6 +643,9 @@ export function OrdersPage() {
                             </span>
                           )}
                         </div>
+                        {group[0].quantity && group[0].quantity > 1 && (
+                          <p className="text-xs text-gray-400">Quantity: {group[0].quantity}</p>
+                        )}
                         {group[0].product_sku && (
                           <p className="text-xs text-gray-400">SKU: {group[0].product_sku}</p>
                         )}
@@ -591,7 +657,7 @@ export function OrdersPage() {
                           )}
                         </div>
                         <p className="text-gray-400 text-xs mt-2">
-                          Amount: {typeof group[0].amountSol === 'number' ? group[0].amountSol.toFixed(2) : '0.00'} SOL
+                          Amount: {getOrderAmountAndCurrency(group[0]).amount.toFixed(2)} {getOrderAmountAndCurrency(group[0]).currency}
                         </p>
                         
                         {/* Show batch indicator if this is a batch order */}
@@ -759,6 +825,9 @@ export function OrdersPage() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs text-white truncate">{item.product_name}</p>
+                                {item.quantity && item.quantity > 1 && (
+                                  <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                                )}
                                 {item.variant_selections && Array.isArray(item.variant_selections) && item.variant_selections.length > 0 && (
                                   <p className="text-xs text-gray-400 truncate">
                                     {item.variant_selections.map(v => `${v.name}: ${v.value}`).join(', ')}
@@ -766,7 +835,7 @@ export function OrdersPage() {
                                 )}
                               </div>
                               <div className="text-xs text-gray-300 font-medium">
-                                {typeof item.amountSol === 'number' ? item.amountSol.toFixed(2) : '0.00'} SOL
+                                {getOrderAmountAndCurrency(item).amount.toFixed(2)} {getOrderAmountAndCurrency(item).currency}
                               </div>
                             </div>
                           ))}

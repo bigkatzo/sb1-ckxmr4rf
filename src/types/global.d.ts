@@ -10,4 +10,7 @@ interface Window {
       request?: (params: any) => Promise<any>;
     };
   };
+  solflare?: {
+    isSolflare?: boolean;
+  };
 } 

@@ -221,6 +221,8 @@ export function useOrders() {
         walletAddress: order.wallet_address || order.walletAddress || '',
         transactionSignature: order.transaction_signature || order.transactionSignature || '',
         amountSol: Number(order.amount_sol || order.amountSol || 0),
+        amount: order.amount !== undefined ? Number(order.amount) : undefined,
+        quantity: order.quantity !== undefined ? Number(order.quantity) : undefined,
         // Ensure dates are proper Date objects
         createdAt: new Date(order.created_at || order.createdAt || new Date()),
         updatedAt: new Date(order.updated_at || order.updatedAt || new Date()),
@@ -229,7 +231,31 @@ export function useOrders() {
         // Include batch order information
         batch_order_id: order.batch_order_id || undefined,
         item_index: order.item_index || undefined,
-        total_items_in_batch: order.total_items_in_batch || undefined
+        total_items_in_batch: order.total_items_in_batch || undefined,
+        // Add missing required fields
+        user_id: order.user_id || order.userId || '',
+        items: order.items || [],
+        total: Number(order.total || 0),
+        created_at: order.created_at || order.createdAt || new Date().toISOString(),
+        updated_at: order.updated_at || order.updatedAt || new Date().toISOString(),
+        shipping_address: order.shipping_address || order.shippingAddress || {
+          name: '',
+          email: '',
+          address1: '',
+          city: '',
+          state: '',
+          postal_code: '',
+          country: ''
+        },
+        // Add optional fields with defaults
+        payment_metadata: order.payment_metadata || undefined,
+        access_type: order.access_type || undefined,
+        product_image_url: order.product_image_url || undefined,
+        order_variants: order.order_variants || undefined,
+        product_variant_prices: order.product_variant_prices || undefined,
+        status_history: order.status_history || undefined,
+        notes: order.notes || undefined,
+        custom_data: order.custom_data || null
       };
     });
     

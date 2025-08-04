@@ -9,11 +9,14 @@
 const { createClient } = require('@supabase/supabase-js');
 const { v4: uuidv4 } = require('uuid');
 const { verifyEligibilityAccess } = require('./validate-coupons');
+const { createConnectionWithRetry } = require('./shared/rpc-service');
 
 // Environment variables
 const ENV = {
   SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  HELIUS_API_KEY: process.env.HELIUS_API_KEY || process.env.VITE_HELIUS_API_KEY || '',
+  ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY || process.env.VITE_ALCHEMY_API_KEY || ''
 };
 
 // Storage bucket for customization images
@@ -28,6 +31,51 @@ const ALLOWED_MIME_TYPES = [
   'image/webp',
   'image/gif'
 ];
+
+// Solana connection with retry logic (using existing shared service)
+let SOLANA_CONNECTION = null;
+
+/**
+ * Fetch token decimals and symbol from Solana blockchain
+ */
+async function getTokenInfo(tokenAddress) {
+  try {
+    if (!SOLANA_CONNECTION) {
+      SOLANA_CONNECTION = await createConnectionWithRetry(ENV);
+    }
+
+    const { PublicKey } = require('@solana/web3.js');
+    const mint = new PublicKey(tokenAddress);
+    const mintInfo = await SOLANA_CONNECTION.getParsedAccountInfo(mint);
+    
+    if (mintInfo.value && 'parsed' in mintInfo.value.data) {
+      const decimals = mintInfo.value.data.parsed.info.decimals;
+      const symbol = mintInfo.value.data.parsed.info.symbol;
+      console.log(`Fetched token info for ${tokenAddress}: decimals=${decimals}, symbol=${symbol}`);
+      return { decimals, symbol };
+    }
+    
+    throw new Error('Invalid mint account data');
+  } catch (error) {
+    console.warn(`Failed to fetch token info from Solana for ${tokenAddress}, using defaults:`, error);
+    
+    // Fallback to known token info
+    if (tokenAddress === 'So11111111111111111111111111111111111111112') {
+      return { decimals: 9, symbol: 'SOL' };
+    }
+    
+    // Default to 6 decimals and unknown symbol for unknown tokens
+    return { decimals: 6, symbol: 'UNKNOWN' };
+  }
+}
+
+/**
+ * Fetch token decimals from Solana blockchain (legacy function for backward compatibility)
+ */
+async function getTokenDecimals(tokenAddress) {
+  const tokenInfo = await getTokenInfo(tokenAddress);
+  return tokenInfo.decimals;
+}
 
 /**
  * Currency utility functions for precise calculations
@@ -498,7 +546,17 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
         
         // Use 1 unit of base currency for the quote
         const amount = 1;
-        const inputDecimals = baseCurrency === 'SOL' ? 9 : 6; // SOL has 9 decimals, USDC has 6
+        
+        // Fetch input decimals dynamically from Solana blockchain
+        let inputDecimals;
+        try {
+          inputDecimals = await getTokenDecimals(baseCurrencyMint);
+          console.log(`Fetched input decimals from Solana for ${baseCurrencyMint}: ${inputDecimals}`);
+        } catch (error) {
+          console.warn(`Failed to fetch input decimals for ${baseCurrencyMint}, using defaults:`, error);
+          inputDecimals = baseCurrency === 'SOL' ? 9 : 6; // Fallback to known decimals
+        }
+        
         const amountInSmallestUnit = amount * Math.pow(10, inputDecimals);
 
         console.log(`Jupiter API URL: ${amountInSmallestUnit}, ${baseCurrencyMint}, ${targetTokenAddress}`);
@@ -520,11 +578,18 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
         
         if (jupiterData && jupiterData.outAmount) {
           // Jupiter returns the exact output amount for the input amount we provided
-          // Use 5 decimal places specifically for SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3
+          // Fetch token decimals dynamically from Solana blockchain
           let outputDecimals = jupiterData.outputDecimals || 6;
-          if (targetTokenAddress === 'SNS8DJbHc34nKySHVhLGMUUE72ho6igvJaxtq9T3cX3') {
-            outputDecimals = 5;
-            console.log(`Using 5 decimal places for SNS token: ${targetTokenAddress}`);
+          
+          // If Jupiter doesn't provide outputDecimals, fetch from Solana
+          if (!jupiterData.outputDecimals) {
+            try {
+              outputDecimals = await getTokenDecimals(targetTokenAddress);
+              console.log(`Fetched output decimals from Solana for ${targetTokenAddress}: ${outputDecimals}`);
+            } catch (error) {
+              console.warn(`Failed to fetch decimals for ${targetTokenAddress}, using default:`, error);
+              outputDecimals = 6; // Default fallback
+            }
           }
           
           const outputAmount = parseInt(jupiterData.outAmount) / Math.pow(10, outputDecimals);
@@ -778,7 +843,20 @@ exports.handler = async (event, context) => {
         // Check if this item has a strict token requirement
         if (strictToken && strictToken.toUpperCase() !== 'NULL') {
           // i) Strict token scenario - convert to the strict token
-          itemCurrencyUnit = paymentMetadata.tokenSymbol?.toUpperCase() || 'SNS';
+          // Fetch the correct token symbol from the blockchain instead of relying on paymentMetadata.tokenSymbol
+          let correctTokenSymbol = 'SNS'; // Default fallback
+          try {
+            if (paymentMetadata.tokenAddress) {
+              const tokenInfo = await getTokenInfo(paymentMetadata.tokenAddress);
+              correctTokenSymbol = tokenInfo.symbol?.toUpperCase() || 'SNS';
+              console.log(`Fetched correct token symbol from blockchain: ${correctTokenSymbol} for address ${paymentMetadata.tokenAddress}`);
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch token symbol from blockchain, using fallback:`, error);
+            // Keep the default fallback
+          }
+          
+          itemCurrencyUnit = correctTokenSymbol;
           
           if (baseCurrency.toUpperCase() === itemCurrencyUnit) {
             // Same currency - no conversion needed
@@ -790,7 +868,7 @@ exports.handler = async (event, context) => {
             conversionRate = await getTokenConversionRate(
               baseCurrency, 
               paymentMetadata.tokenAddress, 
-              paymentMetadata.tokenSymbol
+              correctTokenSymbol // Use the correct symbol from blockchain
             );
             itemTotalInTarget = itemTotalInBase * conversionRate;
             console.log(`SPL strict token - converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (rate: ${conversionRate})`);
@@ -880,11 +958,11 @@ exports.handler = async (event, context) => {
         quantity,
         baseCurrency,
         isStrictTokenPayment: !!strictToken && strictToken.toUpperCase() !== 'NULL' && paymentMetadata?.paymentMethod === 'spl-tokens',
-        itemCurrencyUnit, // Store the currency unit for this specific item
+        itemCurrencyUnit, // Store the currency unit for this specific item (now using correct symbol from blockchain)
         strictToken, // Store the strict token from backend
         ...(!!strictToken && paymentMetadata?.paymentMethod === 'spl-tokens' && {
           strictTokenAddress: paymentMetadata.tokenAddress,
-          strictTokenSymbol: paymentMetadata.tokenSymbol,
+          strictTokenSymbol: itemCurrencyUnit, // Use the correct symbol from blockchain instead of paymentMetadata.tokenSymbol
           strictTokenName: paymentMetadata.tokenName,
           conversionRate
         })
@@ -957,7 +1035,10 @@ exports.handler = async (event, context) => {
                 discountAmount = Math.min(discountInUSDC, totalPaymentForBatch);
               } else {
                 // For strict token payments, convert SOL to strict token
-                const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, paymentMetadata.tokenSymbol);
+                // Get the correct token symbol from the first strict token item
+                const strictTokenItem = processedItems.find(item => item.isStrictTokenPayment);
+                const correctTokenSymbol = strictTokenItem?.itemCurrencyUnit || 'SNS';
+                const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, correctTokenSymbol);
                 const discountInStrictToken = coupon.discount_value / conversionRate;
                 discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
               }

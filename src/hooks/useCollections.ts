@@ -14,6 +14,8 @@ interface PublicCollection {
   visible: boolean;
   sale_ended: boolean;
   slug: string;
+  ca?: string;
+  strict_token?: string;
   owner_merchant_tier?: string;
 }
 
@@ -133,6 +135,8 @@ export function useCollections(
                 visible: collection.visible,
                 saleEnded: collection.sale_ended,
                 slug: collection.slug,
+                ca: collection.ca || '',
+                strict_token: collection.strict_token || '',
                 ownerMerchantTier: collection.owner_merchant_tier as any,
                 products: [],
                 categories: []
@@ -215,6 +219,8 @@ export function useCollections(
         visible: collection.visible,
         saleEnded: collection.sale_ended,
         slug: collection.slug,
+        ca: collection.ca || '',
+        strict_token: collection.strict_token || '',
         ownerMerchantTier: collection.owner_merchant_tier as any,
         products: [], // Products are loaded separately when needed
         categories: [] // Categories are loaded separately when needed
