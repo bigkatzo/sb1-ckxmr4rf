@@ -257,6 +257,7 @@ export function useMerchantCollections(options: {
             website_url,
             free_notes,
             ca,
+            strict_token,
             theme_primary_color,
             theme_secondary_color,
             theme_background_color,
@@ -275,7 +276,7 @@ export function useMerchantCollections(options: {
           if (!session) throw new Error('No authentication session');
           
           // Build a proper URL manually
-          const url = `${SUPABASE_URL}/rest/v1/merchant_collections?select=id,name,description,image_url,launch_date,featured,visible,sale_ended,slug,user_id,access_type,owner_username,owner_merchant_tier,collection_access(user_id,access_type),custom_url,x_url,telegram_url,dexscreener_url,pumpfun_url,website_url,free_notes,ca,theme_primary_color,theme_secondary_color,theme_background_color,theme_text_color,theme_use_custom,theme_use_classic,theme_logo_url&order=created_at.desc`;
+          const url = `${SUPABASE_URL}/rest/v1/merchant_collections?select=id,name,description,image_url,launch_date,featured,visible,sale_ended,slug,user_id,access_type,owner_username,owner_merchant_tier,collection_access(user_id,access_type),custom_url,x_url,telegram_url,dexscreener_url,pumpfun_url,website_url,free_notes,ca,strict_token,theme_primary_color,theme_secondary_color,theme_background_color,theme_text_color,theme_use_custom,theme_use_classic,theme_logo_url&order=created_at.desc`;
           
           const response = await fetch(url, {
             headers: {
@@ -353,6 +354,7 @@ export function useMerchantCollections(options: {
           telegram_url: collection.telegram_url || '',
           dexscreener_url: collection.dexscreener_url || '',
           ca: collection.ca || '',
+          strict_token: collection.strict_token || '',
           pumpfun_url: collection.pumpfun_url || '',
           website_url: collection.website_url || '',
           free_notes: collection.free_notes || '',
