@@ -127,6 +127,10 @@
                 android:value="@string/orientation"/>
 
             
+                <meta-data
+                    android:name="android.support.customtabs.trusted.ADDITIONAL_TRUSTED_ORIGINS"
+                    android:resource="@array/additional_trusted_origins" />
+            
 
             
 
@@ -146,7 +150,59 @@
             </intent-filter>
 
             
+                <intent-filter android:autoVerify="true">
+                    <action android:name="android.intent.action.VIEW"/>
+                    <category android:name="android.intent.category.DEFAULT" />
+                    <category android:name="android.intent.category.BROWSABLE"/>
+                    <data android:scheme="https"
+                        android:host="https://phantom.app"/>
+                </intent-filter>
+            
+                <intent-filter android:autoVerify="true">
+                    <action android:name="android.intent.action.VIEW"/>
+                    <category android:name="android.intent.category.DEFAULT" />
+                    <category android:name="android.intent.category.BROWSABLE"/>
+                    <data android:scheme="https"
+                        android:host="https://solflare.com"/>
+                </intent-filter>
+            
+                <intent-filter android:autoVerify="true">
+                    <action android:name="android.intent.action.VIEW"/>
+                    <category android:name="android.intent.category.DEFAULT" />
+                    <category android:name="android.intent.category.BROWSABLE"/>
+                    <data android:scheme="https"
+                        android:host="https://backpack.app"/>
+                </intent-filter>
+            
 
+            
+                <intent-filter>
+              <action android:name="android.intent.action.VIEW"/>
+              <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.BROWSABLE"/>
+              <data android:scheme="phantom" />
+          </intent-filter>
+            
+                <intent-filter>
+              <action android:name="android.intent.action.VIEW"/>
+              <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.BROWSABLE"/>
+              <data android:scheme="solflare" />
+          </intent-filter>
+            
+                <intent-filter>
+              <action android:name="android.intent.action.VIEW"/>
+              <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.BROWSABLE"/>
+              <data android:scheme="backpack" />
+          </intent-filter>
+            
+                <intent-filter>
+              <action android:name="android.intent.action.VIEW"/>
+              <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.BROWSABLE"/>
+              <data android:scheme="solana" />
+          </intent-filter>
             
         </activity>
 

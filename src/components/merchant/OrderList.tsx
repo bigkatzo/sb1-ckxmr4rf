@@ -67,10 +67,10 @@ const getOrderAmountAndCurrency = (order: Order) => {
   // Use amount if available, otherwise fallback to amountSol
   const amount = order.amount ?? order.amountSol ?? 0;
   
-  // Determine currency
+  // Determine currency from payment_metadata.currencyUnit, default to SOL
   let currency = 'SOL'; // Default to SOL
   
-  if (order.amount !== null && order.amount !== undefined && order.payment_metadata?.currencyUnit) {
+  if (order.payment_metadata?.currencyUnit) {
     currency = order.payment_metadata.currencyUnit;
   }
   

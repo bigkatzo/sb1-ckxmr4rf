@@ -53,6 +53,8 @@ export function useMerchantOrders(options: UseMerchantOrdersOptions = {}) {
         contactInfo: order.contact_info,
         status: order.status as OrderStatus,
         amountSol: order.amount_sol,
+        amount: order.amount,
+        quantity: order.quantity,
         createdAt: order.created_at,
         updatedAt: order.updated_at,
         product_name: order.product_name || '',

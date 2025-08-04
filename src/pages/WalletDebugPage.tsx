@@ -1,200 +1,146 @@
-import { WalletHeaderAuthTest } from '../debug/WalletHeaderAuthTest';
-import { useSupabaseWithWallet } from '../hooks/useSupabaseWithWallet';
-import { useState, useEffect } from 'react';
+import React from 'react';
+import { MobileWalletTest } from '../components/wallet/MobileWalletTest';
+import { SeamlessWalletButton, WalletConnectionStatus } from '../components/wallet/SeamlessWalletButton';
 import { useWallet } from '../contexts/WalletContext';
+import { useSeamlessWallet } from '../hooks/useSeamlessWallet';
 
 export function WalletDebugPage() {
-  const { client, isAuthenticated, walletAddress, diagnostics } = useSupabaseWithWallet();
-  const { walletAuthToken } = useWallet();
-  const [queryResult, setQueryResult] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [clientInfo, setClientInfo] = useState<any>(null);
-
-  // Get client configuration details for debugging
-  useEffect(() => {
-    if (client) {
-      // Prepare safe-to-display client info
-      const info = {
-        initialized: true,
-        headers: {
-          'X-Wallet-Address': walletAddress,
-          'X-Wallet-Auth-Token': walletAuthToken ? `${walletAuthToken.substring(0, 10)}...` : null,
-          'Authorization': walletAuthToken ? 'Bearer [TOKEN]' : null
-        },
-        dbSchema: 'public',
-        persistSession: false,
-        autoRefreshToken: false,
-        environment: import.meta.env.MODE || 'unknown',
-        hasValidToken: !!walletAuthToken
-      };
-      setClientInfo(info);
-    } else {
-      setClientInfo({
-        initialized: false,
-        reason: diagnostics.reason || 'Unknown initialization failure'
-      });
-    }
-  }, [client, walletAddress, walletAuthToken, diagnostics]);
-
-  const testWalletAuthQuery = async () => {
-    if (!client) {
-      setError('Wallet authentication required');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // Example query using the authenticated client
-      const { data, error: queryError, status, statusText } = await client
-        .from('user_orders')
-        .select('id,order_number,wallet_address,created_at')
-        .limit(5);
-      
-      if (queryError) {
-        throw new Error(queryError.message);
-      }
-      
-      setQueryResult({
-        success: true,
-        data,
-        status,
-        statusText,
-        timestamp: new Date().toISOString()
-      });
-    } catch (err) {
-      console.error('Error testing wallet auth:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setQueryResult(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { isConnected, walletAddress, connect, disconnect } = useWallet();
+  const { availableWallets, connectionStates } = useSeamlessWallet();
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-8">Wallet Authentication Debug</h1>
-      
-      <div className="mb-6">
-        <p className="text-gray-400 mb-4">
-          This page helps you debug wallet authentication issues. It bypasses the Supabase SDK
-          and allows direct testing of the header-based authentication.
-        </p>
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Wallet Debug Page</h1>
         
-        <div className="bg-yellow-900/20 border border-yellow-800 rounded-md p-4 mb-6">
-          <h2 className="text-yellow-400 font-semibold mb-2">Important Information</h2>
-          <ul className="list-disc list-inside text-sm space-y-2">
-            <li>
-              Make sure you've applied the SQL migration <code className="bg-black/30 px-1 rounded">20250616000000_simplified_wallet_header_check.sql</code>
-            </li>
-            <li>
-              The migration creates SQL functions for header-based authentication
-            </li>
-            <li>
-              If this test works but orders still aren't loading, check for potential permission issues
-            </li>
-          </ul>
+        {/* Current Wallet Status */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Current Wallet Status</h2>
+          <div className="space-y-2">
+            <p><strong>Connected:</strong> {isConnected ? 'Yes' : 'No'}</p>
+            <p><strong>Wallet Address:</strong> {walletAddress || 'Not connected'}</p>
+          </div>
+          <div className="mt-4 space-x-2">
+            <button
+              onClick={connect}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              Connect Wallet
+            </button>
+            <button
+              onClick={disconnect}
+              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+            >
+              Disconnect
+            </button>
+          </div>
         </div>
-      </div>
-      
-      <WalletHeaderAuthTest />
-      
-      <div className="mt-12 p-4 bg-gray-800 rounded-lg">
-        <h2 className="text-lg font-semibold mb-4">useSupabaseWithWallet Hook Test</h2>
-        
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <div className="text-sm text-gray-400 mb-1">Authentication Status:</div>
-            <div className="font-mono text-sm bg-gray-700 p-2 rounded">
-              {isAuthenticated 
-                ? <span className="text-green-400">Authenticated ✓</span> 
-                : <span className="text-red-400">Not Authenticated ✗</span>}
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-sm text-gray-400 mb-1">Wallet Address:</div>
-            <div className="font-mono text-sm bg-gray-700 p-2 rounded">{walletAddress || 'Not connected'}</div>
-          </div>
-          
-          <div className="md:col-span-2">
-            <div className="text-sm text-gray-400 mb-1">Auth Token:</div>
-            <div className="font-mono text-xs bg-gray-700 p-2 rounded overflow-auto max-h-20">
-              {walletAuthToken 
-                ? `${walletAuthToken.substring(0, 20)}...` 
-                : 'No token'}
-            </div>
-          </div>
-          
-          <div className="md:col-span-2">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-400 mb-1">Client Status:</div>
-              <div className="text-xs px-2 py-1 rounded bg-gray-700">
-                {client ? 
-                  <span className="text-green-400">Initialized ✓</span> : 
-                  <span className="text-red-400">Not Initialized ✗</span>
-                }
+
+        {/* Seamless Wallet Connection */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Seamless Wallet Connection</h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-medium mb-2">Quick Connect</h3>
+              <div className="space-x-2">
+                <SeamlessWalletButton 
+                  onSuccess={() => console.log('Wallet connected successfully!')}
+                  onError={(error) => console.error('Connection failed:', error)}
+                >
+                  Connect Recommended Wallet
+                </SeamlessWalletButton>
               </div>
             </div>
-            <div className="font-mono text-xs bg-gray-700 p-2 rounded overflow-auto max-h-40">
-              {clientInfo && JSON.stringify(clientInfo, null, 2)}
+
+            <div>
+              <h3 className="font-medium mb-2">Connect Specific Wallet</h3>
+              <div className="space-x-2">
+                <SeamlessWalletButton 
+                  walletName="phantom"
+                  onSuccess={() => console.log('Phantom connected!')}
+                  onError={(error) => console.error('Phantom connection failed:', error)}
+                >
+                  Connect Phantom
+                </SeamlessWalletButton>
+                <SeamlessWalletButton 
+                  walletName="solflare"
+                  onSuccess={() => console.log('Solflare connected!')}
+                  onError={(error) => console.error('Solflare connection failed:', error)}
+                >
+                  Connect Solflare
+                </SeamlessWalletButton>
+                <SeamlessWalletButton 
+                  walletName="backpack"
+                  onSuccess={() => console.log('Backpack connected!')}
+                  onError={(error) => console.error('Backpack connection failed:', error)}
+                >
+                  Connect Backpack
+                </SeamlessWalletButton>
+              </div>
             </div>
+
+            <WalletConnectionStatus />
           </div>
         </div>
-        
-        <div className="mb-6 p-3 bg-gray-900 rounded-md border border-gray-700">
-          <h3 className="text-sm font-medium mb-2 text-blue-400">Diagnostic Information:</h3>
-          <div className="grid grid-cols-2 gap-2 mb-2">
-            <div className={`p-2 text-xs rounded ${diagnostics.hasWallet ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
-              <div className="font-semibold">Wallet Available</div>
-              <div>{diagnostics.hasWallet ? 'Yes' : 'No'}</div>
-            </div>
-            <div className={`p-2 text-xs rounded ${diagnostics.isConnected ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
-              <div className="font-semibold">Wallet Connected</div>
-              <div>{diagnostics.isConnected ? 'Yes' : 'No'}</div>
-            </div>
-            <div className={`p-2 text-xs rounded ${diagnostics.hasToken ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
-              <div className="font-semibold">Auth Token</div>
-              <div>{diagnostics.hasToken ? 'Available' : 'Missing'}</div>
-            </div>
-            <div className={`p-2 text-xs rounded ${diagnostics.hasEnvVars ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
-              <div className="font-semibold">Environment Variables</div>
-              <div>{diagnostics.hasEnvVars ? 'Available' : 'Missing'}</div>
-            </div>
+
+        {/* Wallet Availability Status */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Wallet Availability</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Object.entries(connectionStates).map(([walletName, isAvailable]) => (
+              <div 
+                key={walletName}
+                className={`p-3 rounded border ${
+                  isAvailable 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-gray-50 border-gray-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium capitalize">{walletName}</span>
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    isAvailable 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {isAvailable ? 'Available' : 'Not Available'}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
-          
-          {diagnostics.reason && (
-            <div className="p-2 bg-yellow-900/30 text-yellow-400 text-xs rounded">
-              <div className="font-semibold">Initialization Issue:</div>
-              <div>{diagnostics.reason}</div>
-            </div>
-          )}
         </div>
-        
-        <button
-          onClick={testWalletAuthQuery}
-          disabled={isLoading || !client}
-          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 rounded-md text-white mb-4"
-        >
-          {isLoading ? 'Testing...' : 'Test useSupabaseWithWallet Hook'}
-        </button>
-        
-        {error && (
-          <div className="mb-4 p-3 bg-red-900/30 border border-red-800 rounded-md text-red-300 text-sm">
-            {error}
+
+        {/* Mobile Wallet Test Component */}
+        <MobileWalletTest />
+
+        {/* Additional Debug Information */}
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <h2 className="text-xl font-semibold mb-4">Environment Information</h2>
+          <div className="space-y-2 text-sm">
+            <p><strong>User Agent:</strong> {navigator.userAgent}</p>
+            <p><strong>Platform:</strong> {navigator.platform}</p>
+            <p><strong>Language:</strong> {navigator.language}</p>
+            <p><strong>URL:</strong> {window.location.href}</p>
+            <p><strong>Referrer:</strong> {document.referrer || 'None'}</p>
+            <p><strong>Standalone:</strong> {(window.navigator as any).standalone ? 'Yes' : 'No'}</p>
+            <p><strong>OnLine:</strong> {navigator.onLine ? 'Yes' : 'No'}</p>
           </div>
-        )}
-        
-        {queryResult && (
-          <div className="p-3 bg-gray-900 rounded-md">
-            <h3 className="text-sm font-medium mb-2 text-green-400">Query Results:</h3>
-            <pre className="text-xs overflow-auto max-h-60 bg-black/20 p-2 rounded">
-              {JSON.stringify(queryResult, null, 2)}
-            </pre>
-          </div>
-        )}
+        </div>
+
+        {/* Instructions */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-6">
+          <h2 className="text-xl font-semibold mb-4 text-blue-900">Testing Instructions</h2>
+          <ol className="list-decimal list-inside space-y-2 text-blue-800">
+            <li>Use the "Seamless Wallet Connection" section for the best user experience</li>
+            <li>Try "Connect Recommended Wallet" for automatic wallet selection</li>
+            <li>Use specific wallet buttons to test individual wallet connections</li>
+            <li>Monitor the "Wallet Availability" section to see which wallets are detected</li>
+            <li>Use the "Mobile Wallet Test" section for detailed debugging</li>
+            <li>Check the console for detailed debug information</li>
+            <li>If redirects don't work, try installing the wallet app from the app store</li>
+          </ol>
+        </div>
       </div>
     </div>
   );

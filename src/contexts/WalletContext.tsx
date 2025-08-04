@@ -410,9 +410,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       
       if (walletName) {
         try {
+          console.log(`Wallet not found event triggered for: ${walletName}`);
           const success = await mobileWalletAdapter.redirectToWallet(walletName);
           if (!success) {
             console.warn(`Failed to redirect to ${walletName} wallet`);
+          } else {
+            console.log(`Successfully initiated redirect to ${walletName}`);
           }
         } catch (error) {
           console.error(`Error handling wallet not found for ${walletName}:`, error);
@@ -423,71 +426,26 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     // Add the event listener
     window.addEventListener('wallet-not-found', handleWalletNotFound as EventListener);
 
-    // Enhanced button click interception
-    const interceptWalletButtonClicks = (e: MouseEvent) => {
-      const path = e.composedPath();
-      let walletButton = null;
-      let walletName = null;
-      
-      for (const element of path) {
-        if (element instanceof HTMLElement) {
-          // Check for Phantom button
-          if (
-            (element.classList.contains('wallet-adapter-button') && element.getAttribute('data-id') === 'phantom') ||
-            element.classList.contains('wallet-adapter-button-phantom') ||
-            element.closest('[data-id="phantom"]')
-          ) {
-            walletButton = element;
-            walletName = 'phantom';
-            break;
-          }
-          // Check for Solflare button
-          if (
-            (element.classList.contains('wallet-adapter-button') && element.getAttribute('data-id') === 'solflare') ||
-            element.classList.contains('wallet-adapter-button-solflare') ||
-            element.closest('[data-id="solflare"]')
-          ) {
-            walletButton = element;
-            walletName = 'solflare';
-            break;
-          }
-          // Check for Backpack button
-          if (
-            (element.classList.contains('wallet-adapter-button') && element.getAttribute('data-id') === 'backpack') ||
-            element.classList.contains('wallet-adapter-button-backpack') ||
-            element.closest('[data-id="backpack"]')
-          ) {
-            walletButton = element;
-            walletName = 'backpack';
-            break;
+    // Enhanced button click interception for better TWA support
+    const handleWalletButtonClicks = () => {
+      // Listen for clicks on wallet connection buttons
+      document.addEventListener('click', (event) => {
+        const target = event.target as HTMLElement;
+        if (target && target.textContent && target.textContent.toLowerCase().includes('phantom')) {
+          console.log('Phantom wallet button clicked, checking if wallet is available...');
+          if (!mobileWalletAdapter.isWalletInstalled('phantom')) {
+            console.log('Phantom wallet not detected, attempting redirect...');
+            mobileWalletAdapter.redirectToWallet('phantom');
           }
         }
-      }
-      
-      // If we found a wallet button and the wallet is not installed
-      if (walletButton && walletName) {
-        const isWalletInstalled = mobileWalletAdapter.isWalletInstalled(walletName);
-        
-        if (!isWalletInstalled) {
-          // Prevent default action
-          e.preventDefault();
-          e.stopPropagation();
-          
-          // Dispatch custom event
-          const walletNotFoundEvent = createWalletNotFoundEvent(walletName);
-          window.dispatchEvent(walletNotFoundEvent);
-          
-          return false;
-        }
-      }
+      });
     };
 
-    // Add a global click handler with better event capture
-    document.addEventListener('click', interceptWalletButtonClicks, true);
+    // Initialize enhanced click handling
+    handleWalletButtonClicks();
 
     return () => {
       window.removeEventListener('wallet-not-found', handleWalletNotFound as EventListener);
-      document.removeEventListener('click', interceptWalletButtonClicks, true);
     };
   }, []);
   
