@@ -168,7 +168,7 @@
         data:;
       frame-src 'self' 
         https://*.stripe.com https://*.stripe.network https://js.stripe.com https://hooks.stripe.com 
-        https://*.solana.com https://*.phantom.app https://*.backpack.app;
+        https://*.solana.com https://*.phantom.app https://*.backpack.app https://*.solflare.com;
       img-src 'self' data: blob: 
         https://*.stripe.com https://*.netlify.app https://*.netlify.com 
         https://*.supabase.co https://*.arweave.net https://arweave.net 
