@@ -7,11 +7,17 @@ export function MobileWalletTest() {
     platform: string;
     availableWallets: string[];
     recommendedWallet: string | null;
+    isTWA: boolean;
+    userAgent: string;
+    location: string;
   }>({
     isMobile: false,
     platform: 'unknown',
     availableWallets: [],
-    recommendedWallet: null
+    recommendedWallet: null,
+    isTWA: false,
+    userAgent: '',
+    location: ''
   });
 
   const [redirectResult, setRedirectResult] = useState<string>('');
@@ -21,7 +27,10 @@ export function MobileWalletTest() {
       isMobile: mobileWalletAdapter.isMobile(),
       platform: mobileWalletAdapter.getMobilePlatform(),
       availableWallets: mobileWalletAdapter.getAvailableWallets(),
-      recommendedWallet: mobileWalletAdapter.getRecommendedWallet()
+      recommendedWallet: mobileWalletAdapter.getRecommendedWallet(),
+      isTWA: mobileWalletAdapter.getTWAStatus(),
+      userAgent: navigator.userAgent,
+      location: window.location.href
     };
     
     setTestResults(results);
@@ -41,6 +50,11 @@ export function MobileWalletTest() {
   const resetRedirectAttempts = (walletName: string) => {
     mobileWalletAdapter.resetRedirectAttempts(walletName);
     setRedirectResult(`${walletName} redirect attempts reset`);
+  };
+
+  const testWalletDetection = (walletName: string) => {
+    const isInstalled = mobileWalletAdapter.isWalletInstalled(walletName);
+    setRedirectResult(`${walletName} detection: ${isInstalled ? 'INSTALLED' : 'NOT INSTALLED'}`);
   };
 
   return (
@@ -63,11 +77,30 @@ export function MobileWalletTest() {
             <ul className="space-y-1 text-sm">
               <li><strong>Is Mobile:</strong> {testResults.isMobile ? 'Yes' : 'No'}</li>
               <li><strong>Platform:</strong> {testResults.platform}</li>
+              <li><strong>Is TWA:</strong> {testResults.isTWA ? 'Yes' : 'No'}</li>
               <li><strong>Available Wallets:</strong> {testResults.availableWallets.join(', ') || 'None'}</li>
               <li><strong>Recommended Wallet:</strong> {testResults.recommendedWallet || 'None'}</li>
+              <li><strong>User Agent:</strong> <span className="text-xs break-all">{testResults.userAgent}</span></li>
+              <li><strong>Location:</strong> <span className="text-xs break-all">{testResults.location}</span></li>
             </ul>
           </div>
         )}
+
+        <div className="bg-white p-4 rounded border">
+          <h4 className="font-medium mb-2">Test Wallet Detection:</h4>
+          <div className="space-y-2">
+            {Object.keys(WALLET_CONFIGS).map(walletName => (
+              <div key={walletName} className="flex gap-2">
+                <button
+                  onClick={() => testWalletDetection(walletName)}
+                  className="bg-purple-500 text-white px-3 py-1 rounded text-sm hover:bg-purple-600"
+                >
+                  Detect {walletName}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
 
         <div className="bg-white p-4 rounded border">
           <h4 className="font-medium mb-2">Test Wallet Redirects:</h4>
@@ -93,7 +126,7 @@ export function MobileWalletTest() {
 
         {redirectResult && (
           <div className="bg-white p-4 rounded border">
-            <h4 className="font-medium mb-2">Redirect Result:</h4>
+            <h4 className="font-medium mb-2">Test Result:</h4>
             <p className="text-sm text-gray-700">{redirectResult}</p>
           </div>
         )}
