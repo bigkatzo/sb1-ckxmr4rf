@@ -47,7 +47,7 @@ const safeParseDate = (date: any): Date => {
 // Helper function to get currency and amount for an order
 const getOrderAmountAndCurrency = (order: Order) => {
   // Use amount if available, otherwise fallback to amountSol
-  const amount = order.amount ?? order.amountSol;
+  const amount = order.amount ?? order.amountSol ?? 0;
   
   // Determine currency
   let currency = 'SOL'; // Default to SOL
