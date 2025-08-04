@@ -36,9 +36,9 @@ const ALLOWED_MIME_TYPES = [
 let SOLANA_CONNECTION = null;
 
 /**
- * Fetch token decimals from Solana blockchain
+ * Fetch token decimals and symbol from Solana blockchain
  */
-async function getTokenDecimals(tokenAddress) {
+async function getTokenInfo(tokenAddress) {
   try {
     if (!SOLANA_CONNECTION) {
       SOLANA_CONNECTION = await createConnectionWithRetry(ENV);
@@ -50,20 +50,31 @@ async function getTokenDecimals(tokenAddress) {
     
     if (mintInfo.value && 'parsed' in mintInfo.value.data) {
       const decimals = mintInfo.value.data.parsed.info.decimals;
-      console.log(`Fetched token decimals for ${tokenAddress}: ${decimals}`);
-      return decimals;
+      const symbol = mintInfo.value.data.parsed.info.symbol;
+      console.log(`Fetched token info for ${tokenAddress}: decimals=${decimals}, symbol=${symbol}`);
+      return { decimals, symbol };
     }
     
     throw new Error('Invalid mint account data');
   } catch (error) {
-    console.warn(`Failed to fetch token decimals from Solana for ${tokenAddress}, using defaults:`, error);
+    console.warn(`Failed to fetch token info from Solana for ${tokenAddress}, using defaults:`, error);
     
-    // Fallback to known token decimals
-    if (tokenAddress === 'So11111111111111111111111111111111111111112') return 9; // SOL
+    // Fallback to known token info
+    if (tokenAddress === 'So11111111111111111111111111111111111111112') {
+      return { decimals: 9, symbol: 'SOL' };
+    }
     
-    // Default to 6 decimals for unknown tokens
-    return 6;
+    // Default to 6 decimals and unknown symbol for unknown tokens
+    return { decimals: 6, symbol: 'UNKNOWN' };
   }
+}
+
+/**
+ * Fetch token decimals from Solana blockchain (legacy function for backward compatibility)
+ */
+async function getTokenDecimals(tokenAddress) {
+  const tokenInfo = await getTokenInfo(tokenAddress);
+  return tokenInfo.decimals;
 }
 
 /**
@@ -832,7 +843,20 @@ exports.handler = async (event, context) => {
         // Check if this item has a strict token requirement
         if (strictToken && strictToken.toUpperCase() !== 'NULL') {
           // i) Strict token scenario - convert to the strict token
-          itemCurrencyUnit = paymentMetadata.tokenSymbol?.toUpperCase() || 'SNS';
+          // Fetch the correct token symbol from the blockchain instead of relying on paymentMetadata.tokenSymbol
+          let correctTokenSymbol = 'SNS'; // Default fallback
+          try {
+            if (paymentMetadata.tokenAddress) {
+              const tokenInfo = await getTokenInfo(paymentMetadata.tokenAddress);
+              correctTokenSymbol = tokenInfo.symbol?.toUpperCase() || 'SNS';
+              console.log(`Fetched correct token symbol from blockchain: ${correctTokenSymbol} for address ${paymentMetadata.tokenAddress}`);
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch token symbol from blockchain, using fallback:`, error);
+            // Keep the default fallback
+          }
+          
+          itemCurrencyUnit = correctTokenSymbol;
           
           if (baseCurrency.toUpperCase() === itemCurrencyUnit) {
             // Same currency - no conversion needed
@@ -844,7 +868,7 @@ exports.handler = async (event, context) => {
             conversionRate = await getTokenConversionRate(
               baseCurrency, 
               paymentMetadata.tokenAddress, 
-              paymentMetadata.tokenSymbol
+              correctTokenSymbol // Use the correct symbol from blockchain
             );
             itemTotalInTarget = itemTotalInBase * conversionRate;
             console.log(`SPL strict token - converting ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget.toFixed(6)} ${itemCurrencyUnit} (rate: ${conversionRate})`);
@@ -934,11 +958,11 @@ exports.handler = async (event, context) => {
         quantity,
         baseCurrency,
         isStrictTokenPayment: !!strictToken && strictToken.toUpperCase() !== 'NULL' && paymentMetadata?.paymentMethod === 'spl-tokens',
-        itemCurrencyUnit, // Store the currency unit for this specific item
+        itemCurrencyUnit, // Store the currency unit for this specific item (now using correct symbol from blockchain)
         strictToken, // Store the strict token from backend
         ...(!!strictToken && paymentMetadata?.paymentMethod === 'spl-tokens' && {
           strictTokenAddress: paymentMetadata.tokenAddress,
-          strictTokenSymbol: paymentMetadata.tokenSymbol,
+          strictTokenSymbol: itemCurrencyUnit, // Use the correct symbol from blockchain instead of paymentMetadata.tokenSymbol
           strictTokenName: paymentMetadata.tokenName,
           conversionRate
         })
@@ -1011,7 +1035,10 @@ exports.handler = async (event, context) => {
                 discountAmount = Math.min(discountInUSDC, totalPaymentForBatch);
               } else {
                 // For strict token payments, convert SOL to strict token
-                const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, paymentMetadata.tokenSymbol);
+                // Get the correct token symbol from the first strict token item
+                const strictTokenItem = processedItems.find(item => item.isStrictTokenPayment);
+                const correctTokenSymbol = strictTokenItem?.itemCurrencyUnit || 'SNS';
+                const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, correctTokenSymbol);
                 const discountInStrictToken = coupon.discount_value / conversionRate;
                 discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
               }
