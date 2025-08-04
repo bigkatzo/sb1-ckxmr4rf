@@ -62,6 +62,9 @@ export async function getOrdersDirect(walletAddress: string, walletAuthToken: st
     }
     
     const data = await response.json();
+
+    console.log('Orders from user_orders view:', data);
+
     if (Array.isArray(data) && data.length > 0) {
       return {
         data,

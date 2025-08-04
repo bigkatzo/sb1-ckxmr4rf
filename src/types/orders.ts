@@ -141,6 +141,8 @@ export interface Order {
   product_url?: string;
   design_url?: string;
   amountSol: number;
+  amount?: number;
+  quantity?: number;
   category_name: string;
   shippingAddress: ShippingAddress;
   contactInfo: ContactInfo;
