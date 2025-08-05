@@ -32,6 +32,7 @@ interface WalletContextType {
   publicKey: PublicKey | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
+  toggleConnect: () => Promise<void>;
   signAndSendTransaction: (transaction: Transaction) => Promise<string>;
   error: Error | null;
   notifications: WalletNotification[];
@@ -326,6 +327,13 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const connect = useCallback(async () => {
     try {
       setError(null);
+      
+      // If already authenticated, don't try to login again
+      if (authenticated) {
+        console.log('User already authenticated, skipping login');
+        return;
+      }
+      
       login();
     } catch (error) {
       console.error('Connect error:', error);
@@ -341,7 +349,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       }
       throw error;
     }
-  }, [login, addNotification]);
+  }, [login, addNotification, authenticated]);
 
   const disconnect = useCallback(async () => {
     try {
@@ -369,6 +377,26 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       addNotification('error', errorMessage);
     }
   }, [logout, addNotification]);
+
+  // Add a toggle function for better UX
+  const toggleConnect = useCallback(async () => {
+    try {
+      setError(null);
+      
+      if (authenticated && isConnected) {
+        // If connected, disconnect
+        await disconnect();
+      } else {
+        // If not connected, connect
+        await connect();
+      }
+    } catch (error) {
+      console.error('Toggle connect error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to toggle wallet connection';
+      setError(error instanceof Error ? error : new Error(errorMessage));
+      addNotification('error', errorMessage);
+    }
+  }, [authenticated, isConnected, connect, disconnect, addNotification]);
 
   const signAndSendTransaction = useCallback(async (transaction: Transaction): Promise<string> => {
     if (!publicKey) {
@@ -423,6 +451,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       publicKey,
       connect,
       disconnect,
+      toggleConnect,
       signAndSendTransaction,
       error,
       notifications,

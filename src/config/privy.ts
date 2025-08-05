@@ -158,7 +158,7 @@ export const PRIVY_CONFIG = {
         connectors: toSolanaWalletConnectors()
       }
     },
-    // Prioritize Phantom for Solana
+    // Prioritize Phantom for Solana - make it the first option
     defaultWallet: 'phantom' as const,
     supportedWallets: [
       {
@@ -169,6 +169,7 @@ export const PRIVY_CONFIG = {
         chromeUrl: 'https://chrome.google.com/webstore/detail/phantom/bfnaelmomeimhlpmgjnjophhpkkoljpa',
         firefoxUrl: 'https://addons.mozilla.org/en-US/firefox/addon/phantom-app/',
         mobileUrl: 'https://phantom.app/ul/browse/',
+        priority: 1, // Highest priority
       },
       {
         id: 'solflare',
@@ -177,6 +178,7 @@ export const PRIVY_CONFIG = {
         url: 'https://solflare.com',
         chromeUrl: 'https://chrome.google.com/webstore/detail/solflare-wallet/bhhhlbepdkbapadjdnnojkbgioiodbic',
         mobileUrl: 'https://solflare.com/ul/browse/',
+        priority: 2,
       },
       {
         id: 'backpack',
@@ -185,10 +187,11 @@ export const PRIVY_CONFIG = {
         url: 'https://backpack.app',
         chromeUrl: 'https://chrome.google.com/webstore/detail/backpack/aflkmfhebedbjioipglgcbcmnbpgliof',
         mobileUrl: 'https://backpack.app/ul/browse/',
+        priority: 3,
       },
     ],
   },
-  // Add privyWalletOverride at the root level
+  // Add privyWalletOverride at the root level with Phantom priority
   privyWalletOverride: {
     // Default wallet configuration
     defaultWallet: 'phantom' as const,
@@ -201,6 +204,7 @@ export const PRIVY_CONFIG = {
         chromeUrl: 'https://chrome.google.com/webstore/detail/phantom/bfnaelmomeimhlpmgjnjophhpkkoljpa',
         firefoxUrl: 'https://addons.mozilla.org/en-US/firefox/addon/phantom-app/',
         mobileUrl: 'https://phantom.app/ul/browse/',
+        priority: 1,
       },
       {
         id: 'solflare',
@@ -209,6 +213,7 @@ export const PRIVY_CONFIG = {
         url: 'https://solflare.com',
         chromeUrl: 'https://chrome.google.com/webstore/detail/solflare-wallet/bhhhlbepdkbapadjdnnojkbgioiodbic',
         mobileUrl: 'https://solflare.com/ul/browse/',
+        priority: 2,
       },
       {
         id: 'backpack',
@@ -217,6 +222,7 @@ export const PRIVY_CONFIG = {
         url: 'https://backpack.app',
         chromeUrl: 'https://chrome.google.com/webstore/detail/backpack/aflkmfhebedbjioipglgcbcmnbpgliof',
         mobileUrl: 'https://backpack.app/ul/browse/',
+        priority: 3,
       },
     ],
   },

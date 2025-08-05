@@ -8,6 +8,7 @@ export function WalletDebugger() {
     walletAddress, 
     connect, 
     disconnect, 
+    toggleConnect,
     ready, 
     authenticated, 
     user,
@@ -155,15 +156,10 @@ export function WalletDebugger() {
   };
 
   const testWalletConnection = async () => {
-    addLog('Testing wallet connection...');
+    addLog('Testing wallet connection toggle...');
     try {
-      if (isConnected) {
-        await disconnect();
-        addLog('Wallet disconnected successfully');
-      } else {
-        await connect();
-        addLog('Wallet connection initiated');
-      }
+      await toggleConnect();
+      addLog(`Wallet ${isConnected ? 'disconnected' : 'connected'} successfully`);
     } catch (error) {
       addLog(`Wallet connection error: ${error}`);
     }
