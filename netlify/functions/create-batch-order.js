@@ -552,7 +552,7 @@ const getTokenConversionRate = async (baseCurrency, targetTokenAddress, targetTo
         const amount = 1;
         
         // Fetch input decimals dynamically from Solana blockchain
-        let inputDecimal = baseCurrency === 'SOL' ? 9 : 6; // Default to known decimals for SOL and USDC
+        let inputDecimals = baseCurrency === 'SOL' ? 9 : 6; // Default to known decimals for SOL and USDC
         
         const amountInSmallestUnit = amount * Math.pow(10, inputDecimals);
 
