@@ -130,7 +130,7 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    X-Frame-Options = "DENY"
+
     X-XSS-Protection = "1; mode=block"
     Content-Security-Policy = """
       default-src 'self';
@@ -140,6 +140,7 @@
         https://*.phantom.app https://*.backpack.app
         https://*.jsdelivr.net
         https://*.privy.io https://auth.privy.io
+        https://*.walletconnect.com https://explorer-api.walletconnect.com
         blob:;
       connect-src 'self' 
         https://*.stripe.com https://*.stripe.network https://api.stripe.com https://hooks.stripe.com
@@ -165,6 +166,7 @@
         https://*.jsdelivr.net
         https://store.fun https://*.store.fun
         https://*.privy.io https://auth.privy.io https://console.privy.io
+        https://*.walletconnect.com https://explorer-api.walletconnect.com
         wss://*.solana.com ws://*.solana.com
         blob:
         data:;
@@ -189,7 +191,7 @@
       form-action 'self';
       manifest-src 'self';
       media-src 'self' blob: data:;
-      frame-ancestors https://grid.wtf https://*.grid.wtf;
+      frame-ancestors 'self' https://store.fun https://*.store.fun https://auth.privy.io https://*.privy.io https://grid.wtf https://*.grid.wtf;
       upgrade-insecure-requests;
     """
     # Short cache for HTML files
