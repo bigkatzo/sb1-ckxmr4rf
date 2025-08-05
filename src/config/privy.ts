@@ -1,3 +1,5 @@
+import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
+
 export const PRIVY_CONFIG = {
   appId: import.meta.env.VITE_PRIVY_APP_ID || '',
   config: {
@@ -6,6 +8,7 @@ export const PRIVY_CONFIG = {
       theme: 'dark' as const,
       accentColor: '#0F47E4' as `#${string}`,
       showWalletLoginFirst: true,
+      walletChainType: 'ethereum-and-solana' as const,
     },
     // Use Ethereum as default chain for EVM wallet compatibility
     defaultChain: {
@@ -149,6 +152,11 @@ export const PRIVY_CONFIG = {
     embeddedWallets: {
       createOnLogin: 'users-without-wallets' as const,
       noPromptOnSignature: true,
+    },
+    externalWallets: {
+      solana: {
+        connectors: toSolanaWalletConnectors()
+      }
     },
     // Prioritize Phantom for Solana
     defaultWallet: 'phantom' as const,
