@@ -29,13 +29,18 @@ import { setupRealtimeHealth } from './lib/realtime/subscriptions';
 import { useSyncWalletClaims } from './hooks/useSyncWalletClaims';
 import { PRIVY_CONFIG } from './config/privy';
 
-// Create a client
+// Create a client with optimized settings
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60, // 1 minute
+      staleTime: 1000 * 60 * 5, // 5 minutes - increased for better performance
       retry: 1,
-      refetchOnWindowFocus: false
+      refetchOnWindowFocus: false,
+      refetchOnMount: false, // Prevent unnecessary refetches
+      refetchOnReconnect: false // Prevent refetch on reconnect
+    },
+    mutations: {
+      retry: 1
     }
   }
 });
@@ -49,16 +54,16 @@ function AppContent() {
   // Use our new hook to sync wallet address with JWT claims
   useSyncWalletClaims();
   
-  // Initialize cache system
+  // Initialize cache system with reduced overhead
   useEffect(() => {
-    // Set up cache preloader with high priority for LCP images
+    // Set up cache preloader with optimized settings
     const cleanupPreloader = setupCachePreloader({
-      maxConcurrent: 2,
-      timeout: 5000,
-      categories: ['lcp', 'featured']
+      maxConcurrent: 1, // Reduced from 2 to 1
+      timeout: 3000, // Reduced from 5000 to 3000
+      categories: ['lcp'] // Only LCP images for better performance
     });
     
-    // Set up realtime cache invalidation with delay
+    // Set up realtime cache invalidation with longer delay to avoid blocking
     let cleanup = () => {};
     const invalidationTimer = setTimeout(() => {
       // Get userId from session if available
@@ -71,33 +76,30 @@ function AppContent() {
       cleanup = setupRealtimeInvalidation(supabase, {
         userId,
         shopId,
-        // Only subscribe to tables relevant to the current user's context
+        // Only subscribe to essential tables for better performance
         tables: userId ? [
           'products',
           'orders',
           'users',
           'shops',
-          'inventory',
-          'app_messages',
-          ...(userId ? ['user_preferences'] : []),
-          ...(shopId ? ['shop_settings'] : [])
+          'app_messages'
         ] : ['products', 'shops', 'app_messages'] // Limited scope for anonymous users
       });
-    }, 2000);
+    }, 3000); // Increased delay from 2000 to 3000
     
     // Set up service worker - defer this to not block main thread
     const serviceWorkerTimer = setTimeout(() => {
       setupServiceWorker().catch(err => {
         console.error('Failed to set up service worker:', err);
       });
-    }, 5000);
+    }, 8000); // Increased delay from 5000 to 8000
     
-    // Expose realtime debugging utilities in development with more delay
+    // Expose realtime debugging utilities in development with longer delay
     let realtimeTimer: ReturnType<typeof setTimeout>;
     if (import.meta.env.DEV) {
       realtimeTimer = setTimeout(() => {
         exposeRealtimeDebugger();
-      }, 4000);
+      }, 10000); // Increased delay from 4000 to 10000
     }
     
     // Set up realtime health with longer delay to avoid blocking LCP
@@ -107,7 +109,7 @@ function AppContent() {
       } catch (err) {
         console.error('Failed to set up realtime health monitoring:', err);
       }
-    }, 6000);
+    }, 12000); // Increased delay from 6000 to 12000
     
     return () => {
       clearTimeout(invalidationTimer);
@@ -134,7 +136,7 @@ function AppContent() {
 }
 
 export function App() {
-  // Initialize realtime debugger when app mounts
+  // Initialize with reduced overhead
   useEffect(() => {
     // Apply theme colors from CSS variables to ensure overrides work
     const applyThemeColors = () => {
@@ -173,7 +175,7 @@ export function App() {
     // Apply theme immediately
     applyThemeColors();
     
-    // Delay non-critical operations to prioritize LCP
+    // Delay non-critical operations to prioritize LCP and wallet connection
     const timer = setTimeout(() => {
       // Force immediate connection to Supabase realtime
       try {
@@ -188,7 +190,7 @@ export function App() {
       
       exposeRealtimeDebugger();
       console.log('Supabase realtime debugger initialized. Try window.debugRealtime() in the console.');
-    }, 4000);
+    }, 8000); // Increased delay from 4000 to 8000
     
     return () => clearTimeout(timer);
   }, []);
@@ -200,7 +202,6 @@ export function App() {
         <PrivyProvider 
           appId={PRIVY_CONFIG.appId}
           config={PRIVY_CONFIG.config}
-          privyWalletOverride={PRIVY_CONFIG.privyWalletOverride}
           onError={(error: any) => {
             console.error('Privy error:', error);
           }}

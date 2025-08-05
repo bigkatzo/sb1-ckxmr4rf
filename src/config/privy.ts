@@ -10,23 +10,17 @@ export const PRIVY_CONFIG = {
       accentColor: '#0F47E4' as `#${string}`,
       showWalletLoginFirst: true,
       // Prioritize Solana wallets in the UI
-      walletChainType: 'solana' as const,
+      walletChainType: 'solana-only' as const,
     },
-    // EVM chain configuration (but not set as default)
-    supportedChains: [
-      mainnet,
-      polygon,
-      arbitrum, 
-      base,
-    ],
-    // Remove defaultChain to prevent auto-connecting to Ethereum
+    // Remove EVM chains to prevent confusion and improve performance
+    // Only keep Solana configuration
     walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '',
     embeddedWallets: {
       createOnLogin: 'users-without-wallets' as const,
       noPromptOnSignature: true,
     },
     externalWallets: {
-      // Solana configuration
+      // Solana configuration with Phantom priority
       solana: {
         connectors: toSolanaWalletConnectors()
       }

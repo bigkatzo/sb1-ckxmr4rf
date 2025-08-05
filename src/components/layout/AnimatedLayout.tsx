@@ -151,6 +151,8 @@ export function AnimatedLayout() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
+        autoClose={5000}
+        limit={3}
         className="toast-container"
       />
       

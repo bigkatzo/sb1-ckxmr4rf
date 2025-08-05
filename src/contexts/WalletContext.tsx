@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { Transaction, PublicKey, Connection } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
@@ -70,41 +70,24 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const [isAuthInProgress, setIsAuthInProgress] = useState(false);
   const [lastAuthTime, setLastAuthTime] = useState<number | null>(null);
 
+  // Use refs to prevent unnecessary re-renders
+  const connectionHandledRef = useRef(false);
+  const lastWalletAddressRef = useRef<string | null>(null);
+  const lastAuthenticatedRef = useRef(false);
+
   // Get Solana wallet address from Privy user with validation
   const walletAddress = user?.wallet?.address || null;
   
-  // Add debugging to see what type of wallet address we're getting
-  useEffect(() => {
-    if (user?.wallet) {
-      console.log('Wallet info:', {
-        address: user.wallet.address,
-        chainId: user.wallet.chainId,
-        chainType: user.wallet.chainType,
-        walletClientType: user.wallet.walletClientType
-      });
-      
-      if (user.wallet.address) {
-        console.log('Raw wallet address from Privy:', user.wallet.address);
-        console.log('Address length:', user.wallet.address.length);
-        console.log('Address format check:', /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(user.wallet.address));
-        
-        try {
-          const testKey = new PublicKey(user.wallet.address);
-          console.log('PublicKey creation successful:', testKey.toBase58());
-        } catch (error) {
-          console.error('PublicKey creation failed:', error);
-        }
-      }
-    }
-  }, [user?.wallet]);
+  // Create PublicKey with validation - memoized to prevent unnecessary recalculations
+  const publicKey = React.useMemo(() => {
+    return walletAddress && isValidSolanaAddress(walletAddress) 
+      ? new PublicKey(walletAddress) 
+      : null;
+  }, [walletAddress]);
 
-  // Create PublicKey with validation
-  const publicKey = walletAddress && isValidSolanaAddress(walletAddress) 
-    ? new PublicKey(walletAddress) 
-    : null;
   const isConnected = authenticated && !!walletAddress && !!publicKey;
 
-  // Try to recover token from sessionStorage on mount
+  // Try to recover token from sessionStorage on mount - only run once
   useEffect(() => {
     try {
       const storedToken = sessionStorage.getItem('walletAuthToken');
@@ -125,32 +108,36 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('Error restoring auth token:', e);
     }
-  }, []);
+  }, []); // Empty dependency array - only run once
 
   const dismissNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
   const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
-    // Remove any existing notifications with the same message
-    setNotifications(prev => prev.filter(n => n.message !== message));
-    
-    // Create new notification
-    const id = crypto.randomUUID();
-    const notification: WalletNotification = {
-      id,
-      type,
-      message,
-      timestamp: Date.now()
-    };
-    
-    // Add to state
-    setNotifications(prev => [...prev, notification]);
-    
-    // Auto-dismiss after 3 seconds
-    setTimeout(() => {
-      dismissNotification(id);
-    }, 3000);
+    // Remove any existing notifications with the same message to prevent duplicates
+    setNotifications(prev => {
+      const filtered = prev.filter(n => n.message !== message);
+      
+      // Create new notification
+      const id = crypto.randomUUID();
+      const notification: WalletNotification = {
+        id,
+        type,
+        message,
+        timestamp: Date.now()
+      };
+      
+      // Add to state
+      const updated = [...filtered, notification];
+      
+      // Auto-dismiss after 3 seconds
+      setTimeout(() => {
+        dismissNotification(id);
+      }, 3000);
+      
+      return updated;
+    });
   }, [dismissNotification]);
 
   const createAuthToken = useCallback(async (force = false, silent = false) => {
@@ -235,11 +222,22 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsAuthInProgress(false);
     }
-  }, [publicKey, signMessage, addNotification, walletAuthToken, lastAuthTime]);
+  }, [publicKey, signMessage, addNotification, walletAuthToken, lastAuthTime, isAuthInProgress]);
 
-  // Listen for connection state changes and create auth token
+  // Optimized connection handling - only run when connection state actually changes
   useEffect(() => {
-    // Only authenticate when wallet connects, not on every render
+    // Check if connection state has actually changed
+    const walletChanged = lastWalletAddressRef.current !== walletAddress;
+    const authChanged = lastAuthenticatedRef.current !== authenticated;
+    
+    if (!walletChanged && !authChanged) {
+      return; // No change, skip processing
+    }
+    
+    // Update refs
+    lastWalletAddressRef.current = walletAddress;
+    lastAuthenticatedRef.current = authenticated;
+    
     const handleConnection = async () => {
       if (isConnected && publicKey) {
         // When wallet first connects, authenticate
@@ -478,7 +476,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     }
   }, [logout, addNotification]);
 
-  // Add chain validation
+  // Add chain validation - memoized to prevent unnecessary recalculations
   const validateSolanaChain = useCallback(() => {
     if (user?.wallet) {
       const chainId = user.wallet.chainId;
@@ -504,10 +502,13 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     return false;
   }, [user?.wallet, addNotification]);
 
-  // Add effect to validate chain on connection
+  // Add effect to validate chain on connection - only when user changes
   useEffect(() => {
-    if (authenticated && user?.wallet) {
+    if (authenticated && user?.wallet && !connectionHandledRef.current) {
       validateSolanaChain();
+      connectionHandledRef.current = true;
+    } else if (!authenticated) {
+      connectionHandledRef.current = false;
     }
   }, [authenticated, user?.wallet, validateSolanaChain]);
 
