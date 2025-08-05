@@ -9,16 +9,17 @@ export const PRIVY_CONFIG = {
       theme: 'dark' as const,
       accentColor: '#0F47E4' as `#${string}`,
       showWalletLoginFirst: true,
-      // Remove walletChainType to support both EVM and Solana
+      // Prioritize Solana wallets in the UI
+      walletChainType: 'solana' as const,
     },
-    // EVM chain configuration
-    defaultChain: mainnet,
+    // EVM chain configuration (but not set as default)
     supportedChains: [
       mainnet,
       polygon,
       arbitrum, 
       base,
     ],
+    // Remove defaultChain to prevent auto-connecting to Ethereum
     walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '',
     embeddedWallets: {
       createOnLogin: 'users-without-wallets' as const,
