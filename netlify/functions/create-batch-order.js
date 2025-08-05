@@ -60,7 +60,7 @@ async function getTokenInfo(tokenAddress) {
           console.log(`Symbol not available, using name for ${tokenAddress}: ${name}`);
         } else {
           // If both symbol and name are unavailable, use a default
-          symbol = 'TOKEN';
+          symbol = undefined;
           console.log(`Neither symbol nor name available for ${tokenAddress}, using default: TOKEN`);
         }
       }
@@ -877,8 +877,8 @@ exports.handler = async (event, context) => {
               console.log(`SPL strict token - same currency: ${itemTotalInBase} ${baseCurrency} to ${itemTotalInTarget} ${itemCurrencyUnit} (no conversion needed)`);
             } else {
               conversionRate = await getTokenConversionRate(
-                baseCurrency, 
-                strictToken, 
+                baseCurrency,
+                strictToken,
                 correctTokenSymbol,
                 correctTokenDecimals, // Use the correct symbol from blockchain
               );
