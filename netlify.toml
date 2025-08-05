@@ -139,6 +139,7 @@
         https://*.metaplex.com https://*.solana.com
         https://*.phantom.app https://*.backpack.app
         https://*.jsdelivr.net
+        https://*.privy.io https://auth.privy.io
         blob:;
       connect-src 'self' 
         https://*.stripe.com https://*.stripe.network https://api.stripe.com https://hooks.stripe.com
@@ -163,12 +164,14 @@
         https://*.jupiter.ag https://*.jup.ag
         https://*.jsdelivr.net
         https://store.fun https://*.store.fun
+        https://*.privy.io https://auth.privy.io https://console.privy.io
         wss://*.solana.com ws://*.solana.com
         blob:
         data:;
       frame-src 'self' 
         https://*.stripe.com https://*.stripe.network https://js.stripe.com https://hooks.stripe.com 
-        https://*.solana.com https://*.phantom.app https://*.backpack.app https://*.solflare.com;
+        https://*.solana.com https://*.phantom.app https://*.backpack.app https://*.solflare.com
+        https://*.privy.io https://auth.privy.io;
       img-src 'self' data: blob: 
         https://*.stripe.com https://*.netlify.app https://*.netlify.com 
         https://*.supabase.co https://*.arweave.net https://arweave.net 
