@@ -75,7 +75,7 @@ function MyComponent() {
 
   // Check if connected to wrong chain
   const isWrongChain = user?.wallet && (
-    user.wallet.chainId?.toString() !== '1399811150' || 
+    (user.wallet.chainId?.toString() !== 'solana' && user.wallet.chainId?.toString() !== '7565164') || 
     user.wallet.chainType !== 'solana'
   );
 
@@ -177,7 +177,7 @@ clearPrivySession();
 - **Ethereum Address**: If you see an address starting with `0x`, it's an Ethereum address
 - **Invalid Length**: Solana addresses should be 32-44 characters
 - **Wrong Characters**: Solana addresses use base58 encoding (no 0, O, I, l characters)
-- **Wrong Chain**: Check that chainId is '1399811150' and chainType is 'solana'
+- **Wrong Chain**: Check that chainId is 'solana' or '7565164' and chainType is 'solana'
 
 ## Prevention
 

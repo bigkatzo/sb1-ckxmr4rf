@@ -56,7 +56,10 @@ export function isWrongChain(user: any): boolean {
   const chainId = user.wallet.chainId?.toString();
   const chainType = user.wallet.chainType;
   
-  return chainId !== '1399811150' || chainType !== 'solana';
+  // Solana can be identified as 'solana' (string) or '7565164' (chain ID)
+  const isSolanaChain = chainId === 'solana' || chainId === '7565164';
+  
+  return !isSolanaChain || chainType !== 'solana';
 }
 
 /**
@@ -69,7 +72,10 @@ export function getChainInfo(user: any): { chainId: string | undefined; chainTyp
   
   const chainId = user.wallet.chainId?.toString();
   const chainType = user.wallet.chainType;
-  const isCorrect = chainId === '1399811150' && chainType === 'solana';
+  
+  // Solana can be identified as 'solana' (string) or '7565164' (chain ID)
+  const isSolanaChain = chainId === 'solana' || chainId === '7565164';
+  const isCorrect = isSolanaChain && chainType === 'solana';
   
   return { chainId, chainType, isCorrect };
 } 

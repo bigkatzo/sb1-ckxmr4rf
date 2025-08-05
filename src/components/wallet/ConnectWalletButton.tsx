@@ -59,7 +59,7 @@ export function ConnectWalletButton({ className = '', children }: ConnectWalletB
 
   // Check if connected to wrong chain
   const isWrongChain = user?.wallet && (
-    user.wallet.chainId?.toString() !== '1399811150' || 
+    (user.wallet.chainId?.toString() !== 'solana' && user.wallet.chainId?.toString() !== '7565164') || 
     user.wallet.chainType !== 'solana'
   );
 

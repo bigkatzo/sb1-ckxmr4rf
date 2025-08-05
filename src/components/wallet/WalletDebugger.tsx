@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useWallet } from '../../contexts/WalletContext';
 import { PublicKey } from '@solana/web3.js';
+import { debugChainInfo, validateSolanaConnection } from '../../utils/test-solana-chain';
 
 export function WalletDebugger() {
   const { 
@@ -27,7 +28,23 @@ export function WalletDebugger() {
     setLogs([]);
     addLog('Starting comprehensive Privy wallet debug test...');
 
-    // Test 1: Wallet Address Validation
+    // Test 1: Solana Chain Validation
+    addLog('=== Solana Chain Validation ===');
+    try {
+      if (user) {
+        const validation = validateSolanaConnection(user);
+        addLog(`Chain ID: ${validation.chainId || 'None'}`);
+        addLog(`Chain Type: ${validation.chainType || 'None'}`);
+        addLog(`Validation: ${validation.message}`);
+        addLog(`Is Valid: ${validation.isValid ? 'Yes' : 'No'}`);
+      } else {
+        addLog('No user object available');
+      }
+    } catch (error) {
+      addLog(`Error during chain validation: ${error}`);
+    }
+
+    // Test 2: Wallet Address Validation
     addLog('=== Wallet Address Validation ===');
     try {
       if (walletAddress) {
@@ -49,7 +66,7 @@ export function WalletDebugger() {
       addLog(`Error during address validation: ${error}`);
     }
 
-    // Test 2: Privy User Object
+    // Test 3: Privy User Object
     addLog('=== Privy User Object ===');
     try {
       if (user) {
@@ -66,7 +83,7 @@ export function WalletDebugger() {
       addLog(`Error during user object inspection: ${error}`);
     }
 
-    // Test 3: Environment Detection
+    // Test 4: Environment Detection
     addLog('=== Environment Detection ===');
     addLog(`User Agent: ${navigator.userAgent}`);
     addLog(`Location: ${window.location.href}`);
@@ -74,14 +91,14 @@ export function WalletDebugger() {
     addLog(`Platform: ${navigator.platform}`);
     addLog(`Language: ${navigator.language}`);
 
-    // Test 4: Privy Status
+    // Test 5: Privy Status
     addLog('=== Privy Status ===');
     addLog(`Ready: ${ready}`);
     addLog(`Authenticated: ${authenticated}`);
     addLog(`Connected: ${isConnected}`);
     addLog(`Wallet Address: ${walletAddress || 'None'}`);
 
-    // Test 5: User Object Analysis
+    // Test 6: User Object Analysis
     addLog('=== User Object Analysis ===');
     if (user) {
       addLog(`User ID: ${user.id || 'None'}`);
@@ -103,7 +120,7 @@ export function WalletDebugger() {
       addLog('No user object available');
     }
 
-    // Test 6: Window Object Analysis
+    // Test 7: Window Object Analysis
     addLog('=== Window Object Analysis ===');
     const windowKeys = Object.keys(window).filter(key => 
       key.toLowerCase().includes('phantom') || 
@@ -114,7 +131,7 @@ export function WalletDebugger() {
     );
     addLog(`Relevant window keys: ${windowKeys.join(', ')}`);
 
-    // Test 7: Deep Object Inspection
+    // Test 8: Deep Object Inspection
     addLog('=== Deep Object Inspection ===');
     try {
       if ((window as any).phantom) {
@@ -144,7 +161,7 @@ export function WalletDebugger() {
       addLog(`Error during deep inspection: ${error}`);
     }
 
-    // Test 8: Connection Test
+    // Test 9: Connection Test
     addLog('=== Connection Test ===');
     if (isConnected) {
       addLog('Wallet is connected');
@@ -193,6 +210,16 @@ export function WalletDebugger() {
       addLog('Force disconnect completed');
     } catch (error) {
       addLog(`Force disconnect error: ${error}`);
+    }
+  };
+
+  const testChainValidation = () => {
+    addLog('Testing Solana chain validation...');
+    try {
+      debugChainInfo(user);
+      addLog('Chain validation test completed - check console for details');
+    } catch (error) {
+      addLog(`Chain validation test error: ${error}`);
     }
   };
 
@@ -246,6 +273,12 @@ export function WalletDebugger() {
             className="bg-yellow-600 text-white px-2 py-1 rounded text-xs hover:bg-yellow-700"
           >
             Force Disconnect
+          </button>
+          <button
+            onClick={testChainValidation}
+            className="bg-purple-600 text-white px-2 py-1 rounded text-xs hover:bg-purple-700"
+          >
+            Test Chain
           </button>
         </div>
       </div>

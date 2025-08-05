@@ -487,8 +487,11 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       console.log('Chain validation:', { chainId, chainType });
       
       // Check if connected to Solana chain (handle both string and number chainId)
-      const solanaChainId = '1399811150';
-      const isSolanaChain = chainId && chainId.toString() === solanaChainId;
+      // Solana can be identified as 'solana' (string) or '7565164' (chain ID)
+      const isSolanaChain = chainId && (
+        chainId.toString() === 'solana' || 
+        chainId.toString() === '7565164'
+      );
       
       if (!isSolanaChain || chainType !== 'solana') {
         console.warn('User connected to wrong chain:', { chainId, chainType });
