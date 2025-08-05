@@ -50,7 +50,21 @@ async function getTokenInfo(tokenAddress) {
     
     if (mintInfo.value && 'parsed' in mintInfo.value.data) {
       const decimals = mintInfo.value.data.parsed.info.decimals;
-      const symbol = mintInfo.value.data.parsed.info.symbol;
+      let symbol = mintInfo.value.data.parsed.info.symbol;
+      const name = mintInfo.value.data.parsed.info.name;
+      
+      // If symbol is undefined, null, or empty, use the name field
+      if (!symbol || symbol === '' || symbol === 'Unknown') {
+        if (name && name !== '' && name !== 'Unknown') {
+          symbol = name;
+          console.log(`Symbol not available, using name for ${tokenAddress}: ${name}`);
+        } else {
+          // If both symbol and name are unavailable, use a default
+          symbol = 'TOKEN';
+          console.log(`Neither symbol nor name available for ${tokenAddress}, using default: TOKEN`);
+        }
+      }
+      
       console.log(`Fetched token info for ${tokenAddress}: decimals=${decimals}, symbol=${symbol}`);
       return { decimals, symbol };
     }
@@ -847,7 +861,7 @@ exports.handler = async (event, context) => {
           try {
               try {
                 tokenInfo = await getTokenInfo(strictToken);
-                correctTokenSymbol = tokenInfo.symbol?.toUpperCase() || 'SNS';
+                correctTokenSymbol = paymentMetadata.tokenSymbol?.toUpperCase() || tokenInfo.symbol?.toUpperCase() || 'SNS';
                 correctTokenDecimals = tokenInfo.decimals || 6; // Fallback to 6
                 console.log(`Fetched token info for ${strictToken}:`, tokenInfo);
               } catch (error) {
