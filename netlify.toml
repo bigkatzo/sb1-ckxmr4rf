@@ -141,6 +141,7 @@
         https://*.jsdelivr.net
         https://*.privy.io https://auth.privy.io
         https://*.walletconnect.com https://explorer-api.walletconnect.com
+        https://challenges.cloudflare.com
         blob:;
       connect-src 'self' 
         https://*.stripe.com https://*.stripe.network https://api.stripe.com https://hooks.stripe.com
@@ -167,13 +168,17 @@
         https://store.fun https://*.store.fun
         https://*.privy.io https://auth.privy.io https://console.privy.io
         https://*.walletconnect.com https://explorer-api.walletconnect.com
+        wss://relay.walletconnect.com wss://relay.walletconnect.org
+        wss://www.walletlink.org https://*.rpc.privy.systems
         wss://*.solana.com ws://*.solana.com
         blob:
         data:;
       frame-src 'self' 
         https://*.stripe.com https://*.stripe.network https://js.stripe.com https://hooks.stripe.com 
         https://*.solana.com https://*.phantom.app https://*.backpack.app https://*.solflare.com
-        https://*.privy.io https://auth.privy.io;
+        https://*.privy.io https://auth.privy.io
+        https://verify.walletconnect.com https://verify.walletconnect.org
+        https://challenges.cloudflare.com;
       img-src 'self' data: blob: 
         https://*.stripe.com https://*.netlify.app https://*.netlify.com 
         https://*.supabase.co https://*.arweave.net https://arweave.net 
@@ -185,7 +190,9 @@
       style-src 'self' 'unsafe-inline' https://*.stripe.com https://fonts.googleapis.com;
       font-src 'self' https://fonts.gstatic.com data:;
       worker-src 'self' blob: 'wasm-unsafe-eval';
-      child-src 'self' blob:;
+      child-src 'self' blob:
+        https://auth.privy.io
+        https://verify.walletconnect.com https://verify.walletconnect.org;
       object-src 'none';
       base-uri 'self';
       form-action 'self';
