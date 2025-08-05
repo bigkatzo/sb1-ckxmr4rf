@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useWallet } from '../../contexts/WalletContext';
+import { PublicKey } from '@solana/web3.js';
 
 export function WalletDebugger() {
   const { 
@@ -24,7 +25,46 @@ export function WalletDebugger() {
     setLogs([]);
     addLog('Starting comprehensive Privy wallet debug test...');
 
-    // Test 1: Environment Detection
+    // Test 1: Wallet Address Validation
+    addLog('=== Wallet Address Validation ===');
+    try {
+      if (walletAddress) {
+        addLog(`Wallet address: ${walletAddress}`);
+        addLog(`Address length: ${walletAddress.length}`);
+        addLog(`Base58 format check: ${/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress)}`);
+        
+        try {
+          const testKey = new PublicKey(walletAddress);
+          addLog(`✅ PublicKey creation successful: ${testKey.toBase58()}`);
+        } catch (error) {
+          addLog(`❌ PublicKey creation failed: ${error}`);
+          addLog('This indicates a base58 format error - likely an Ethereum address instead of Solana');
+        }
+      } else {
+        addLog('No wallet address available');
+      }
+    } catch (error) {
+      addLog(`Error during address validation: ${error}`);
+    }
+
+    // Test 2: Privy User Object
+    addLog('=== Privy User Object ===');
+    try {
+      if (user) {
+        addLog(`User authenticated: ${authenticated}`);
+        addLog(`User ready: ${ready}`);
+        addLog(`User wallet address: ${user.wallet?.address || 'No address'}`);
+        addLog(`User wallet chainId: ${user.wallet?.chainId || 'No chainId'}`);
+        addLog(`User wallet chainType: ${user.wallet?.chainType || 'No chainType'}`);
+        addLog(`User wallet clientType: ${user.wallet?.walletClientType || 'No clientType'}`);
+      } else {
+        addLog('No user object available');
+      }
+    } catch (error) {
+      addLog(`Error during user object inspection: ${error}`);
+    }
+
+    // Test 3: Environment Detection
     addLog('=== Environment Detection ===');
     addLog(`User Agent: ${navigator.userAgent}`);
     addLog(`Location: ${window.location.href}`);
@@ -32,14 +72,14 @@ export function WalletDebugger() {
     addLog(`Platform: ${navigator.platform}`);
     addLog(`Language: ${navigator.language}`);
 
-    // Test 2: Privy Status
+    // Test 4: Privy Status
     addLog('=== Privy Status ===');
     addLog(`Ready: ${ready}`);
     addLog(`Authenticated: ${authenticated}`);
     addLog(`Connected: ${isConnected}`);
     addLog(`Wallet Address: ${walletAddress || 'None'}`);
 
-    // Test 3: User Object Analysis
+    // Test 5: User Object Analysis
     addLog('=== User Object Analysis ===');
     if (user) {
       addLog(`User ID: ${user.id || 'None'}`);
@@ -61,7 +101,7 @@ export function WalletDebugger() {
       addLog('No user object available');
     }
 
-    // Test 4: Window Object Analysis
+    // Test 6: Window Object Analysis
     addLog('=== Window Object Analysis ===');
     const windowKeys = Object.keys(window).filter(key => 
       key.toLowerCase().includes('phantom') || 
@@ -72,7 +112,7 @@ export function WalletDebugger() {
     );
     addLog(`Relevant window keys: ${windowKeys.join(', ')}`);
 
-    // Test 5: Deep Object Inspection
+    // Test 7: Deep Object Inspection
     addLog('=== Deep Object Inspection ===');
     try {
       if ((window as any).phantom) {
@@ -102,7 +142,7 @@ export function WalletDebugger() {
       addLog(`Error during deep inspection: ${error}`);
     }
 
-    // Test 6: Connection Test
+    // Test 8: Connection Test
     addLog('=== Connection Test ===');
     if (isConnected) {
       addLog('Wallet is connected');

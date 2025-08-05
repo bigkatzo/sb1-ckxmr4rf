@@ -9,6 +9,16 @@ export const AUTH_EXPIRED_EVENT = 'wallet-auth-expired';
 // Time after which we should refresh the token (45 minutes)
 const TOKEN_REFRESH_TIME = 45 * 60 * 1000;
 
+// Helper function to validate Solana address format
+const isValidSolanaAddress = (address: string): boolean => {
+  try {
+    new PublicKey(address);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 interface WalletNotification {
   id: string;
   type: 'success' | 'error' | 'info';
@@ -58,10 +68,39 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const [isAuthInProgress, setIsAuthInProgress] = useState(false);
   const [lastAuthTime, setLastAuthTime] = useState<number | null>(null);
 
-  // Get Solana wallet address from Privy user
+  // Get Solana wallet address from Privy user with validation
   const walletAddress = user?.wallet?.address || null;
-  const publicKey = walletAddress ? new PublicKey(walletAddress) : null;
-  const isConnected = authenticated && !!walletAddress;
+  
+  // Add debugging to see what type of wallet address we're getting
+  useEffect(() => {
+    if (user?.wallet) {
+      console.log('Wallet info:', {
+        address: user.wallet.address,
+        chainId: user.wallet.chainId,
+        chainType: user.wallet.chainType,
+        walletClientType: user.wallet.walletClientType
+      });
+      
+      if (user.wallet.address) {
+        console.log('Raw wallet address from Privy:', user.wallet.address);
+        console.log('Address length:', user.wallet.address.length);
+        console.log('Address format check:', /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(user.wallet.address));
+        
+        try {
+          const testKey = new PublicKey(user.wallet.address);
+          console.log('PublicKey creation successful:', testKey.toBase58());
+        } catch (error) {
+          console.error('PublicKey creation failed:', error);
+        }
+      }
+    }
+  }, [user?.wallet]);
+
+  // Create PublicKey with validation
+  const publicKey = walletAddress && isValidSolanaAddress(walletAddress) 
+    ? new PublicKey(walletAddress) 
+    : null;
+  const isConnected = authenticated && !!walletAddress && !!publicKey;
 
   // Try to recover token from sessionStorage on mount
   useEffect(() => {
@@ -210,6 +249,10 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         } else {
           addNotification('success', 'Wallet connected');
         }
+      } else if (authenticated && walletAddress && !publicKey) {
+        // User is authenticated but has an invalid wallet address (likely Ethereum)
+        addNotification('error', 'Please connect a Solana wallet like Phantom');
+        setError(new Error('Invalid wallet type. Please connect a Solana wallet.'));
       } else if (!isConnected) {
         // Clear auth token when wallet disconnects
         setWalletAuthToken(null);
@@ -225,7 +268,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     };
     
     handleConnection();
-  }, [isConnected, publicKey, addNotification, createAuthToken]);
+  }, [isConnected, publicKey, authenticated, walletAddress, addNotification, createAuthToken]);
 
   // Add a function to check if token is about to expire and refresh if needed
   const ensureAuthenticated = useCallback(async (): Promise<boolean> => {
@@ -287,8 +330,15 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Connect error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
-      setError(error instanceof Error ? error : new Error(errorMessage));
-      addNotification('error', 'Failed to connect wallet');
+      
+      // Check if it's a base58 error or invalid address error
+      if (errorMessage.includes('base58') || errorMessage.includes('Invalid') || errorMessage.includes('non-base')) {
+        setError(new Error('Please connect a valid Solana wallet (like Phantom)'));
+        addNotification('error', 'Please connect a valid Solana wallet like Phantom');
+      } else {
+        setError(error instanceof Error ? error : new Error(errorMessage));
+        addNotification('error', 'Failed to connect wallet');
+      }
       throw error;
     }
   }, [login, addNotification]);

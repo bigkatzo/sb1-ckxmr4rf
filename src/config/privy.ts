@@ -3,49 +3,32 @@ import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 export const PRIVY_CONFIG = {
   appId: import.meta.env.VITE_PRIVY_APP_ID || '',
   config: {
-    loginMethods: ['email', 'wallet'] as ('email' | 'wallet')[],
+    loginMethods: ['wallet'] as ('wallet')[], // Remove email to focus on wallet connections
     appearance: {
       theme: 'dark' as const,
       accentColor: '#0F47E4' as `#${string}`,
       showWalletLoginFirst: true,
-      walletChainType: 'ethereum-and-solana' as const,
+      walletChainType: 'solana' as const, // Change to solana only
     },
-    // Use Ethereum as default chain for EVM wallet compatibility
+    // Use Solana as default chain for Solana wallet compatibility
     defaultChain: {
-      id: 1, // Ethereum mainnet - compatible with MetaMask and other EVM wallets
-      name: 'Ethereum',
+      id: 1399811150, // Solana mainnet chain ID for Privy
+      name: 'Solana',
       rpcUrls: {
-        default: { http: ['https://ethereum.publicnode.com'] },
-        public: { http: ['https://ethereum.publicnode.com'] }
+        default: { http: ['https://api.mainnet-beta.solana.com'] },
+        public: { http: ['https://api.mainnet-beta.solana.com'] }
       },
       blockExplorers: {
-        default: { name: 'Etherscan', url: 'https://etherscan.io' }
+        default: { name: 'Solscan', url: 'https://solscan.io' }
       },
       nativeCurrency: {
-        name: 'Ether',
-        symbol: 'ETH',
-        decimals: 18,
+        name: 'SOL',
+        symbol: 'SOL',
+        decimals: 9,
       },
     },
     supportedChains: [
-      // Ethereum (Default for EVM wallets)
-      {
-        id: 1,
-        name: 'Ethereum',
-        rpcUrls: {
-          default: { http: ['https://ethereum.publicnode.com'] },
-          public: { http: ['https://ethereum.publicnode.com'] }
-        },
-        blockExplorers: {
-          default: { name: 'Etherscan', url: 'https://etherscan.io' }
-        },
-        nativeCurrency: {
-          name: 'Ether',
-          symbol: 'ETH',
-          decimals: 18,
-        },
-      },
-      // Solana (for Solana wallets like Phantom)
+      // Solana (Primary for Solana wallets like Phantom)
       {
         id: 1399811150, // Correct Solana mainnet chain ID for Privy
         name: 'Solana',
@@ -60,6 +43,23 @@ export const PRIVY_CONFIG = {
           name: 'SOL',
           symbol: 'SOL',
           decimals: 9,
+        },
+      },
+      // Ethereum (Secondary for EVM wallet compatibility)
+      {
+        id: 1,
+        name: 'Ethereum',
+        rpcUrls: {
+          default: { http: ['https://ethereum.publicnode.com'] },
+          public: { http: ['https://ethereum.publicnode.com'] }
+        },
+        blockExplorers: {
+          default: { name: 'Etherscan', url: 'https://etherscan.io' }
+        },
+        nativeCurrency: {
+          name: 'Ether',
+          symbol: 'ETH',
+          decimals: 18,
         },
       },
       // Polygon
