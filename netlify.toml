@@ -44,6 +44,11 @@
   to = "/.netlify/functions/upload-site-asset"
   status = 200
 
+[[redirects]]
+  from = "/api/get-solana-price"
+  to = "/.netlify/functions/get-solana-price"
+  status = 200
+
 # Email notification handler
 [[redirects]]
   from = "/api/email-notification-handler"
