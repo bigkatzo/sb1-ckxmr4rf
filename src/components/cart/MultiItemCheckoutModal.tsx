@@ -4,7 +4,6 @@ import { useCart, CartItem } from '../../contexts/CartContext';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { formatPriceWithRate, formatPriceWithIcon } from '../../utils/formatters';
 import { useWallet } from '../../contexts/WalletContext';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { toast } from 'react-toastify';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { CouponService } from '../../services/coupons';
@@ -51,9 +50,8 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     verifyAllItems = async () => true; // No verification needed in single item mode
   }
 
-  const { isConnected, walletAddress } = useWallet();
-  const { setVisible } = useWalletModal();
-  const { processPayment, processTokenPayment, processSolanaSwapTokenPayment } = usePayment();
+  const { isConnected, walletAddress, login } = useWallet();
+  const { processPayment, processTokenPayment } = usePayment();
   
   // Form state
   const [shipping, setShipping] = useState<{
@@ -562,7 +560,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         success = paymentSuccess;
         signature = txSignature;
       } else {
-        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(paymentAmount, cartId, receiverWallet);
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(paymentAmount, cartId);
         success = paymentSuccess;
         signature = txSignature;
       }
@@ -573,22 +571,16 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         // because the user receives the same token they're paying with
         const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(
           paymentAmount, 
-          cartId, 
-          receiverWallet,
-          new PublicKey(collectionStrictToken)
+          cartId
         );
         success = paymentSuccess;
         signature = txSignature;
       } else {
-        // For regular SPL token payments, use the swap functionality
-        const { success: paymentSuccess, signature: txSignature } = await processSolanaSwapTokenPayment(
-          paymentMethod.tokenAddress || '',
-          undefined,
-          paymentAmount,
-          receiverWallet,
-          100,
-          undefined,
-          paymentMethod.tokenSymbol
+        // For regular SPL token payments, use processTokenPayment as fallback
+        // Note: SPL token swap functionality has been removed with Privy integration
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(
+          paymentAmount, 
+          cartId
         );
         success = paymentSuccess;
         signature = txSignature;
@@ -869,7 +861,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         position: "bottom-center",
         autoClose: 3000
       });
-      setVisible(true);
+      login();
       return;
     }
     

@@ -66,7 +66,7 @@ const filterOrdersByStatus = (orders: Order[], statusFilter: OrderStatus[]) => {
 };
 
 export function OrdersPage() {
-  const { walletAddress, walletAuthToken } = useWallet();
+  const { walletAddress, walletAuthToken, authenticated } = useWallet();
   const { orders, loading, error } = useOrders();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const prevWalletRef = useRef<string | null>(null);
@@ -94,9 +94,10 @@ export function OrdersPage() {
       isInitialLoad,
       ordersWithTracking: orders.filter(o => o.tracking).length,
       firstOrderTracking: orders.length > 0 ? orders[0].tracking : null,
-      walletAuthStatus: walletAuthToken ? 'Authenticated' : 'Not Authenticated'
+      walletAuthStatus: walletAuthToken ? 'Authenticated' : 'Not Authenticated',
+      privyAuthStatus: authenticated ? 'Authenticated' : 'Not Authenticated'
     });
-  }, [walletAddress, loading, error, orders, isInitialLoad, walletAuthToken]);
+  }, [walletAddress, loading, error, orders, isInitialLoad, walletAuthToken, authenticated]);
   
   // Only run security verification in development mode when orders load
   useEffect(() => {
@@ -143,10 +144,10 @@ export function OrdersPage() {
       setExistingReviews(reviewMap);
     };
 
-    if (orders.length > 0 && !loading && walletAddress && walletAuthToken) {
+    if (orders.length > 0 && !loading && walletAddress && walletAuthToken && authenticated) {
       loadExistingReviews();
     }
-  }, [orders, loading, walletAddress, walletAuthToken]);
+  }, [orders, loading, walletAddress, walletAuthToken, authenticated]);
 
   const toggleDropdown = (orderId: string, productId: string) => {
     const key = `${orderId}-${productId}`;
@@ -430,7 +431,7 @@ export function OrdersPage() {
     );
   }
 
-  if (!walletAuthToken) {
+  if (!walletAuthToken || !authenticated) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Your Orders</h1>

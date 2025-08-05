@@ -1,4 +1,3 @@
-import { Switch } from '@headlessui/react';
 import { Spinner } from './Spinner';
 
 export interface ToggleProps {
@@ -36,39 +35,37 @@ export function Toggle({
   };
 
   return (
-    <Switch.Group>
-      <div className={`flex items-center gap-2 ${className}`}>
-        <Switch
-          checked={checked}
-          onChange={onCheckedChange}
-          disabled={loading || disabled}
+    <div className={`flex items-center gap-2 ${className}`}>
+      <button
+        type="button"
+        onClick={() => !(loading || disabled) && onCheckedChange(!checked)}
+        disabled={loading || disabled}
+        className={`
+          ${sizeClasses[size].switch}
+          ${checked ? 'bg-primary' : 'bg-background-700'}
+          ${(loading || disabled) ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}
+          relative inline-flex shrink-0 cursor-pointer rounded-full border-2 border-transparent
+          transition-colors duration-200 ease-in-out focus:outline-none
+        `}
+      >
+        <span
           className={`
-            ${sizeClasses[size].switch}
-            ${checked ? 'bg-primary' : 'bg-background-700'}
-            ${(loading || disabled) ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}
-            relative inline-flex shrink-0 cursor-pointer rounded-full border-2 border-transparent
-            transition-colors duration-200 ease-in-out focus:outline-none
+            ${sizeClasses[size].thumb}
+            ${checked ? sizeClasses[size].translate : 'translate-x-0'}
+            pointer-events-none inline-block transform rounded-full bg-white shadow-lg
+            ring-0 transition duration-200 ease-in-out
           `}
         >
-          <span
-            className={`
-              ${sizeClasses[size].thumb}
-              ${checked ? sizeClasses[size].translate : 'translate-x-0'}
-              pointer-events-none inline-block transform rounded-full bg-white shadow-lg
-              ring-0 transition duration-200 ease-in-out
-            `}
-          >
-            {loading && (
-              <Spinner className="absolute inset-0 m-auto h-3 w-3 text-primary" />
-            )}
-          </span>
-        </Switch>
-        {label && (
-          <Switch.Label className={`${sizeClasses[size].text} text-text-muted cursor-pointer`}>
-            {label}
-          </Switch.Label>
-        )}
-      </div>
-    </Switch.Group>
+          {loading && (
+            <Spinner className="absolute inset-0 m-auto h-3 w-3 text-primary" />
+          )}
+        </span>
+      </button>
+      {label && (
+        <label className={`${sizeClasses[size].text} text-text-muted cursor-pointer`}>
+          {label}
+        </label>
+      )}
+    </div>
   );
 }

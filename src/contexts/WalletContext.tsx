@@ -1,22 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { ConnectionProvider, WalletProvider as SolanaWalletProvider, useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
-import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { Transaction, PublicKey } from '@solana/web3.js';
-import type { Adapter } from '@solana/wallet-adapter-base';
-import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import { SOLANA_CONNECTION } from '../config/solana';
-import '@solana/wallet-adapter-react-ui/styles.css';
-import '../styles/wallet-modal.css';
+import { usePrivy } from '@privy-io/react-auth';
+import { Transaction, PublicKey, Connection } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
-import { mobileWalletAdapter } from '../services/mobileWalletAdapter';
-
-// Import wallet adapters
-import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
-import { BackpackWalletAdapter } from '@solana/wallet-adapter-backpack';
-import { LedgerWalletAdapter } from '@solana/wallet-adapter-ledger';
-import { TorusWalletAdapter } from '@solana/wallet-adapter-torus';
-import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect';
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 
 // Custom event for auth expiration
 export const AUTH_EXPIRED_EVENT = 'wallet-auth-expired';
@@ -30,18 +15,6 @@ interface WalletNotification {
   message: string;
   timestamp: number;
 }
-
-// Define WalletNotFoundEvent interface for type safety
-interface WalletNotFoundEvent extends Event {
-  walletName?: string;
-}
-
-// Custom event creator for wallet not found events
-const createWalletNotFoundEvent = (walletName: string): WalletNotFoundEvent => {
-  const event = new Event('wallet-not-found') as WalletNotFoundEvent;
-  event.walletName = walletName;
-  return event;
-};
 
 interface WalletContextType {
   isConnected: boolean;
@@ -58,20 +31,38 @@ interface WalletContextType {
   authenticate: (silent?: boolean) => Promise<string | null>;
   ensureAuthenticated: () => Promise<boolean>;
   isAuthenticating: boolean;
+  // Privy-specific methods
+  login: () => void;
+  logout: () => void;
+  ready: boolean;
+  authenticated: boolean;
+  user: any;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 function WalletContextProvider({ children }: { children: React.ReactNode }) {
-  const { publicKey, connected, disconnect: nativeDisconnect, signMessage } = useSolanaWallet();
+  const { 
+    login, 
+    logout, 
+    ready, 
+    authenticated, 
+    user, 
+    sendTransaction,
+    signMessage 
+  } = usePrivy();
+  
   const [error, setError] = useState<Error | null>(null);
   const [notifications, setNotifications] = useState<WalletNotification[]>([]);
   const [walletAuthToken, setWalletAuthToken] = useState<string | null>(null);
-  // Add auth processing state to prevent multiple concurrent challenges
   const [isAuthInProgress, setIsAuthInProgress] = useState(false);
-  // Track token's last verification time
   const [lastAuthTime, setLastAuthTime] = useState<number | null>(null);
-  
+
+  // Get Solana wallet address from Privy user
+  const walletAddress = user?.wallet?.address || null;
+  const publicKey = walletAddress ? new PublicKey(walletAddress) : null;
+  const isConnected = authenticated && !!walletAddress;
+
   // Try to recover token from sessionStorage on mount
   useEffect(() => {
     try {
@@ -146,10 +137,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       // Create a friendly challenge message that clearly explains the purpose
       const timestamp = Date.now();
       const message = `buy merch. manage your orders.`;
-      const encodedMessage = new TextEncoder().encode(message);
       
       // Ask user to sign the message - this proves ownership
-      const signature = await signMessage(encodedMessage);
+      const signature = await signMessage(message);
       
       // Create a custom session with Supabase that includes the wallet signature verification
       const { data, error } = await supabase.functions.invoke('create-wallet-auth', {
@@ -210,7 +200,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Only authenticate when wallet connects, not on every render
     const handleConnection = async () => {
-      if (connected && publicKey) {
+      if (isConnected && publicKey) {
         // When wallet first connects, authenticate
         const token = await createAuthToken(false, true);
         
@@ -220,7 +210,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         } else {
           addNotification('success', 'Wallet connected');
         }
-      } else if (!connected) {
+      } else if (!isConnected) {
         // Clear auth token when wallet disconnects
         setWalletAuthToken(null);
         setLastAuthTime(null);
@@ -235,12 +225,12 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     };
     
     handleConnection();
-  }, [connected, publicKey, addNotification, createAuthToken]);
+  }, [isConnected, publicKey, addNotification, createAuthToken]);
 
   // Add a function to check if token is about to expire and refresh if needed
   const ensureAuthenticated = useCallback(async (): Promise<boolean> => {
     // If wallet isn't connected, can't authenticate
-    if (!connected || !publicKey) {
+    if (!isConnected || !publicKey) {
       return false;
     }
     
@@ -252,7 +242,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     
     // Token exists and is valid
     return true;
-  }, [connected, publicKey, walletAuthToken, lastAuthTime, createAuthToken]);
+  }, [isConnected, publicKey, walletAuthToken, lastAuthTime, createAuthToken]);
 
   // Handler for expired auth tokens
   const handleAuthExpiration = useCallback(() => {
@@ -293,7 +283,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const connect = useCallback(async () => {
     try {
       setError(null);
-      // Connection is handled by the wallet modal
+      login();
     } catch (error) {
       console.error('Connect error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
@@ -301,7 +291,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       addNotification('error', 'Failed to connect wallet');
       throw error;
     }
-  }, [addNotification]);
+  }, [login, addNotification]);
 
   const disconnect = useCallback(async () => {
     try {
@@ -318,7 +308,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       }
       
       // Then call the native disconnect
-      await nativeDisconnect();
+      logout();
       
       // Only show notification after successful disconnect
       addNotification('info', 'Wallet disconnected');
@@ -328,9 +318,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setError(error instanceof Error ? error : new Error(errorMessage));
       addNotification('error', errorMessage);
     }
-  }, [nativeDisconnect, addNotification]);
+  }, [logout, addNotification]);
 
-  const signAndSendTransaction = useCallback(async (_transaction: Transaction): Promise<string> => {
+  const signAndSendTransaction = useCallback(async (transaction: Transaction): Promise<string> => {
     if (!publicKey) {
       const error = new Error('Wallet not connected');
       setError(error);
@@ -340,11 +330,16 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     // First ensure we're authenticated - transactions often need wallet verification
     await ensureAuthenticated();
     
-    // Then use the wallet adapter to sign and send the transaction
+    // Then use Privy to sign and send the transaction
     try {
-      // This part is not implemented yet - depends on selected wallet adapter
-      // This will be handled by the Payment service
-      throw new Error('Not implemented in this context - use the Payment service instead');
+      // For Solana transactions with Privy, we need to use the wallet's native methods
+      // Check if we have access to the wallet through window.solana
+      if ((window as any).solana) {
+        const { signature } = await (window as any).solana.signAndSendTransaction(transaction);
+        return signature;
+      } else {
+        throw new Error('No Solana wallet available for transaction signing');
+      }
     } catch (error) {
       console.error('Transaction error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to send transaction';
@@ -356,7 +351,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
 
   // Make authenticate function available for explicit re-authentication if needed
   const authenticate = useCallback(async (silent = false) => {
-    if (!connected || !publicKey) {
+    if (!isConnected || !publicKey) {
       if (!silent) {
         addNotification('error', 'Wallet must be connected first');
       }
@@ -369,12 +364,12 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       addNotification('success', 'Wallet authenticated');
     }
     return token;
-  }, [createAuthToken, connected, publicKey, addNotification]);
+  }, [createAuthToken, isConnected, publicKey, addNotification]);
 
   return (
     <WalletContext.Provider value={{
-      isConnected: connected,
-      walletAddress: publicKey?.toBase58() || null,
+      isConnected,
+      walletAddress,
       publicKey,
       connect,
       disconnect,
@@ -386,122 +381,24 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       handleAuthExpiration,
       authenticate,
       ensureAuthenticated,
-      isAuthenticating: isAuthInProgress
+      isAuthenticating: isAuthInProgress,
+      // Privy-specific methods
+      login,
+      logout,
+      ready,
+      authenticated,
+      user
     }}>
       {children}
     </WalletContext.Provider>
   );
 }
 
-// Add custom error event to detect wallet not found
-interface WalletNotFoundEvent extends Event {
-  walletName?: string;
-}
-
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  // Initialize wallet adapters
-  const [wallets, setWallets] = useState<Adapter[]>([]);
-  
-  // Add listener to handle wallet not found events
-  useEffect(() => {
-    // Function to handle redirection to wallet websites or mobile apps
-    const handleWalletNotFound = async (event: WalletNotFoundEvent) => {
-      const walletName = event.walletName;
-      
-      if (walletName) {
-        try {
-          console.log(`Wallet not found event triggered for: ${walletName}`);
-          const success = await mobileWalletAdapter.redirectToWallet(walletName);
-          if (!success) {
-            console.warn(`Failed to redirect to ${walletName} wallet`);
-          } else {
-            console.log(`Successfully initiated redirect to ${walletName}`);
-          }
-        } catch (error) {
-          console.error(`Error handling wallet not found for ${walletName}:`, error);
-        }
-      }
-    };
-
-    // Add the event listener
-    window.addEventListener('wallet-not-found', handleWalletNotFound as EventListener);
-
-    // Enhanced button click interception for better TWA support
-    const handleWalletButtonClicks = () => {
-      // Listen for clicks on wallet connection buttons
-      document.addEventListener('click', (event) => {
-        const target = event.target as HTMLElement;
-        if (target && target.textContent && target.textContent.toLowerCase().includes('phantom')) {
-          console.log('Phantom wallet button clicked, checking if wallet is available...');
-          if (!mobileWalletAdapter.isWalletInstalled('phantom')) {
-            console.log('Phantom wallet not detected, attempting redirect...');
-            mobileWalletAdapter.redirectToWallet('phantom');
-          }
-        }
-      });
-    };
-
-    // Initialize enhanced click handling
-    handleWalletButtonClicks();
-
-    return () => {
-      window.removeEventListener('wallet-not-found', handleWalletNotFound as EventListener);
-    };
-  }, []);
-  
-  useEffect(() => {
-    async function loadWallets() {
-      // Initialize adapters for non-standard wallets
-      const adapters = [
-        // Phantom - Add it first to show at the top
-        new PhantomWalletAdapter(),
-        
-        // Solflare - Still needed as a direct adapter
-        new SolflareWalletAdapter(),
-        
-        // Backpack - Popular but not yet standard-compliant
-        new BackpackWalletAdapter(),
-        
-        // Hardware wallet support
-        new LedgerWalletAdapter(),
-        
-        // Social login support (optional)
-        new TorusWalletAdapter(),
-        
-        // WalletConnect support for mobile (optional)
-        new WalletConnectWalletAdapter({
-          network: WalletAdapterNetwork.Mainnet,
-          options: {
-            projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '',
-            metadata: {
-              name: 'StoreDotFun',
-              description: 'StoreDotFun - Web3 Merch Store',
-              url: window.location.origin,
-              icons: [`${window.location.origin}/logo.png`]
-            }
-          }
-        })
-      ].filter(Boolean);
-
-      setWallets(adapters);
-    }
-    loadWallets();
-  }, []);
-
-  if (wallets.length === 0) {
-    return <div>Loading wallets...</div>;
-  }
-
   return (
-    <ConnectionProvider endpoint={SOLANA_CONNECTION.rpcEndpoint}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          <WalletContextProvider>
-            {children}
-          </WalletContextProvider>
-        </WalletModalProvider>
-      </SolanaWalletProvider>
-    </ConnectionProvider>
+    <WalletContextProvider>
+      {children}
+    </WalletContextProvider>
   );
 }
 

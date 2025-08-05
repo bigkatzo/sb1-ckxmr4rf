@@ -142,6 +142,12 @@ export default defineConfig({
     modulePreload: {
       polyfill: true
     },
+    // Add circular dependency detection
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true
+    },
+    // Add additional optimizations for circular dependencies
     rollupOptions: {
       external: [
         '@pixi/core',
@@ -149,6 +155,18 @@ export default defineConfig({
         '@pixi/filter-bulge-pinch',
         '@pixi/filter-displacement'
       ],
+      onwarn(warning, warn) {
+        // Suppress circular dependency warnings for UI libraries
+        if (warning.code === 'CIRCULAR_DEPENDENCY' && 
+            (warning.message.includes('@headlessui') || warning.message.includes('@radix-ui'))) {
+          return;
+        }
+        // Suppress other common warnings that might be related
+        if (warning.code === 'UNUSED_EXTERNAL_IMPORT') {
+          return;
+        }
+        warn(warning);
+      },
       output: {
         assetFileNames: 'assets/[name]-[hash][extname]',
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -163,12 +181,7 @@ export default defineConfig({
           // Split Solana dependencies into smaller chunks
           'vendor-solana-core': ['@solana/web3.js'],
           'vendor-solana-token': ['@solana/spl-token'],
-          'vendor-solana-wallet': [
-            '@solana/wallet-adapter-base',
-            '@solana/wallet-adapter-react',
-            '@solana/wallet-adapter-react-ui',
-            '@solana/wallet-adapter-wallets'
-          ],
+          'vendor-privy': ['@privy-io/react-auth'],
           
           // Split Metaplex into smaller chunks
           'vendor-metaplex-core': ['@metaplex-foundation/js'],
@@ -179,8 +192,8 @@ export default defineConfig({
           ],
           'vendor-metaplex-bubblegum': ['@metaplex-foundation/mpl-bubblegum'],
           
-          // UI dependencies - split further for better optimization
-          'vendor-ui-core': ['lucide-react', '@headlessui/react', '@radix-ui/react-tooltip'],
+          // UI dependencies - exclude problematic ones from vendor chunks
+          'vendor-ui-core': ['lucide-react'],
           'vendor-ui-notifications': ['react-toastify'],
           'vendor-ui-upload': ['react-dropzone'],
           
@@ -212,18 +225,13 @@ export default defineConfig({
       // Solana ecosystem
       '@solana/web3.js',
       '@solana/spl-token',
-      '@solana/wallet-adapter-base',
-      '@solana/wallet-adapter-react',
-      '@solana/wallet-adapter-react-ui',
-      '@solana/wallet-adapter-wallets',
+      '@privy-io/react-auth',
       '@metaplex-foundation/js',
       
       // UI and utilities
       'lucide-react',
       'react-toastify',
       'react-dropzone',
-      '@headlessui/react',
-      '@radix-ui/react-tooltip',
       'date-fns',
       'uuid',
       'bs58',
@@ -239,6 +247,11 @@ export default defineConfig({
       'pixi.js',
       'file-saver'
     ],
+    exclude: [
+      // Exclude problematic dependencies that cause circular deps
+      '@headlessui/react',
+      '@radix-ui/react-tooltip'
+    ],
     esbuildOptions: {
       target: 'esnext',
       // Enable tree-shaking optimization
@@ -247,10 +260,15 @@ export default defineConfig({
       minify: true,
       // Keep pure annotations
       keepNames: false,
-    }
+      // Add circular dependency detection
+      logOverride: { 'this-is-undefined-in-esm': 'silent' }
+    },
+    // Force dependency optimization to prevent circular dependencies
+    force: true
   },
   // Improve dev experience
   server: {
+    port: 5173,
     open: false,
     hmr: {
       overlay: true

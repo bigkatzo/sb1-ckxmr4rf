@@ -155,7 +155,7 @@
                     <category android:name="android.intent.category.DEFAULT" />
                     <category android:name="android.intent.category.BROWSABLE"/>
                     <data android:scheme="https"
-                        android:host="https://phantom.app"/>
+                        android:host="phantom.app"/>
                 </intent-filter>
             
                 <intent-filter android:autoVerify="true">
@@ -163,7 +163,7 @@
                     <category android:name="android.intent.category.DEFAULT" />
                     <category android:name="android.intent.category.BROWSABLE"/>
                     <data android:scheme="https"
-                        android:host="https://solflare.com"/>
+                        android:host="solflare.com"/>
                 </intent-filter>
             
                 <intent-filter android:autoVerify="true">
@@ -171,7 +171,7 @@
                     <category android:name="android.intent.category.DEFAULT" />
                     <category android:name="android.intent.category.BROWSABLE"/>
                     <data android:scheme="https"
-                        android:host="https://backpack.app"/>
+                        android:host="backpack.app"/>
                 </intent-filter>
             
 

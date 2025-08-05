@@ -4,7 +4,7 @@ import { useDropzone } from 'react-dropzone';
 import { Toggle } from '../../ui/Toggle';
 import { formatDateForInput, formatDate, getUserTimezone, parseFormDate, isFutureDate, formatCountdown } from '../../../utils/date-helpers';
 import type { Collection } from '../../../types/collections';
-import { Dialog } from '@headlessui/react';
+import { SimpleDialog } from '../../ui/SimpleDialog';
 import { OptimizedImage } from '../../ui/OptimizedImage';
 import { CollectionThemeSettings } from './CollectionThemeSettings';
 import { toast } from 'react-toastify';
@@ -504,7 +504,7 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
   const dateDisplay = getFormattedDateDisplay();
 
   return (
-    <Dialog
+    <SimpleDialog
       open={true}
       onClose={onClose}
       className="fixed inset-0 z-50"
@@ -516,9 +516,9 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
           <div className="relative w-full h-full sm:h-auto sm:max-h-[90vh] bg-gray-900 sm:rounded-xl shadow-xl sm:max-w-2xl flex flex-col">
             {/* Header */}
             <div className="flex-none bg-gray-900 z-10 flex justify-between items-center p-4 sm:p-6 border-b border-gray-800">
-              <Dialog.Title className="text-lg sm:text-xl font-semibold text-white">
-                {collection ? 'Edit Collection' : 'New Collection'}
-              </Dialog.Title>
+              <h2 className="text-lg sm:text-xl font-semibold text-white">
+                {collection ? 'Edit Collection' : 'Create Collection'}
+              </h2>
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
@@ -1011,24 +1011,19 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
       </div>
 
       {/* Theme Settings Modal */}
-      <Dialog
-        open={isThemeModalOpen}
-        onClose={() => setIsThemeModalOpen(false)}
-        className="fixed inset-0 z-[60]"
-      >
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsThemeModalOpen(false)} />
-        <div className="fixed inset-0 overflow-y-auto">
+      {isThemeModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
-            <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-gray-900 p-6 shadow-xl transition-all">
+            <div className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-gray-900 p-6 shadow-xl transition-all">
               <div className="flex justify-between items-center mb-4">
-                <Dialog.Title className="text-lg font-medium text-white">
+                <h2 className="text-lg font-medium text-white">
                   Collection Theme Settings
-                </Dialog.Title>
+                </h2>
                 <button
                   onClick={() => setIsThemeModalOpen(false)}
-                  className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
+                  className="text-gray-400 hover:text-white transition-colors"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-6 w-6" />
                 </button>
               </div>
               
@@ -1037,45 +1032,24 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
                 onChange={handleThemeChange}
               />
               
-              <div className="mt-6 flex justify-end gap-3">
+              <div className="flex justify-end gap-3 mt-6">
                 <button
-                  type="button"
-                  onClick={() => {
-                    // Reset theme data to what it was before opening modal
-                    setThemeData({
-                      theme_primary_color: collection?.theme_primary_color || null,
-                      theme_secondary_color: collection?.theme_secondary_color || null,
-                      theme_background_color: collection?.theme_background_color || null,
-                      theme_text_color: collection?.theme_text_color || null,
-                      theme_use_custom: collection?.theme_use_custom || false,
-                      theme_use_classic: collection?.theme_use_classic !== false,
-                      theme_logo_url: collection?.theme_logo_url || null
-                    });
-                    setIsThemeModalOpen(false);
-                  }}
-                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                  onClick={() => setIsThemeModalOpen(false)}
+                  className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await saveTheme();
-                      setIsThemeModalOpen(false);
-                    } catch (error) {
-                      // Error is already handled in saveTheme
-                    }
-                  }}
-                  className="bg-primary hover:bg-primary/80 px-6 py-2 rounded-lg transition-colors text-white"
+                  onClick={saveTheme}
+                  className="px-4 py-2 text-sm bg-primary hover:bg-primary/80 text-white rounded-lg transition-colors"
                 >
-                  Save Changes
+                  Save Theme
                 </button>
               </div>
-            </Dialog.Panel>
+            </div>
           </div>
         </div>
-      </Dialog>
+      )}
 
       {/* Portal-based tooltip for collection image guidelines */}
       {showImageTooltip && createPortal(
@@ -1097,6 +1071,6 @@ export function CollectionForm({ collection, onSubmit, onClose }: CollectionForm
         </div>,
         document.body
       )}
-    </Dialog>
+    </SimpleDialog>
   );
 }

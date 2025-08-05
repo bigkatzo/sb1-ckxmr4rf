@@ -11,12 +11,12 @@ export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { walletAddress, walletAuthToken, isConnected } = useWallet();
+  const { walletAddress, walletAuthToken, isConnected, authenticated } = useWallet();
 
   // Fetch orders when wallet changes or authentication status changes
   useEffect(() => {
-    // SAFETY CHECK: Only proceed if wallet is currently connected
-    if (!walletAddress || !isConnected) {
+    // SAFETY CHECK: Only proceed if wallet is currently connected and authenticated via Privy
+    if (!walletAddress || !isConnected || !authenticated) {
       setOrders([]);
       setLoading(false);
       return;
@@ -49,7 +49,7 @@ export function useOrders() {
     return () => {
       supabase.removeChannel(orderSubscription);
     };
-  }, [walletAddress, isConnected, walletAuthToken]);
+  }, [walletAddress, isConnected, authenticated, walletAuthToken]);
 
   const fetchOrders = async () => {
     try {

@@ -1,7 +1,6 @@
 import type { MouseEvent } from 'react';
 import { ShoppingBag, Clock, Ban, Eye } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useModal } from '../../contexts/ModalContext';
 import { useOrderStats } from '../../hooks/useOrderStats';
 import { isPreviewMode } from '../../utils/preview';
@@ -26,8 +25,7 @@ export function BuyButton({
   onClick,
   showModal = false
 }: BuyButtonProps) {
-  const { isConnected } = useWallet();
-  const { setVisible } = useWalletModal();
+  const { isConnected, login } = useWallet();
   const { showVerificationModal } = useModal();
 
   const { currentOrders } = useOrderStats(product.id);
@@ -46,9 +44,9 @@ export function BuyButton({
     e.stopPropagation(); // Prevent event bubbling
 
     try {
-      // If wallet not connected, show wallet modal
+      // If wallet not connected, use Privy's login method
       if (!isConnected) {
-        setVisible(true);
+        login();
         return;
       }
 

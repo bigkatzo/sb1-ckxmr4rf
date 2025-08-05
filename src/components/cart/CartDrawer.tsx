@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Wallet, ChevronRight, ShoppingCart, Trash2 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { useWallet } from '../../contexts/WalletContext';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { formatPriceWithRate } from '../../utils/formatters';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useSolanaPrice } from '../../utils/price-conversion';
@@ -21,8 +20,7 @@ export function CartDrawer() {
     getTotalPrice 
   } = useCart();
   
-  const { isConnected } = useWallet();
-  const { setVisible: showWalletModal } = useWalletModal();
+  const { isConnected, login } = useWallet();
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   
   // Use the getTotalPrice function from the cart context
@@ -38,8 +36,8 @@ export function CartDrawer() {
         autoClose: 3000
       });
       
-      // Show wallet connection modal
-      showWalletModal(true);
+      // Use Privy's login method instead of wallet modal
+      login();
       return;
     }
     

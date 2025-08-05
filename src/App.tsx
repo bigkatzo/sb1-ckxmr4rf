@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { PrivyProvider } from '@privy-io/react-auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CollectionProvider } from './contexts/CollectionContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -26,6 +27,7 @@ import { setupServiceWorker } from './lib/service-worker';
 import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
 import { setupRealtimeHealth } from './lib/realtime/subscriptions';
 import { useSyncWalletClaims } from './hooks/useSyncWalletClaims';
+import { PRIVY_CONFIG } from './config/privy';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -194,27 +196,50 @@ export function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <UserRoleProvider>
-          <WalletProvider>
-            <CollectionProvider>
-              <ThemeProvider>
-                <CurrencyProvider>
-                  <ModalProvider>
-                    <HowItWorksProvider>
-                      <AppMessagesProvider>
-                        <CartProvider>
-                          <AppContent />
-                        </CartProvider>
-                      </AppMessagesProvider>
-                    </HowItWorksProvider>
-                  </ModalProvider>
-                </CurrencyProvider>
-              </ThemeProvider>
-            </CollectionProvider>
-          </WalletProvider>
-        </UserRoleProvider>
-      </AuthProvider>
+      {PRIVY_CONFIG.appId ? (
+        <PrivyProvider 
+          appId={PRIVY_CONFIG.appId}
+          config={PRIVY_CONFIG.config}
+          privyWalletOverride={PRIVY_CONFIG.privyWalletOverride}
+          onError={(error: any) => {
+            console.error('Privy error:', error);
+          }}
+        >
+          <AuthProvider>
+            <UserRoleProvider>
+              <WalletProvider>
+                <CollectionProvider>
+                  <ThemeProvider>
+                    <CurrencyProvider>
+                      <ModalProvider>
+                        <HowItWorksProvider>
+                          <AppMessagesProvider>
+                            <CartProvider>
+                              <AppContent />
+                            </CartProvider>
+                          </AppMessagesProvider>
+                        </HowItWorksProvider>
+                      </ModalProvider>
+                    </CurrencyProvider>
+                  </ThemeProvider>
+                </CollectionProvider>
+              </WalletProvider>
+            </UserRoleProvider>
+          </AuthProvider>
+        </PrivyProvider>
+      ) : (
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Configuration Error</h1>
+            <p className="text-gray-400 mb-4">
+              VITE_PRIVY_APP_ID environment variable is not set.
+            </p>
+            <p className="text-sm text-gray-500">
+              Please check your environment configuration and restart the development server.
+            </p>
+          </div>
+        </div>
+      )}
       </QueryClientProvider>
     </ErrorBoundary>
   );

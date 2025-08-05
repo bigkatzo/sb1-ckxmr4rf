@@ -6,7 +6,6 @@ import { isPreviewMode } from '../../utils/preview';
 import type { Product } from '../../types/variants';
 import { toast } from 'react-toastify';
 import { verifyAndAddToCart } from '../../utils/productAccessVerification';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { getVariantKey } from '../../utils/variant-helpers';
 
@@ -37,8 +36,7 @@ export function AddToCartButton({
   isCustomizationValid = true
 }: AddToCartButtonProps) {
   const { addItem, toggleCart, items } = useCart();
-  const { walletAddress } = useWallet();
-  const { setVisible } = useWalletModal();
+  const { walletAddress, login } = useWallet();
   const [isVerifying, setIsVerifying] = useState(false);
   const isPreview = isPreviewMode();
   
@@ -142,7 +140,7 @@ export function AddToCartButton({
       });
       
       // Show wallet connection modal
-      setVisible(true);
+      login();
       return;
     }
     
@@ -166,7 +164,7 @@ export function AddToCartButton({
           addItem,
           selectedOptions,
           1,
-          () => setVisible(true), // Function to show wallet connection modal if needed
+          () => login(), // Function to show wallet connection modal if needed
           priceInfo,
           toggleCart,  // Pass toggle cart function for the View link
           customizationData
@@ -186,7 +184,7 @@ export function AddToCartButton({
           addItem,
           selectedOptions,
           1,
-          () => setVisible(true),
+          () => login(),
           priceInfo,
           toggleCart,
           customizationData
