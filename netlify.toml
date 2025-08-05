@@ -186,7 +186,10 @@
         https://*.metaplex.com https://cdn.metaplex.com
         https://*.cloudfront.net https://*.amazonaws.com
         https://*.magiceden.io https://*.magiceden.dev
-        https://*.tensor.trade;
+        https://*.tensor.trade
+        https://*.privy.io https://auth.privy.io
+        https://*.walletconnect.com https://*.walletconnect.org
+        https://challenges.cloudflare.com;
       style-src 'self' 'unsafe-inline' https://*.stripe.com https://fonts.googleapis.com;
       font-src 'self' https://fonts.gstatic.com data:;
       worker-src 'self' blob: 'wasm-unsafe-eval';
