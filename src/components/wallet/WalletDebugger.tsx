@@ -9,6 +9,7 @@ export function WalletDebugger() {
     connect, 
     disconnect, 
     toggleConnect,
+    forceDisconnect,
     ready, 
     authenticated, 
     user,
@@ -185,6 +186,16 @@ export function WalletDebugger() {
     }
   };
 
+  const testForceDisconnect = async () => {
+    addLog('Testing force disconnect...');
+    try {
+      await forceDisconnect();
+      addLog('Force disconnect completed');
+    } catch (error) {
+      addLog(`Force disconnect error: ${error}`);
+    }
+  };
+
   const clearLogs = () => {
     setLogs([]);
   };
@@ -229,6 +240,12 @@ export function WalletDebugger() {
             className="bg-orange-600 text-white px-2 py-1 rounded text-xs hover:bg-orange-700"
           >
             Privy Logout
+          </button>
+          <button
+            onClick={testForceDisconnect}
+            className="bg-yellow-600 text-white px-2 py-1 rounded text-xs hover:bg-yellow-700"
+          >
+            Force Disconnect
           </button>
         </div>
       </div>

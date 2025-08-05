@@ -8,7 +8,7 @@ export const PRIVY_CONFIG = {
       theme: 'dark' as const,
       accentColor: '#0F47E4' as `#${string}`,
       showWalletLoginFirst: true,
-      walletChainType: 'solana' as const, // Change to solana only
+      walletChainType: 'solana' as const, // Solana only
     },
     // Use Solana as default chain for Solana wallet compatibility
     defaultChain: {
@@ -28,7 +28,7 @@ export const PRIVY_CONFIG = {
       },
     },
     supportedChains: [
-      // Solana (Primary for Solana wallets like Phantom)
+      // Solana ONLY - remove all EVM chains to prevent confusion
       {
         id: 1399811150, // Correct Solana mainnet chain ID for Privy
         name: 'Solana',
@@ -43,108 +43,6 @@ export const PRIVY_CONFIG = {
           name: 'SOL',
           symbol: 'SOL',
           decimals: 9,
-        },
-      },
-      // Ethereum (Secondary for EVM wallet compatibility)
-      {
-        id: 1,
-        name: 'Ethereum',
-        rpcUrls: {
-          default: { http: ['https://ethereum.publicnode.com'] },
-          public: { http: ['https://ethereum.publicnode.com'] }
-        },
-        blockExplorers: {
-          default: { name: 'Etherscan', url: 'https://etherscan.io' }
-        },
-        nativeCurrency: {
-          name: 'Ether',
-          symbol: 'ETH',
-          decimals: 18,
-        },
-      },
-      // Polygon
-      {
-        id: 137,
-        name: 'Polygon',
-        rpcUrls: {
-          default: { http: ['https://polygon-rpc.com'] },
-          public: { http: ['https://polygon-rpc.com'] }
-        },
-        blockExplorers: {
-          default: { name: 'PolygonScan', url: 'https://polygonscan.com' }
-        },
-        nativeCurrency: {
-          name: 'MATIC',
-          symbol: 'MATIC',
-          decimals: 18,
-        },
-      },
-      // BSC
-      {
-        id: 56,
-        name: 'BNB Smart Chain',
-        rpcUrls: {
-          default: { http: ['https://bsc-dataseed1.binance.org'] },
-          public: { http: ['https://bsc-dataseed1.binance.org'] }
-        },
-        blockExplorers: {
-          default: { name: 'BscScan', url: 'https://bscscan.com' }
-        },
-        nativeCurrency: {
-          name: 'BNB',
-          symbol: 'BNB',
-          decimals: 18,
-        },
-      },
-      // Arbitrum
-      {
-        id: 42161,
-        name: 'Arbitrum One',
-        rpcUrls: {
-          default: { http: ['https://arb1.arbitrum.io/rpc'] },
-          public: { http: ['https://arb1.arbitrum.io/rpc'] }
-        },
-        blockExplorers: {
-          default: { name: 'Arbiscan', url: 'https://arbiscan.io' }
-        },
-        nativeCurrency: {
-          name: 'Ether',
-          symbol: 'ETH',
-          decimals: 18,
-        },
-      },
-      // Optimism
-      {
-        id: 10,
-        name: 'Optimism',
-        rpcUrls: {
-          default: { http: ['https://mainnet.optimism.io'] },
-          public: { http: ['https://mainnet.optimism.io'] }
-        },
-        blockExplorers: {
-          default: { name: 'Optimistic Etherscan', url: 'https://optimistic.etherscan.io' }
-        },
-        nativeCurrency: {
-          name: 'Ether',
-          symbol: 'ETH',
-          decimals: 18,
-        },
-      },
-      // Base
-      {
-        id: 8453,
-        name: 'Base',
-        rpcUrls: {
-          default: { http: ['https://mainnet.base.org'] },
-          public: { http: ['https://mainnet.base.org'] }
-        },
-        blockExplorers: {
-          default: { name: 'BaseScan', url: 'https://basescan.org' }
-        },
-        nativeCurrency: {
-          name: 'Ether',
-          symbol: 'ETH',
-          decimals: 18,
         },
       },
     ],

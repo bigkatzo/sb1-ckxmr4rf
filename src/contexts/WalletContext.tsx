@@ -33,6 +33,7 @@ interface WalletContextType {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   toggleConnect: () => Promise<void>;
+  forceDisconnect: () => Promise<void>;
   signAndSendTransaction: (transaction: Transaction) => Promise<string>;
   error: Error | null;
   notifications: WalletNotification[];
@@ -444,6 +445,69 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     return token;
   }, [createAuthToken, isConnected, publicKey, addNotification]);
 
+  // Add a force disconnect function to clear all Privy state
+  const forceDisconnect = useCallback(async () => {
+    try {
+      setError(null);
+      
+      // Clear all local state
+      setWalletAuthToken(null);
+      setLastAuthTime(null);
+      
+      // Clear from session storage
+      try {
+        sessionStorage.removeItem('walletAuthToken');
+        sessionStorage.removeItem('walletAuthTime');
+        // Also clear any Privy-related storage
+        localStorage.removeItem('privy');
+        sessionStorage.removeItem('privy');
+      } catch (e) {
+        console.error('Error clearing storage:', e);
+      }
+      
+      // Call Privy logout
+      logout();
+      
+      addNotification('info', 'Wallet forcefully disconnected');
+      console.log('Force disconnect completed');
+    } catch (error) {
+      console.error('Force disconnect error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to force disconnect';
+      setError(error instanceof Error ? error : new Error(errorMessage));
+      addNotification('error', errorMessage);
+    }
+  }, [logout, addNotification]);
+
+  // Add chain validation
+  const validateSolanaChain = useCallback(() => {
+    if (user?.wallet) {
+      const chainId = user.wallet.chainId;
+      const chainType = user.wallet.chainType;
+      
+      console.log('Chain validation:', { chainId, chainType });
+      
+      // Check if connected to Solana chain (handle both string and number chainId)
+      const solanaChainId = '1399811150';
+      const isSolanaChain = chainId && chainId.toString() === solanaChainId;
+      
+      if (!isSolanaChain || chainType !== 'solana') {
+        console.warn('User connected to wrong chain:', { chainId, chainType });
+        addNotification('error', 'Please connect to Solana network in your wallet');
+        return false;
+      }
+      
+      return true;
+    }
+    return false;
+  }, [user?.wallet, addNotification]);
+
+  // Add effect to validate chain on connection
+  useEffect(() => {
+    if (authenticated && user?.wallet) {
+      validateSolanaChain();
+    }
+  }, [authenticated, user?.wallet, validateSolanaChain]);
+
   return (
     <WalletContext.Provider value={{
       isConnected,
@@ -452,6 +516,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       connect,
       disconnect,
       toggleConnect,
+      forceDisconnect,
       signAndSendTransaction,
       error,
       notifications,
