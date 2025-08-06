@@ -135,7 +135,6 @@
 [[headers]]
   for = "/*"
   [headers.values]
-
     X-XSS-Protection = "1; mode=block"
     Content-Security-Policy = """
       default-src 'self';
@@ -173,17 +172,13 @@
         https://store.fun https://*.store.fun
         https://*.privy.io https://auth.privy.io https://console.privy.io
         https://*.walletconnect.com https://explorer-api.walletconnect.com
-        wss://relay.walletconnect.com wss://relay.walletconnect.org
-        wss://www.walletlink.org https://*.rpc.privy.systems
         wss://*.solana.com ws://*.solana.com
         blob:
         data:;
       frame-src 'self' 
         https://*.stripe.com https://*.stripe.network https://js.stripe.com https://hooks.stripe.com 
         https://*.solana.com https://*.phantom.app https://*.backpack.app https://*.solflare.com
-        https://*.privy.io https://auth.privy.io
-        https://verify.walletconnect.com https://verify.walletconnect.org
-        https://challenges.cloudflare.com;
+        https://*.privy.io https://auth.privy.io;
       img-src 'self' data: blob: 
         https://*.stripe.com https://*.netlify.app https://*.netlify.com 
         https://*.supabase.co https://*.arweave.net https://arweave.net 
