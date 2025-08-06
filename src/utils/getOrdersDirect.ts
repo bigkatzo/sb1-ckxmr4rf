@@ -178,63 +178,8 @@ export async function getOrdersDirect(walletAddress: string, walletAuthToken: st
   } catch (rpcErr) {
     console.error('Error fetching from RPC function:', rpcErr);
     
-    // Last resort, try the fallback RPC function
-    try {
-      const response = await fetch(
-        `${supabaseUrl}/rest/v1/rpc/get_wallet_orders_direct`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseKey,
-            'Authorization': `Bearer ${supabaseKey}`,
-            'X-Wallet-Address': walletAddress,
-            'X-Wallet-Auth-Token': walletAuthToken
-          },
-          body: JSON.stringify({ wallet_addr: walletAddress })
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Fallback wallet orders RPC failed with status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return {
-        data,
-        source: 'fallback_rpc_function',
-        error: null
-      };
-    } catch (fallbackErr) {
-      // Get debug info as a last resort
-      try {
-        const debugResponse = await fetch(
-          `${supabaseUrl}/rest/v1/rpc/debug_auth_status`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': supabaseKey,
-              'Authorization': `Bearer ${supabaseKey}`,
-              'X-Wallet-Address': walletAddress,
-              'X-Wallet-Auth-Token': walletAuthToken
-            }
-          }
-        );
-        
-        if (debugResponse.ok) {
-          const debugData = await debugResponse.json();
-          console.error('Auth debug info:', debugData);
-        }
-      } catch (debugErr) {
-        // Ignore debug errors
-      }
-      
-      return {
-        data: [],
-        source: null,
-        error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)
-      };
-    }
+    // Throw error instead of falling back to direct approach
+    // This will force the useOrders hook to use get_user_orders_fallback
+    throw new Error('Direct orders fetch failed, falling back to get_user_orders_fallback');
   }
 } 

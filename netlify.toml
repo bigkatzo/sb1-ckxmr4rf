@@ -44,6 +44,11 @@
   to = "/.netlify/functions/upload-site-asset"
   status = 200
 
+[[redirects]]
+  from = "/api/get-solana-price"
+  to = "/.netlify/functions/get-solana-price"
+  status = 200
+
 # Email notification handler
 [[redirects]]
   from = "/api/email-notification-handler"
@@ -138,6 +143,9 @@
         https://*.metaplex.com https://*.solana.com
         https://*.phantom.app https://*.backpack.app
         https://*.jsdelivr.net
+        https://*.privy.io https://auth.privy.io
+        https://*.walletconnect.com https://explorer-api.walletconnect.com
+        https://challenges.cloudflare.com
         blob:;
       connect-src 'self' 
         https://*.stripe.com https://*.stripe.network https://api.stripe.com https://hooks.stripe.com
@@ -178,11 +186,16 @@
         https://*.metaplex.com https://cdn.metaplex.com
         https://*.cloudfront.net https://*.amazonaws.com
         https://*.magiceden.io https://*.magiceden.dev
-        https://*.tensor.trade;
+        https://*.tensor.trade
+        https://*.privy.io https://auth.privy.io
+        https://*.walletconnect.com https://*.walletconnect.org
+        https://challenges.cloudflare.com;
       style-src 'self' 'unsafe-inline' https://*.stripe.com https://fonts.googleapis.com;
       font-src 'self' https://fonts.gstatic.com data:;
       worker-src 'self' blob: 'wasm-unsafe-eval';
-      child-src 'self' blob:;
+      child-src 'self' blob:
+        https://auth.privy.io
+        https://verify.walletconnect.com https://verify.walletconnect.org;
       object-src 'none';
       base-uri 'self';
       form-action 'self';

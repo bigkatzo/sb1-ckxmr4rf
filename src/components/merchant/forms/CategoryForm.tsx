@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
-import { Dialog } from '@headlessui/react';
+import { SimpleDialog } from '../../ui/SimpleDialog';
 import { toast } from 'react-toastify';
 import { Toggle } from '../../ui/Toggle';
 import type { CategoryRule, RuleGroup } from '../../../types';
@@ -132,7 +132,7 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
   };
 
   return (
-    <Dialog
+    <SimpleDialog
       open={true}
       onClose={onClose}
       className="fixed inset-0 z-50"
@@ -144,9 +144,9 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
           <div className="relative w-full h-full sm:h-auto sm:max-h-[90vh] bg-gray-900 sm:rounded-xl shadow-xl sm:max-w-2xl flex flex-col">
             {/* Header */}
             <div className="flex-none bg-gray-900 z-10 flex justify-between items-center p-4 sm:p-6 border-b border-gray-800">
-              <Dialog.Title className="text-lg sm:text-xl font-semibold text-white">
+              <h2 className="text-lg sm:text-xl font-semibold text-white">
                 {initialData ? 'Edit Category' : 'New Category'}
-              </Dialog.Title>
+              </h2>
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
@@ -358,6 +358,6 @@ export function CategoryForm({ onClose, onSubmit, initialData }: CategoryFormPro
           </div>
         </div>
       </div>
-    </Dialog>
+    </SimpleDialog>
   );
 }

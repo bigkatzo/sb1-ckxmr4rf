@@ -1,17 +1,15 @@
 import { Wallet } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 
 export function WalletButton() {
-  const { isConnected, walletAddress, disconnect } = useWallet();
-  const { setVisible } = useWalletModal();
+  const { isConnected, walletAddress, connect, disconnect } = useWallet();
 
   const handleClick = async () => {
     try {
       if (isConnected) {
         await disconnect();
       } else {
-        setVisible(true);
+        await connect();
       }
     } catch (err) {
       console.error('Wallet action error:', err);

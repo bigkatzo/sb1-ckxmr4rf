@@ -6,19 +6,20 @@ import { useAuth } from '../contexts/AuthContext';
 /**
  * A hook that synchronizes the wallet address with JWT claims in Supabase
  * This ensures that RLS policies using auth.jwt()->>'wallet_address' work correctly
+ * Updated to work with Privy wallet integration
  */
 export function useSyncWalletClaims() {
-  const { walletAddress } = useWallet();
+  const { walletAddress, authenticated } = useWallet();
   const { session } = useAuth();
   const [lastSyncedWallet, setLastSyncedWallet] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     // Only attempt to sync if:
-    // 1. Wallet is connected
-    // 2. User is authenticated
+    // 1. Wallet is connected and authenticated via Privy
+    // 2. User is authenticated with Supabase
     // 3. Wallet address has changed since last sync or we haven't synced it yet
-    if (walletAddress && session?.user && walletAddress !== lastSyncedWallet) {
+    if (walletAddress && authenticated && session?.user && walletAddress !== lastSyncedWallet) {
       // Define function to sync wallet address with JWT claims
       const syncWalletAddress = async () => {
         setSyncStatus('syncing');
@@ -109,7 +110,7 @@ export function useSyncWalletClaims() {
       // Execute the sync
       syncWalletAddress();
     }
-  }, [walletAddress, session?.user?.id, lastSyncedWallet]);
+  }, [walletAddress, authenticated, session?.user?.id, lastSyncedWallet]);
 
   return {
     lastSyncedWallet,

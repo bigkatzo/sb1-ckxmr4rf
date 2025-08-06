@@ -12,6 +12,8 @@ import type { Database } from '../lib/database.types';
  * 
  * During checkout flows, even if token is missing, we'll create a client using just
  * the wallet address to prevent authentication interruptions.
+ * 
+ * Updated to work with Privy wallet integration
  */
 export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean }): {
   client: SupabaseClient<Database> | null;
@@ -25,7 +27,7 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
     reason: string | null;
   };
 } {
-  const { walletAddress, walletAuthToken, isConnected } = useWallet();
+  const { walletAddress, walletAuthToken, isConnected, authenticated } = useWallet();
   const allowMissingToken = options?.allowMissingToken || false;
   
   // Check environment variables
@@ -37,12 +39,12 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
   const diagnostics = {
     hasWallet: !!walletAddress,
     hasToken: !!walletAuthToken,
-    isConnected,
+    isConnected: isConnected && authenticated, // Both Privy connection and authentication required
     hasEnvVars,
     reason: !walletAddress
       ? "No wallet address available"
-      : !isConnected
-        ? "Wallet not connected"
+      : !isConnected || !authenticated
+        ? "Wallet not connected or not authenticated via Privy"
         : !walletAuthToken && !allowMissingToken
           ? "No wallet authentication token"
           : !hasEnvVars
@@ -58,16 +60,17 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
       console.log('Auth Token:', walletAuthToken ? 'Available' : 'Missing');
       console.log('Allow Missing Token:', allowMissingToken);
       console.log('Wallet Connected:', isConnected);
+      console.log('Privy Authenticated:', authenticated);
       console.log('Environment Variables:', hasEnvVars ? 'Available' : 'Missing');
       console.log('Client Initialized:', diagnostics.reason ? `No - ${diagnostics.reason}` : 'Yes');
       console.groupEnd();
     }
-  }, [walletAddress, walletAuthToken, isConnected, hasEnvVars, diagnostics, allowMissingToken]);
+  }, [walletAddress, walletAuthToken, isConnected, authenticated, hasEnvVars, diagnostics, allowMissingToken]);
   
   // Create Supabase client with wallet auth
   const client = useMemo<SupabaseClient<Database> | null>(() => {
-    // Always create client if we have wallet address and we're connected
-    if (!walletAddress || !isConnected) {
+    // Always create client if we have wallet address and we're connected and authenticated via Privy
+    if (!walletAddress || !isConnected || !authenticated) {
       return null;
     }
     
@@ -116,7 +119,7 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
         headers
       }
     });
-  }, [walletAddress, walletAuthToken, isConnected, supabaseUrl, supabaseKey, allowMissingToken]);
+  }, [walletAddress, walletAuthToken, isConnected, authenticated, supabaseUrl, supabaseKey, allowMissingToken]);
   
   return {
     client,

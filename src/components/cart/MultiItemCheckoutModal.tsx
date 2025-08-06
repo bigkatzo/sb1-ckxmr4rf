@@ -4,7 +4,6 @@ import { useCart, CartItem } from '../../contexts/CartContext';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { formatPriceWithRate, formatPriceWithIcon } from '../../utils/formatters';
 import { useWallet } from '../../contexts/WalletContext';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { toast } from 'react-toastify';
 import { Loading, LoadingType } from '../ui/LoadingStates';
 import { CouponService } from '../../services/coupons';
@@ -51,9 +50,8 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
     verifyAllItems = async () => true; // No verification needed in single item mode
   }
 
-  const { isConnected, walletAddress } = useWallet();
-  const { setVisible } = useWalletModal();
-  const { processPayment, processTokenPayment, processSolanaSwapTokenPayment } = usePayment();
+  const { isConnected, walletAddress, login } = useWallet();
+  const { processPayment, processTokenPayment } = usePayment();
   
   // Form state
   const [shipping, setShipping] = useState<{
@@ -562,7 +560,9 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         success = paymentSuccess;
         signature = txSignature;
       } else {
-        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(paymentAmount, cartId, receiverWallet);
+        // For default token payments, we need the token address
+        const tokenAddress = paymentMethod?.tokenAddress || 'USDC_ADDRESS'; // Default USDC address
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(paymentAmount, cartId, receiverWallet, tokenAddress);
         success = paymentSuccess;
         signature = txSignature;
       }
@@ -571,24 +571,24 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
       if (hasStrictTokenRestriction && collectionStrictToken) {
         // For strict token payments, use processTokenPayment instead of swap
         // because the user receives the same token they're paying with
+        const tokenAddress = paymentMethod?.tokenAddress || collectionStrictToken;
         const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(
           paymentAmount, 
-          cartId, 
+          cartId,
           receiverWallet,
-          new PublicKey(collectionStrictToken)
+          tokenAddress
         );
         success = paymentSuccess;
         signature = txSignature;
       } else {
-        // For regular SPL token payments, use the swap functionality
-        const { success: paymentSuccess, signature: txSignature } = await processSolanaSwapTokenPayment(
-          paymentMethod.tokenAddress || '',
-          undefined,
-          paymentAmount,
+        // For regular SPL token payments, use processTokenPayment as fallback
+        // Note: SPL token swap functionality has been removed with Privy integration
+        const tokenAddress = paymentMethod?.tokenAddress || 'USDC_ADDRESS'; // Default USDC address
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(
+          paymentAmount, 
+          cartId,
           receiverWallet,
-          100,
-          undefined,
-          paymentMethod.tokenSymbol
+          tokenAddress
         );
         success = paymentSuccess;
         signature = txSignature;
@@ -869,7 +869,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         position: "bottom-center",
         autoClose: 3000
       });
-      setVisible(true);
+      login();
       return;
     }
     

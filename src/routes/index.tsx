@@ -58,7 +58,7 @@ const OrdersPage = lazy(() => import('../pages/OrdersPage').then(module => ({ de
 const ReturnsAndFAQPage = lazy(() => import('../pages/ReturnsAndFAQPage').then(module => ({ default: module.ReturnsAndFAQPage })));
 const TrackingPage = lazy(() => import('../pages/TrackingPage'));
 const WalletDebugPage = lazy(() => import('../pages/WalletDebugPage').then(module => ({ default: module.WalletDebugPage })));
-const WalletRedirectPage = lazy(() => import('../pages/WalletRedirectPage').then(module => ({ default: module.WalletRedirectPage })));
+const WalletTestPage = lazy(() => import('../pages/WalletTestPage').then(module => ({ default: module.WalletTestPage })));
 const RankingPage = lazy(() => import('../pages/RankingPage').then(module => ({ default: module.RankingPage })));
 
 // Studio pages (lazy loaded only when accessed)
@@ -179,8 +179,8 @@ export const router = createBrowserRouter([
             element: <SmoothWalletDebugPage />
           },
           {
-            path: 'wallet-redirect',
-            element: <Suspense fallback={<PageLoader />}><WalletRedirectPage /></Suspense>
+            path: 'wallet-test',
+            element: <Suspense fallback={<PageLoader />}><WalletTestPage /></Suspense>
           },
           {
             path: 'tracking/:trackingNumber',

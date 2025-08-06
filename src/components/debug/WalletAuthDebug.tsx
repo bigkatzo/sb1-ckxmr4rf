@@ -7,9 +7,10 @@ import { SecurityFixer } from './SecurityFixer';
 
 /**
  * A debug component for testing wallet authentication
+ * Updated to work with Privy wallet integration
  */
 export function WalletAuthDebug() {
-  const { walletAddress, walletAuthToken } = useWallet();
+  const { walletAddress, walletAuthToken, authenticated } = useWallet();
   const [expanded, setExpanded] = useState(false);
   const [testResults, setTestResults] = useState<any>(null);
   const [securityResults, setSecurityResults] = useState<any>(null);
@@ -17,8 +18,8 @@ export function WalletAuthDebug() {
   const [securityLoading, setSecurityLoading] = useState(false);
   
   const runTests = async () => {
-    if (!walletAddress || !walletAuthToken) {
-      setTestResults({ error: 'Wallet not connected or not authenticated' });
+    if (!walletAddress || !walletAuthToken || !authenticated) {
+      setTestResults({ error: 'Wallet not connected, not authenticated, or not authenticated via Privy' });
       return;
     }
     
@@ -37,8 +38,8 @@ export function WalletAuthDebug() {
   };
   
   const runSecurityTests = async () => {
-    if (!walletAddress || !walletAuthToken) {
-      setSecurityResults({ error: 'Wallet not connected or not authenticated' });
+    if (!walletAddress || !walletAuthToken || !authenticated) {
+      setSecurityResults({ error: 'Wallet not connected, not authenticated, or not authenticated via Privy' });
       return;
     }
     
@@ -57,8 +58,8 @@ export function WalletAuthDebug() {
   };
   
   const exportDebugInfo = async () => {
-    if (!walletAddress || !walletAuthToken) {
-      alert('Wallet not connected or not authenticated');
+    if (!walletAddress || !walletAuthToken || !authenticated) {
+      alert('Wallet not connected, not authenticated, or not authenticated via Privy');
       return;
     }
     
@@ -75,7 +76,7 @@ export function WalletAuthDebug() {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-purple-400 font-medium text-sm flex items-center gap-1">
           <Shield className="h-4 w-4" />
-          <span>Wallet Authentication Debug</span>
+          <span>Privy Wallet Authentication Debug</span>
         </h3>
         <button 
           onClick={() => setExpanded(!expanded)}
@@ -103,7 +104,7 @@ export function WalletAuthDebug() {
               <div className="flex gap-2">
                 <button
                   onClick={runTests}
-                  disabled={loading || !walletAddress || !walletAuthToken}
+                  disabled={loading || !walletAddress || !walletAuthToken || !authenticated}
                   className="px-2 py-1 bg-purple-700 hover:bg-purple-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-md text-xs flex items-center gap-1"
                 >
                   <Info className="h-3 w-3" />
@@ -111,7 +112,7 @@ export function WalletAuthDebug() {
                 </button>
                 <button
                   onClick={exportDebugInfo}
-                  disabled={!walletAddress || !walletAuthToken}
+                  disabled={!walletAddress || !walletAuthToken || !authenticated}
                   className="px-2 py-1 bg-blue-700 hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-md text-xs flex items-center gap-1"
                 >
                   <Download className="h-3 w-3" />
@@ -120,7 +121,7 @@ export function WalletAuthDebug() {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-2 mb-2">
+            <div className="grid grid-cols-3 gap-2 mb-2">
               <div className="bg-gray-800 p-2 rounded">
                 <span className="text-gray-400 block">Wallet Address</span>
                 <span className="text-white font-mono">{walletAddress || 'Not connected'}</span>
@@ -129,6 +130,12 @@ export function WalletAuthDebug() {
                 <span className="text-gray-400 block">Auth Token</span>
                 <span className={`font-mono ${walletAuthToken ? 'text-green-400' : 'text-red-400'}`}>
                   {walletAuthToken ? 'Present' : 'Missing'}
+                </span>
+              </div>
+              <div className="bg-gray-800 p-2 rounded">
+                <span className="text-gray-400 block">Privy Auth</span>
+                <span className={`font-mono ${authenticated ? 'text-green-400' : 'text-red-400'}`}>
+                  {authenticated ? 'Authenticated' : 'Not Auth'}
                 </span>
               </div>
             </div>
@@ -188,7 +195,7 @@ export function WalletAuthDebug() {
               <h4 className="text-gray-300 font-medium">Security Verification</h4>
               <button
                 onClick={runSecurityTests}
-                disabled={securityLoading || !walletAddress || !walletAuthToken}
+                disabled={securityLoading || !walletAddress || !walletAuthToken || !authenticated}
                 className="px-2 py-1 bg-purple-700 hover:bg-purple-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-md text-xs flex items-center gap-1"
               >
                 <Shield className="h-3 w-3" />
@@ -241,7 +248,7 @@ export function WalletAuthDebug() {
           )}
           
           <div className="text-gray-500 text-xs">
-            <p>This panel helps debug wallet authentication issues. Use the Test button to verify the authentication is working correctly.</p>
+            <p>This panel helps debug Privy wallet authentication issues. Use the Test button to verify the authentication is working correctly.</p>
           </div>
         </div>
       )}
