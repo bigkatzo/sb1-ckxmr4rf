@@ -328,14 +328,24 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         }
       } else if (authenticated && walletAddress && !publicKey) {
         console.log('❌ User authenticated but invalid wallet address detected');
-        // User is authenticated but has an invalid wallet address (likely Ethereum)
-        // Only show this error if we're not in the middle of a successful connection
-        if (!isConnected) {
-          console.log('❌ Showing error notification for invalid wallet type');
-          addNotification('error', 'Please connect a Solana wallet like Phantom');
-          setError(new Error('Invalid wallet type. Please connect a Solana wallet.'));
+        
+        // Check if this is an Ethereum address (starts with 0x)
+        const isEthereumAddress = walletAddress.startsWith('0x');
+        
+        if (isEthereumAddress) {
+          console.log('❌ Ethereum wallet detected instead of Solana wallet');
+          addNotification('error', 'Ethereum wallet detected. Please use a Solana wallet or contact support.');
+          setError(new Error('Ethereum wallet detected. This application requires Solana wallets.'));
         } else {
-          console.log('⚠️ Skipping error notification - wallet is connected');
+          // User is authenticated but has an invalid wallet address
+          // Only show this error if we're not in the middle of a successful connection
+          if (!isConnected) {
+            console.log('❌ Showing error notification for invalid wallet type');
+            addNotification('error', 'Please connect a Solana wallet like Phantom');
+            setError(new Error('Invalid wallet type. Please connect a Solana wallet.'));
+          } else {
+            console.log('⚠️ Skipping error notification - wallet is connected');
+          }
         }
       } else if (!isConnected) {
         console.log('🔌 Wallet disconnected, clearing auth data');

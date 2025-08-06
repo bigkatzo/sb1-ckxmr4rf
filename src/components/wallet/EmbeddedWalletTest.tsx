@@ -39,6 +39,16 @@ export function EmbeddedWalletTest() {
     }
   };
 
+  const handleCreateSolanaEmbeddedWallet = async () => {
+    try {
+      console.log('Attempting to create Solana embedded wallet...');
+      // This will trigger the embedded wallet creation with Solana chain
+      await createEmbeddedWallet();
+    } catch (error) {
+      console.error('Error creating Solana embedded wallet:', error);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       // First disconnect from wallet context
@@ -86,6 +96,13 @@ export function EmbeddedWalletTest() {
             <span className="text-blue-400 font-mono">
               {walletAddress.slice(0, 8)}...{walletAddress.slice(-8)}
             </span>
+            <span className={`ml-2 px-2 py-1 rounded text-xs ${
+              walletAddress.startsWith('0x') 
+                ? 'bg-red-900 text-red-200' 
+                : 'bg-green-900 text-green-200'
+            }`}>
+              {walletAddress.startsWith('0x') ? 'ETH' : 'SOL'}
+            </span>
           </div>
         )}
         
@@ -102,6 +119,33 @@ export function EmbeddedWalletTest() {
             <span className="text-green-400 font-mono">
               {embeddedWalletInfo.address ? `${embeddedWalletInfo.address.slice(0, 8)}...${embeddedWalletInfo.address.slice(-8)}` : 'No address'}
             </span>
+            {embeddedWalletInfo.address && (
+              <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                embeddedWalletInfo.address.startsWith('0x') 
+                  ? 'bg-red-900 text-red-200' 
+                  : 'bg-green-900 text-green-200'
+              }`}>
+                {embeddedWalletInfo.address.startsWith('0x') ? 'ETH' : 'SOL'}
+              </span>
+            )}
+          </div>
+        )}
+
+        {walletAddress && walletAddress.startsWith('0x') && (
+          <div className="text-sm bg-red-900/20 border border-red-500/30 rounded p-2">
+            <span className="text-red-400 font-semibold">⚠️ Warning: </span>
+            <span className="text-red-300">
+              Ethereum wallet detected. This application requires Solana wallets. 
+              Please contact support or try connecting a Solana wallet directly.
+            </span>
+            <div className="mt-2">
+              <button
+                onClick={handleCreateSolanaEmbeddedWallet}
+                className="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
+              >
+                Create Solana Embedded Wallet
+              </button>
+            </div>
           </div>
         )}
       </div>
