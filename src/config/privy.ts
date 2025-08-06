@@ -72,24 +72,7 @@ export const PRIVY_CONFIG = {
         // Require email verification
         requireVerification: true,
       }
-    },
-    // Embedded wallet specific settings - ensure Solana
-    embeddedWallet: {
-      // Enable Solana embedded wallets
-      solana: {
-        enabled: true,
-        // Use mainnet-beta for production
-        network: 'mainnet-beta' as const,
-        // Enable transaction signing
-        enableSigning: true,
-        // Enable message signing
-        enableMessageSigning: true,
-      }
-    },
-    // Default chain configuration
-    defaultChain: 'solana' as const,
-    // Supported chains - only Solana
-    supportedChains: ['solana'] as const,
+    }
   },
 };
 
@@ -109,10 +92,7 @@ console.log('Privy Configuration:', {
   walletChainType: PRIVY_CONFIG.config.appearance.walletChainType,
   loginMethods: PRIVY_CONFIG.config.loginMethods,
   embeddedWallets: PRIVY_CONFIG.config.embeddedWallets,
-  defaultChain: PRIVY_CONFIG.config.defaultChain,
-  supportedChains: PRIVY_CONFIG.config.supportedChains,
   mobile: PRIVY_CONFIG.config.mobile,
   twa: PRIVY_CONFIG.config.twa,
-  socialLogins: PRIVY_CONFIG.config.socialLogins,
-  embeddedWallet: PRIVY_CONFIG.config.embeddedWallet
+  socialLogins: PRIVY_CONFIG.config.socialLogins
 });
