@@ -103,6 +103,14 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       timestamp: Date.now()
     };
     
+    // Add detailed logging for debugging
+    console.log(`🔔 Notification triggered:`, {
+      type,
+      message,
+      timestamp: new Date().toLocaleTimeString(),
+      stack: new Error().stack?.split('\n').slice(1, 4).join('\n') // Get call stack
+    });
+    
     setNotifications(prev => [...prev, notification]);
     
     // Auto-dismiss success and info notifications after 5 seconds
@@ -225,21 +233,40 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     lastAuthenticatedRef.current = authenticated;
     
     const handleConnection = async () => {
+      console.log('🔄 Handling connection:', {
+        isConnected,
+        hasPublicKey: !!publicKey,
+        authenticated,
+        hasWalletAddress: !!walletAddress,
+        walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null
+      });
+      
       if (isConnected && publicKey) {
+        console.log('✅ Wallet connected successfully, creating auth token...');
         // When wallet first connects, authenticate
         const token = await createAuthToken(false, true);
         
         // Show a notification on successful authentication
         if (token) {
+          console.log('✅ Auth token created, showing success notification');
           addNotification('success', 'Wallet connected and authenticated');
         } else {
+          console.log('⚠️ No auth token created, showing basic success notification');
           addNotification('success', 'Wallet connected');
         }
       } else if (authenticated && walletAddress && !publicKey) {
+        console.log('❌ User authenticated but invalid wallet address detected');
         // User is authenticated but has an invalid wallet address (likely Ethereum)
-        addNotification('error', 'Please connect a Solana wallet like Phantom');
-        setError(new Error('Invalid wallet type. Please connect a Solana wallet.'));
+        // Only show this error if we're not in the middle of a successful connection
+        if (!isConnected) {
+          console.log('❌ Showing error notification for invalid wallet type');
+          addNotification('error', 'Please connect a Solana wallet like Phantom');
+          setError(new Error('Invalid wallet type. Please connect a Solana wallet.'));
+        } else {
+          console.log('⚠️ Skipping error notification - wallet is connected');
+        }
       } else if (!isConnected) {
+        console.log('🔌 Wallet disconnected, clearing auth data');
         // Clear auth token when wallet disconnects
         setWalletAuthToken(null);
         setLastAuthTime(null);
@@ -400,39 +427,66 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
 
   // Add chain validation - memoized to prevent unnecessary recalculations
   const validateSolanaChain = useCallback(() => {
+    console.log('🔍 Validating Solana chain...');
+    
     if (user?.wallet) {
       const chainId = user.wallet.chainId;
       const chainType = user.wallet.chainType;
       
-      console.log('Chain validation:', { chainId, chainType });
+      console.log('🔍 Chain validation details:', { 
+        chainId, 
+        chainType, 
+        walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null,
+        isValidAddress: walletAddress ? isValidSolanaAddress(walletAddress) : false
+      });
       
-      // Check if connected to Solana chain (handle both string and number chainId)
-      // Solana can be identified as 'solana' (string) or '7565164' (chain ID)
+      // More flexible Solana chain detection
+      // Solana can be identified in multiple ways:
       const isSolanaChain = chainId && (
         chainId.toString() === 'solana' || 
-        chainId.toString() === '7565164'
+        chainId.toString() === '7565164' ||
+        chainId.toString() === 'mainnet-beta' ||
+        chainId.toString() === 'mainnet' ||
+        chainType === 'solana' ||
+        // Check if the wallet address is a valid Solana address (this is the most reliable)
+        (walletAddress && isValidSolanaAddress(walletAddress))
       );
       
-      if (!isSolanaChain || chainType !== 'solana') {
-        console.warn('User connected to wrong chain:', { chainId, chainType });
-        addNotification('error', 'Please connect to Solana network in your wallet');
-        return false;
+      console.log('🔍 Solana chain check result:', { isSolanaChain });
+      
+      if (!isSolanaChain) {
+        console.warn('❌ User connected to wrong chain:', { chainId, chainType, walletAddress });
+        // Only show error if we have a wallet address but it's not a valid Solana address
+        if (walletAddress && !isValidSolanaAddress(walletAddress)) {
+          console.log('❌ Showing error notification for invalid Solana address');
+          addNotification('error', 'Please connect to Solana network in your wallet');
+          return false;
+        } else {
+          console.log('⚠️ Chain validation failed but wallet address is valid, not showing error');
+        }
+      } else {
+        console.log('✅ Solana chain validation passed');
       }
       
       return true;
+    } else {
+      console.log('⚠️ No user wallet data available for chain validation');
     }
     return false;
-  }, [user?.wallet, addNotification]);
+  }, [user?.wallet, walletAddress, addNotification]);
 
   // Add effect to validate chain on connection - only when user changes
   useEffect(() => {
     if (authenticated && user?.wallet && !connectionHandledRef.current) {
-      validateSolanaChain();
+      // Only validate chain if we have a valid wallet address
+      if (walletAddress && isValidSolanaAddress(walletAddress)) {
+        validateSolanaChain();
+      }
       connectionHandledRef.current = true;
     } else if (!authenticated) {
       connectionHandledRef.current = false;
     }
-  }, [authenticated, user?.wallet, validateSolanaChain]);
+  }, [authenticated, user?.wallet, walletAddress, validateSolanaChain]);
 
   return (
     <WalletContext.Provider value={{
