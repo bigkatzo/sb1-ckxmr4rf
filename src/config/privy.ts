@@ -23,8 +23,6 @@ export const PRIVY_CONFIG = {
       createOnLogin: 'users-without-wallets' as const,
       // Don't prompt for signature to improve UX
       noPromptOnSignature: true,
-      // Explicitly set to Solana chain
-      chainId: 'solana' as const,
       // Require email verification for embedded wallets
       requireEmailVerification: true,
     },

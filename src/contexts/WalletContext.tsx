@@ -50,6 +50,7 @@ interface WalletContextType {
   isEmbeddedWallet: boolean;
   embeddedWalletAddress: string | null;
   createEmbeddedWallet: () => Promise<void>;
+  createSolanaEmbeddedWallet: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -175,7 +176,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      console.log('Creating embedded wallet for user...');
+      console.log('Creating Solana embedded wallet for user...');
+      
+      // Create embedded wallet - Privy should use the configuration to create Solana wallet
       const wallet = await createWallet();
       
       if (wallet && wallet.address) {
@@ -191,6 +194,33 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       addNotification('error', 'Failed to create embedded wallet');
     }
   }, [authenticated, user, isEmbeddedWallet, createWallet, addNotification]);
+
+  // Create Solana embedded wallet specifically
+  const createSolanaEmbeddedWallet = useCallback(async () => {
+    if (!authenticated || !user) {
+      console.warn('Cannot create Solana embedded wallet: user not authenticated');
+      return;
+    }
+
+    try {
+      console.log('Forcing creation of Solana embedded wallet...');
+      
+      // Force create a wallet - should be Solana based on configuration
+      const wallet = await createWallet();
+      
+      if (wallet && wallet.address) {
+        console.log('Embedded wallet created successfully:', wallet.address);
+        setEmbeddedWalletAddress(wallet.address);
+        addNotification('success', 'Embedded wallet created successfully');
+      } else {
+        console.error('Failed to create embedded wallet: no address returned');
+        addNotification('error', 'Failed to create embedded wallet');
+      }
+    } catch (error) {
+      console.error('Error creating embedded wallet:', error);
+      addNotification('error', 'Failed to create embedded wallet');
+    }
+  }, [authenticated, user, createWallet, addNotification]);
 
   // Create auth token helper
   const createAuthToken = useCallback(async (silent: boolean = false, skipValidation: boolean = false): Promise<string | null> => {
@@ -620,7 +650,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       // Embedded wallet methods
       isEmbeddedWallet,
       embeddedWalletAddress: getEmbeddedWalletAddress(),
-      createEmbeddedWallet
+      createEmbeddedWallet,
+      createSolanaEmbeddedWallet
     }}>
       {children}
     </WalletContext.Provider>

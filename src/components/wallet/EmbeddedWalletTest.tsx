@@ -9,6 +9,7 @@ export function EmbeddedWalletTest() {
     isEmbeddedWallet, 
     embeddedWalletAddress,
     createEmbeddedWallet,
+    createSolanaEmbeddedWallet,
     connect,
     disconnect,
     toggleConnect
@@ -36,16 +37,6 @@ export function EmbeddedWalletTest() {
       await createEmbeddedWallet();
     } catch (error) {
       console.error('Error creating embedded wallet:', error);
-    }
-  };
-
-  const handleCreateSolanaEmbeddedWallet = async () => {
-    try {
-      console.log('Attempting to create Solana embedded wallet...');
-      // This will trigger the embedded wallet creation with Solana chain
-      await createEmbeddedWallet();
-    } catch (error) {
-      console.error('Error creating Solana embedded wallet:', error);
     }
   };
 
@@ -140,7 +131,7 @@ export function EmbeddedWalletTest() {
             </span>
             <div className="mt-2">
               <button
-                onClick={handleCreateSolanaEmbeddedWallet}
+                onClick={createSolanaEmbeddedWallet}
                 className="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
               >
                 Create Solana Embedded Wallet
