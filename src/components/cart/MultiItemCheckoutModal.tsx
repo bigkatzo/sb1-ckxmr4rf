@@ -560,7 +560,9 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         success = paymentSuccess;
         signature = txSignature;
       } else {
-        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(paymentAmount, cartId);
+        // For default token payments, we need the token address
+        const tokenAddress = paymentMethod?.tokenAddress || 'USDC_ADDRESS'; // Default USDC address
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(paymentAmount, cartId, receiverWallet, tokenAddress);
         success = paymentSuccess;
         signature = txSignature;
       }
@@ -569,18 +571,24 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
       if (hasStrictTokenRestriction && collectionStrictToken) {
         // For strict token payments, use processTokenPayment instead of swap
         // because the user receives the same token they're paying with
+        const tokenAddress = paymentMethod?.tokenAddress || collectionStrictToken;
         const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(
           paymentAmount, 
-          cartId
+          cartId,
+          receiverWallet,
+          tokenAddress
         );
         success = paymentSuccess;
         signature = txSignature;
       } else {
         // For regular SPL token payments, use processTokenPayment as fallback
         // Note: SPL token swap functionality has been removed with Privy integration
+        const tokenAddress = paymentMethod?.tokenAddress || 'USDC_ADDRESS'; // Default USDC address
         const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(
           paymentAmount, 
-          cartId
+          cartId,
+          receiverWallet,
+          tokenAddress
         );
         success = paymentSuccess;
         signature = txSignature;

@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useWallet } from '../contexts/WalletContext';
-import { Transaction, PublicKey, Connection } from '@solana/web3.js';
+import { Transaction, PublicKey, Connection, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, createTransferInstruction, getAccount, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import { SOLANA_CONNECTION } from '../config/solana';
+import { tokenService } from '../services/tokenService';
 
 interface PaymentStatus {
   processing: boolean;
@@ -109,9 +111,78 @@ export function usePayment() {
     
     // Create a simple SOL transfer transaction
     const transaction = new Transaction().add(
-      // Add transfer instruction here
-      // This is a placeholder - you'll need to implement the actual transfer
+      SystemProgram.transfer({
+        fromPubkey: new PublicKey(fromAddress),
+        toPubkey: new PublicKey(toAddress),
+        lamports: amount * LAMPORTS_PER_SOL, // Convert amount to lamports
+      })
     );
+    
+    // Get recent blockhash
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = new PublicKey(fromAddress);
+    
+    return transaction;
+  }, []);
+
+  const createTokenPayment = useCallback(async (
+    amount: number, 
+    fromAddress: string, 
+    toAddress: string,
+    tokenAddress: string
+  ): Promise<Transaction> => {
+    const connection = new Connection(SOLANA_CONNECTION.rpcEndpoint);
+    
+    // Get token info to determine decimals
+    const tokenInfo = await tokenService.getTokenInfo(tokenAddress);
+    const decimals = tokenInfo.decimals || 6; // Default to 6 decimals if not available
+    
+    // Convert amount to token's smallest unit
+    const amountInSmallestUnit = Math.floor(amount * Math.pow(10, decimals));
+    
+    // Get associated token accounts
+    const fromTokenAccount = getAssociatedTokenAddressSync(
+      new PublicKey(tokenAddress),
+      new PublicKey(fromAddress)
+    );
+    
+    const toTokenAccount = getAssociatedTokenAddressSync(
+      new PublicKey(tokenAddress),
+      new PublicKey(toAddress)
+    );
+    
+    // Check if token accounts exist
+    const instructions = [];
+    
+    try {
+      await getAccount(connection, toTokenAccount);
+    } catch (error) {
+      // Create associated token account for recipient if it doesn't exist
+      instructions.push(
+        createAssociatedTokenAccountInstruction(
+          new PublicKey(fromAddress), // payer
+          toTokenAccount, // associated token account
+          new PublicKey(toAddress), // owner
+          new PublicKey(tokenAddress) // mint
+        )
+      );
+    }
+    
+    // Create SPL token transfer instruction
+    instructions.push(
+      createTransferInstruction(
+        fromTokenAccount,
+        toTokenAccount,
+        new PublicKey(fromAddress),
+        amountInSmallestUnit, // Amount in token's smallest unit
+        [],
+        TOKEN_PROGRAM_ID
+      )
+    );
+    
+    // Create transaction
+    const transaction = new Transaction().add(...instructions);
     
     // Get recent blockhash
     const { blockhash } = await connection.getLatestBlockhash();
@@ -123,7 +194,9 @@ export function usePayment() {
 
   const processTokenPayment = async (
     amount: number,
-    orderId: string
+    orderId: string,
+    receiverWallet: string,
+    tokenAddress: string
   ): Promise<PaymentResult> => {
     if (!validateWalletConnection()) {
       return { success: false, error: 'Wallet not connected' };
@@ -134,7 +207,7 @@ export function usePayment() {
       setStatus({ processing: true, success: false, error: null, signature: null });
 
       // Create token payment transaction
-      const transaction = await createSolanaPayment(amount, walletAddress!, 'MERCHANT_WALLET_ADDRESS');
+      const transaction = await createTokenPayment(amount, walletAddress!, receiverWallet, tokenAddress);
       console.log('✅ Token payment transaction created successfully');
 
       // Sign and send transaction using Privy
