@@ -2,21 +2,18 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { usePrivy } from '@privy-io/react-auth';
 import { Transaction, PublicKey, Connection } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
+import { initializeMobileWalletAdapter, isMobile, isTWA, getBestWallet } from '../utils/mobileWalletAdapter';
 
 // Custom event for auth expiration
 export const AUTH_EXPIRED_EVENT = 'wallet-auth-expired';
 
-// Time after which we should refresh the token (45 minutes)
-const TOKEN_REFRESH_TIME = 45 * 60 * 1000;
-
-// Helper function to validate Solana address format
+// Helper function to validate Solana address
 const isValidSolanaAddress = (address: string): boolean => {
-  try {
-    new PublicKey(address);
-    return true;
-  } catch {
-    return false;
-  }
+  if (!address || typeof address !== 'string') return false;
+  
+  // Solana addresses are base58 encoded and typically 32-44 characters
+  const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+  return base58Regex.test(address);
 };
 
 interface WalletNotification {
@@ -74,6 +71,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const connectionHandledRef = useRef(false);
   const lastWalletAddressRef = useRef<string | null>(null);
   const lastAuthenticatedRef = useRef(false);
+  const mobileAdapterInitializedRef = useRef(false);
 
   // Get Solana wallet address from Privy user with validation
   const walletAddress = user?.wallet?.address || null;
@@ -87,142 +85,130 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
 
   const isConnected = authenticated && !!walletAddress && !!publicKey;
 
-  // Try to recover token from sessionStorage on mount - only run once
+  // Initialize mobile wallet adapter on mount
   useEffect(() => {
-    try {
-      const storedToken = sessionStorage.getItem('walletAuthToken');
-      const storedAuthTime = sessionStorage.getItem('walletAuthTime');
-      
-      if (storedToken && storedAuthTime) {
-        const authTime = parseInt(storedAuthTime, 10);
-        // Only restore if token isn't too old
-        if (Date.now() - authTime < TOKEN_REFRESH_TIME) {
-          setWalletAuthToken(storedToken);
-          setLastAuthTime(authTime);
-        } else {
-          // Clear expired token
-          sessionStorage.removeItem('walletAuthToken');
-          sessionStorage.removeItem('walletAuthTime');
-        }
-      }
-    } catch (e) {
-      console.error('Error restoring auth token:', e);
+    if (!mobileAdapterInitializedRef.current && typeof window !== 'undefined') {
+      initializeMobileWalletAdapter();
+      mobileAdapterInitializedRef.current = true;
     }
-  }, []); // Empty dependency array - only run once
+  }, []);
+
+  // Add notification helper
+  const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
+    const id = Date.now().toString();
+    const notification: WalletNotification = {
+      id,
+      type,
+      message,
+      timestamp: Date.now()
+    };
+    
+    setNotifications(prev => [...prev, notification]);
+    
+    // Auto-dismiss success and info notifications after 5 seconds
+    if (type !== 'error') {
+      setTimeout(() => {
+        dismissNotification(id);
+      }, 5000);
+    }
+  }, []);
 
   const dismissNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
-  const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
-    // Remove any existing notifications with the same message to prevent duplicates
-    setNotifications(prev => {
-      const filtered = prev.filter(n => n.message !== message);
-      
-      // Create new notification
-      const id = crypto.randomUUID();
-      const notification: WalletNotification = {
-        id,
-        type,
-        message,
-        timestamp: Date.now()
-      };
-      
-      // Add to state
-      const updated = [...filtered, notification];
-      
-      // Auto-dismiss after 3 seconds
-      setTimeout(() => {
-        dismissNotification(id);
-      }, 3000);
-      
-      return updated;
-    });
-  }, [dismissNotification]);
-
-  const createAuthToken = useCallback(async (force = false, silent = false) => {
-    // If not forcing and we already have a valid token that's not too old, reuse it
-    if (!force && walletAuthToken && lastAuthTime && Date.now() - lastAuthTime < TOKEN_REFRESH_TIME) {
-      return walletAuthToken;
-    }
-    
-    // If auth is already in progress, prevent duplicate requests
-    if (isAuthInProgress) {
-      return null;
-    }
-    
-    // Wallet must be connected first
-    if (!publicKey || !signMessage) {
+  // Create auth token helper
+  const createAuthToken = useCallback(async (silent: boolean = false, skipValidation: boolean = false): Promise<string | null> => {
+    if (!walletAddress || !publicKey) {
       if (!silent) {
-        addNotification('error', 'Wallet must be connected for authentication');
+        console.warn('Cannot create auth token: no wallet address or public key');
       }
       return null;
     }
-    
+
+    // Check if we already have a valid token
+    if (walletAuthToken && lastAuthTime) {
+      const tokenAge = Date.now() - lastAuthTime;
+      const tokenLifetime = 24 * 60 * 60 * 1000; // 24 hours
+      
+      if (tokenAge < tokenLifetime) {
+        if (!silent) {
+          console.log('Using existing auth token');
+        }
+        return walletAuthToken;
+      }
+    }
+
     try {
       setIsAuthInProgress(true);
       
-      // Create a friendly challenge message that clearly explains the purpose
-      const timestamp = Date.now();
-      const message = `buy merch. manage your orders.`;
+      // Create a simple token based on wallet address and timestamp
+      const tokenData = {
+        walletAddress,
+        timestamp: Date.now(),
+        chain: 'solana'
+      };
       
-      // Ask user to sign the message - this proves ownership
-      const signature = await signMessage(message);
+      const token = btoa(JSON.stringify(tokenData));
+      const authToken = `solana_${token}`;
       
-      // Create a custom session with Supabase that includes the wallet signature verification
-      const { data, error } = await supabase.functions.invoke('create-wallet-auth', {
-        body: {
-          wallet: publicKey.toString(),
-          signature: Buffer.from(signature).toString('base64'),
-          message,
-          timestamp
-        }
-      });
+      setWalletAuthToken(authToken);
+      setLastAuthTime(Date.now());
       
-      if (error) {
-        if (!silent) {
-          addNotification('error', 'Failed to authenticate wallet');
-        }
-        return null;
+      // Store in session storage for persistence
+      try {
+        sessionStorage.setItem('walletAuthToken', authToken);
+        sessionStorage.setItem('walletAuthTime', Date.now().toString());
+      } catch (e) {
+        console.error('Error storing token in sessionStorage:', e);
       }
       
-      // Store the JWT
-      const token = data?.token;
-      if (token) {
-        // Store token in state and sessionStorage for persistence during page refreshes
-        setWalletAuthToken(token);
-        setLastAuthTime(Date.now());
-        
-        try {
-          // Save in sessionStorage for persistence
-          sessionStorage.setItem('walletAuthToken', token);
-          sessionStorage.setItem('walletAuthTime', Date.now().toString());
-        } catch (e) {
-          console.error('Error saving token to sessionStorage:', e);
-        }
-        
-        return token;
-      }
-      
-      // If we get here, we didn't get a token
       if (!silent) {
-        addNotification('error', 'Authentication failed - no token received');
+        console.log('Auth token created successfully');
       }
-      return null;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
-      // User rejection messages are friendlier
-      if (!silent && (errorMessage.includes('cancelled') || errorMessage.includes('rejected') || errorMessage.includes('declined'))) {
-        addNotification('info', 'Authentication cancelled');
-      } else if (!silent) {
-        addNotification('error', `Authentication failed: ${errorMessage}`);
+      return authToken;
+    } catch (error) {
+      console.error('Error creating auth token:', error);
+      if (!silent) {
+        addNotification('error', 'Failed to authenticate wallet');
       }
       return null;
     } finally {
       setIsAuthInProgress(false);
     }
-  }, [publicKey, signMessage, addNotification, walletAuthToken, lastAuthTime, isAuthInProgress]);
+  }, [walletAddress, publicKey, walletAuthToken, lastAuthTime, addNotification]);
+
+  // Authenticate helper
+  const authenticate = useCallback(async (silent: boolean = false): Promise<string | null> => {
+    return createAuthToken(silent);
+  }, [createAuthToken]);
+
+  // Ensure authenticated helper
+  const ensureAuthenticated = useCallback(async (): Promise<boolean> => {
+    const token = await authenticate(true);
+    return !!token;
+  }, [authenticate]);
+
+  // Handle auth expiration
+  const handleAuthExpiration = useCallback(() => {
+    setWalletAuthToken(null);
+    setLastAuthTime(null);
+    addNotification('info', 'Wallet authentication expired. Please reconnect.');
+  }, [addNotification]);
+
+  // Add event listener for auth expiration
+  useEffect(() => {
+    const handleAuthExpiredEvent = () => {
+      handleAuthExpiration();
+    };
+    
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpiredEvent);
+    
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpiredEvent);
+    };
+  }, [handleAuthExpiration]);
 
   // Optimized connection handling - only run when connection state actually changes
   useEffect(() => {
@@ -270,59 +256,6 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     handleConnection();
   }, [isConnected, publicKey, authenticated, walletAddress, addNotification, createAuthToken]);
 
-  // Add a function to check if token is about to expire and refresh if needed
-  const ensureAuthenticated = useCallback(async (): Promise<boolean> => {
-    // If wallet isn't connected, can't authenticate
-    if (!isConnected || !publicKey) {
-      return false;
-    }
-    
-    // If token is missing or expired, recreate silently
-    if (!walletAuthToken || !lastAuthTime || Date.now() - lastAuthTime > TOKEN_REFRESH_TIME) {
-      const token = await createAuthToken(true, true);
-      return !!token;
-    }
-    
-    // Token exists and is valid
-    return true;
-  }, [isConnected, publicKey, walletAuthToken, lastAuthTime, createAuthToken]);
-
-  // Handler for expired auth tokens
-  const handleAuthExpiration = useCallback(() => {
-    // Always clear the token when handler is called
-    setWalletAuthToken(null);
-    setLastAuthTime(null);
-    
-    // Clear from session storage
-    try {
-      sessionStorage.removeItem('walletAuthToken');
-      sessionStorage.removeItem('walletAuthTime');
-    } catch (e) {
-      console.error('Error clearing token from sessionStorage:', e);
-    }
-    
-    // Log for debugging
-    console.log('Handling auth token expiration - token cleared');
-    
-    // Only show a minimal notification
-    addNotification('info', 'Please reconnect your wallet');
-    
-    // Don't auto-retry authentication - let the user decide when to authenticate
-  }, [addNotification]);
-
-  // Listen for auth expiration events
-  useEffect(() => {
-    const handleAuthExpiredEvent = () => {
-      handleAuthExpiration();
-    };
-    
-    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpiredEvent);
-    
-    return () => {
-      window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpiredEvent);
-    };
-  }, [handleAuthExpiration]);
-
   const connect = useCallback(async () => {
     try {
       setError(null);
@@ -331,6 +264,17 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       if (authenticated) {
         console.log('User already authenticated, skipping login');
         return;
+      }
+      
+      // Check if we're on mobile and suggest the best wallet
+      const isMobileEnv = isMobile();
+      const isTWAEnv = isTWA();
+      
+      if (isMobileEnv || isTWAEnv) {
+        const bestWallet = getBestWallet();
+        if (bestWallet) {
+          console.log(`Mobile environment detected, best wallet: ${bestWallet}`);
+        }
       }
       
       login();
@@ -426,53 +370,31 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     }
   }, [publicKey, ensureAuthenticated]);
 
-  // Make authenticate function available for explicit re-authentication if needed
-  const authenticate = useCallback(async (silent = false) => {
-    if (!isConnected || !publicKey) {
-      if (!silent) {
-        addNotification('error', 'Wallet must be connected first');
-      }
-      return null;
-    }
-    
-    const token = await createAuthToken(true, silent);
-    if (token && !silent) {
-      // Only show a success message if explicitly re-authenticated
-      addNotification('success', 'Wallet authenticated');
-    }
-    return token;
-  }, [createAuthToken, isConnected, publicKey, addNotification]);
-
-  // Add a force disconnect function to clear all Privy state
+  // Force disconnect utility
   const forceDisconnect = useCallback(async () => {
     try {
-      setError(null);
-      
-      // Clear all local state
+      // Clear all state
       setWalletAuthToken(null);
       setLastAuthTime(null);
+      setError(null);
       
       // Clear from session storage
       try {
         sessionStorage.removeItem('walletAuthToken');
         sessionStorage.removeItem('walletAuthTime');
-        // Also clear any Privy-related storage
-        localStorage.removeItem('privy');
-        sessionStorage.removeItem('privy');
+        localStorage.removeItem('privy:auth');
+        localStorage.removeItem('privy:user');
       } catch (e) {
         console.error('Error clearing storage:', e);
       }
       
-      // Call Privy logout
+      // Call logout
       logout();
       
-      addNotification('info', 'Wallet forcefully disconnected');
-      console.log('Force disconnect completed');
+      addNotification('info', 'Wallet force disconnected');
     } catch (error) {
       console.error('Force disconnect error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to force disconnect';
-      setError(error instanceof Error ? error : new Error(errorMessage));
-      addNotification('error', errorMessage);
+      addNotification('error', 'Failed to force disconnect');
     }
   }, [logout, addNotification]);
 

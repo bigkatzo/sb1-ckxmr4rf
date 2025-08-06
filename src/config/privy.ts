@@ -1,5 +1,4 @@
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
-import { mainnet, polygon, arbitrum, base } from 'viem/chains';
 
 export const PRIVY_CONFIG = {
   appId: import.meta.env.VITE_PRIVY_APP_ID || '',
@@ -9,22 +8,27 @@ export const PRIVY_CONFIG = {
       theme: 'dark' as const,
       accentColor: '#0F47E4' as `#${string}`,
       showWalletLoginFirst: true,
-      // Prioritize Solana wallets in the UI
+      // Force Solana-only to prevent MetaMask prompts
       walletChainType: 'solana-only' as const,
     },
-    // Remove EVM chains to prevent confusion and improve performance
-    // Only keep Solana configuration
     walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '',
     embeddedWallets: {
       createOnLogin: 'users-without-wallets' as const,
       noPromptOnSignature: true,
     },
     externalWallets: {
-      // Solana configuration with Phantom priority
+      // Solana configuration with explicit wallet prioritization
       solana: {
         connectors: toSolanaWalletConnectors()
       }
     },
+    // Add mobile-specific settings
+    mobile: {
+      // Enable mobile wallet detection
+      walletDetection: true,
+      // Enable deep linking for mobile wallets
+      deepLinking: true,
+    }
   },
 };
 

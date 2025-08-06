@@ -28,6 +28,8 @@ import { exposeRealtimeDebugger } from './utils/realtime-diagnostics';
 import { setupRealtimeHealth } from './lib/realtime/subscriptions';
 import { useSyncWalletClaims } from './hooks/useSyncWalletClaims';
 import { PRIVY_CONFIG } from './config/privy';
+import { initializeMobileWalletAdapter } from './utils/mobileWalletAdapter';
+import { MobileWalletTest } from './components/wallet/MobileWalletTest';
 
 // Create a client with optimized settings
 const queryClient = new QueryClient({
@@ -56,6 +58,14 @@ function AppContent() {
   
   // Initialize cache system with reduced overhead
   useEffect(() => {
+    // Initialize mobile wallet adapter early for better mobile support
+    try {
+      initializeMobileWalletAdapter();
+      console.log('Mobile wallet adapter initialized');
+    } catch (error) {
+      console.error('Failed to initialize mobile wallet adapter:', error);
+    }
+    
     // Set up cache preloader with optimized settings
     const cleanupPreloader = setupCachePreloader({
       maxConcurrent: 1, // Reduced from 2 to 1
@@ -202,9 +212,6 @@ export function App() {
         <PrivyProvider 
           appId={PRIVY_CONFIG.appId}
           config={PRIVY_CONFIG.config}
-          onError={(error: any) => {
-            console.error('Privy error:', error);
-          }}
         >
           <AuthProvider>
             <UserRoleProvider>
@@ -217,6 +224,19 @@ export function App() {
                           <AppMessagesProvider>
                             <CartProvider>
                               <AppContent />
+                              {/* Mobile Wallet Test Component - Only show in development */}
+                              {import.meta.env.DEV && (
+                                <div className="fixed bottom-4 right-4 z-50">
+                                  <details className="bg-gray-900 text-white p-4 rounded-lg shadow-lg max-w-sm">
+                                    <summary className="cursor-pointer font-semibold text-sm">
+                                      🧪 Mobile Wallet Test
+                                    </summary>
+                                    <div className="mt-2">
+                                      <MobileWalletTest />
+                                    </div>
+                                  </details>
+                                </div>
+                              )}
                             </CartProvider>
                           </AppMessagesProvider>
                         </HowItWorksProvider>
