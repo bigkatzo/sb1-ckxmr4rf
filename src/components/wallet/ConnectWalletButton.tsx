@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Copy, Check } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 
 interface ConnectWalletButtonProps {
@@ -12,10 +13,13 @@ export function ConnectWalletButton({ className = '', children }: ConnectWalletB
     forceDisconnect,
     isConnected, 
     walletAddress, 
+    embeddedWalletAddress,
     authenticated,
     user,
     error 
   } = useWallet();
+  
+  const [copied, setCopied] = useState(false);
 
   const handleClick = async () => {
     try {
@@ -30,6 +34,28 @@ export function ConnectWalletButton({ className = '', children }: ConnectWalletB
       await forceDisconnect();
     } catch (error) {
       console.error('Force disconnect error:', error);
+    }
+  };
+
+  const handleCopyAddress = async () => {
+    const addressToCopy = walletAddress || embeddedWalletAddress;
+    if (!addressToCopy) return;
+
+    try {
+      await navigator.clipboard.writeText(addressToCopy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy address:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = addressToCopy;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -65,13 +91,32 @@ export function ConnectWalletButton({ className = '', children }: ConnectWalletB
 
   return (
     <div className="flex flex-col items-center space-y-2">
-      <button
-        onClick={handleClick}
-        className={getButtonClass()}
-        disabled={false}
-      >
-        {getButtonText()}
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleClick}
+          className={getButtonClass()}
+          disabled={false}
+        >
+          {getButtonText()}
+        </button>
+        
+        {isConnected && (walletAddress || embeddedWalletAddress) && (
+          <button
+            onClick={handleCopyAddress}
+            className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-2 rounded-lg text-sm transition-colors"
+            title="Copy wallet address"
+          >
+            {copied ? (
+              <Check className="h-4 w-4 text-green-600" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">
+              {copied ? 'Copied!' : 'Copy'}
+            </span>
+          </button>
+        )}
+      </div>
       
       {isWrongChain && (
         <div className="text-yellow-500 text-sm max-w-xs text-center bg-yellow-900 p-2 rounded">

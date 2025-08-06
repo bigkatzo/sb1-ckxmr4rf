@@ -457,6 +457,32 @@ export function OrdersPage() {
   }
 
   if (error) {
+    // Check if this is the "no orders found" error message
+    const isNoOrdersError = error.includes('No orders found') || error.includes('Ready to place your first order');
+    
+    if (isNoOrdersError) {
+      return (
+        <div className="space-y-6">
+          <h1 className="text-2xl font-bold">Your Orders</h1>
+          <div className="min-h-[50vh] flex flex-col items-center justify-center text-center">
+            <Package className="h-12 w-12 text-gray-600 mb-4" />
+            <h1 className="text-xl font-bold mb-2">No Orders Yet</h1>
+            <p className="text-gray-400 mb-4">Ready to place your first order!</p>
+            <button 
+              onClick={() => {
+                // Navigate to the home page or collections page to browse products
+                window.location.href = '/';
+              }}
+              className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-md transition-colors text-sm"
+            >
+              Browse Products
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    // Default error handling for other errors
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Your Orders</h1>

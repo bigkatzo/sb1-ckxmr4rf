@@ -86,7 +86,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const isEmbeddedWallet = user?.linkedAccounts?.some((account: any) => 
     account.type === 'wallet' && 
     (account as any).walletClientType === 'privy' &&
-    (account as any).chain_type === 'solana'
+    (account as any).chainType === 'solana'
   ) || false;
 
   // Get the embedded wallet address from Privy user - prioritize Solana over Ethereum
@@ -115,7 +115,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       
       if (anyEmbeddedWallet) {
         const walletAddress = (anyEmbeddedWallet as any)?.address;
-        const chainType = (anyEmbeddedWallet as any)?.chain_type;
+        const chainType = (anyEmbeddedWallet as any)?.chainType;
         
         console.log('⚠️ Found embedded wallet (not Solana):', { address: walletAddress, chainType });
         
