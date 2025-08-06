@@ -91,6 +91,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
 
   // Get the embedded wallet address from Privy user - prioritize Solana over Ethereum
   const getEmbeddedWalletAddress = useCallback(() => {
+    console.log('🔍 Searching for embedded wallet address...');
+    console.log('User linked accounts:', user?.linkedAccounts);
+    
     if (user?.linkedAccounts) {
       // First, try to find a Solana embedded wallet
       const solanaEmbeddedWallet = user.linkedAccounts.find((account: any) => 
@@ -100,8 +103,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       );
       
       if (solanaEmbeddedWallet) {
-        console.log('✅ Found Solana embedded wallet:', (solanaEmbeddedWallet as any).address);
-        return (solanaEmbeddedWallet as any)?.address || null;
+        const address = (solanaEmbeddedWallet as any)?.address;
+        console.log('✅ Found Solana embedded wallet:', address);
+        return address || null;
       }
       
       // If no Solana wallet, fall back to any embedded wallet (but warn about Ethereum)
@@ -113,6 +117,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         const walletAddress = (anyEmbeddedWallet as any)?.address;
         const chainType = (anyEmbeddedWallet as any)?.chain_type;
         
+        console.log('⚠️ Found embedded wallet (not Solana):', { address: walletAddress, chainType });
+        
         if (chainType === 'ethereum') {
           console.warn('⚠️ Found Ethereum embedded wallet instead of Solana:', walletAddress);
         }
@@ -120,12 +126,42 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         return walletAddress || null;
       }
     }
+    
+    console.log('❌ No embedded wallet found');
     return null;
   }, [user?.linkedAccounts]);
 
   // Get Solana wallet address from Privy user with validation
-  // Priority: 1. External wallet address, 2. Embedded wallet address from Privy, 3. Local embedded wallet address
-  const walletAddress = user?.wallet?.address || getEmbeddedWalletAddress() || embeddedWalletAddress || null;
+  // Priority: 1. Solana embedded wallet address, 2. Solana external wallet address, 3. Local embedded wallet address
+  const walletAddress = (() => {
+    // First, try to get Solana embedded wallet address
+    const embeddedWalletAddress = getEmbeddedWalletAddress();
+    if (embeddedWalletAddress && isValidSolanaAddress(embeddedWalletAddress)) {
+      console.log('✅ Using Solana embedded wallet address:', embeddedWalletAddress);
+      return embeddedWalletAddress;
+    }
+    
+    // Second, check if external wallet is Solana
+    const externalWalletAddress = user?.wallet?.address;
+    if (externalWalletAddress && isValidSolanaAddress(externalWalletAddress)) {
+      console.log('✅ Using Solana external wallet address:', externalWalletAddress);
+      return externalWalletAddress;
+    }
+    
+    // Third, fall back to local embedded wallet address
+    if (embeddedWalletAddress) {
+      console.log('⚠️ Using embedded wallet address (may not be Solana):', embeddedWalletAddress);
+      return embeddedWalletAddress;
+    }
+    
+    // Finally, fall back to external wallet address (even if not Solana)
+    if (externalWalletAddress) {
+      console.log('⚠️ Using external wallet address (may not be Solana):', externalWalletAddress);
+      return externalWalletAddress;
+    }
+    
+    return null;
+  })();
   
   // Create PublicKey with validation - memoized to prevent unnecessary recalculations
   const publicKey = React.useMemo(() => {
