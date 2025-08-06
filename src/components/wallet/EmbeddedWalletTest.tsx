@@ -39,6 +39,34 @@ export function EmbeddedWalletTest() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      // First disconnect from wallet context
+      await disconnect();
+      // Then logout from Privy
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  // Get embedded wallet info from Privy user
+  const getEmbeddedWalletInfo = () => {
+    if (user?.linkedAccounts) {
+      const embeddedWalletAccount = user.linkedAccounts.find((account: any) => 
+        account.type === 'wallet' && (account as any).walletClientType === 'privy'
+      );
+      return {
+        address: (embeddedWalletAccount as any)?.address,
+        type: embeddedWalletAccount?.type,
+        clientType: (embeddedWalletAccount as any)?.walletClientType
+      };
+    }
+    return null;
+  };
+
+  const embeddedWalletInfo = getEmbeddedWalletInfo();
+
   return (
     <div className="space-y-4 p-4 bg-gray-800 rounded-lg">
       <h3 className="text-lg font-semibold text-white">🧪 Embedded Wallet Test</h3>
@@ -67,6 +95,15 @@ export function EmbeddedWalletTest() {
             {isEmbeddedWallet ? 'Embedded Wallet' : 'External Wallet'}
           </span>
         </div>
+
+        {embeddedWalletInfo && (
+          <div className="text-sm">
+            <span className="text-gray-400">Privy Embedded: </span>
+            <span className="text-green-400 font-mono">
+              {embeddedWalletInfo.address ? `${embeddedWalletInfo.address.slice(0, 8)}...${embeddedWalletInfo.address.slice(-8)}` : 'No address'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Login Methods */}
@@ -130,7 +167,7 @@ export function EmbeddedWalletTest() {
           </button>
           
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="px-3 py-2 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
           >
             Logout
@@ -150,8 +187,13 @@ export function EmbeddedWalletTest() {
             {user.linkedAccounts && user.linkedAccounts.length > 0 && (
               <div>
                 Linked Accounts: {user.linkedAccounts.map((account: any) => 
-                  `${account.type}${account.email ? ` (${account.email})` : ''}`
+                  `${account.type}${account.email ? ` (${account.email})` : ''}${(account as any).walletClientType ? ` [${(account as any).walletClientType}]` : ''}`
                 ).join(', ')}
+              </div>
+            )}
+            {user.wallet && (
+              <div>
+                External Wallet: {user.wallet.address ? `${user.wallet.address.slice(0, 8)}...${user.wallet.address.slice(-8)}` : 'No address'}
               </div>
             )}
           </div>
@@ -169,7 +211,10 @@ export function EmbeddedWalletTest() {
             isEmbeddedWallet,
             hasUser: !!user,
             hasWallet: !!user?.wallet,
-            linkedAccounts: user?.linkedAccounts?.length || 0
+            linkedAccounts: user?.linkedAccounts?.length || 0,
+            embeddedWalletInfo,
+            walletAddress,
+            embeddedWalletAddress
           }, null, 2)}
         </pre>
       </details>

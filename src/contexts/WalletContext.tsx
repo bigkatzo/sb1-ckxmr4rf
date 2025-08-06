@@ -81,13 +81,26 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const lastAuthenticatedRef = useRef(false);
   const mobileAdapterInitializedRef = useRef(false);
 
-  // Get Solana wallet address from Privy user with validation
-  const walletAddress = user?.wallet?.address || embeddedWalletAddress || null;
-  
-  // Check if user has an embedded wallet
+  // Check if user has an embedded wallet from Privy
   const isEmbeddedWallet = user?.linkedAccounts?.some((account: any) => 
     account.type === 'wallet' && account.walletClientType === 'privy'
   ) || false;
+
+  // Get the embedded wallet address from Privy user
+  const getEmbeddedWalletAddress = useCallback(() => {
+    if (user?.linkedAccounts) {
+      const embeddedWalletAccount = user.linkedAccounts.find((account: any) => 
+        account.type === 'wallet' && account.walletClientType === 'privy'
+      );
+      // Access the address property safely
+      return (embeddedWalletAccount as any)?.address || null;
+    }
+    return null;
+  }, [user?.linkedAccounts]);
+
+  // Get Solana wallet address from Privy user with validation
+  // Priority: 1. External wallet address, 2. Embedded wallet address from Privy, 3. Local embedded wallet address
+  const walletAddress = user?.wallet?.address || getEmbeddedWalletAddress() || embeddedWalletAddress || null;
   
   // Create PublicKey with validation - memoized to prevent unnecessary recalculations
   const publicKey = React.useMemo(() => {
@@ -294,7 +307,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         authenticated,
         hasWalletAddress: !!walletAddress,
         walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null,
-        isEmbeddedWallet
+        isEmbeddedWallet,
+        embeddedWalletAddress: getEmbeddedWalletAddress()
       });
       
       if (isConnected && publicKey) {
@@ -339,7 +353,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     };
     
     handleConnection();
-  }, [isConnected, publicKey, authenticated, walletAddress, isEmbeddedWallet, addNotification, createAuthToken]);
+  }, [isConnected, publicKey, authenticated, walletAddress, isEmbeddedWallet, addNotification, createAuthToken, getEmbeddedWalletAddress]);
 
   const connect = useCallback(async () => {
     try {
@@ -595,7 +609,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       user,
       // Embedded wallet methods
       isEmbeddedWallet,
-      embeddedWalletAddress,
+      embeddedWalletAddress: getEmbeddedWalletAddress(),
       createEmbeddedWallet
     }}>
       {children}
