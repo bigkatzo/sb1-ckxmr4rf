@@ -977,9 +977,8 @@ exports.handler = async (event, context) => {
         itemCurrencyUnit, // Store the currency unit for this specific item (now using correct symbol from blockchain)
         strictToken, // Store the strict token from backend
         ...(!!strictToken && paymentMetadata?.paymentMethod === 'spl-tokens' && {
-          strictTokenAddress: paymentMetadata.tokenAddress,
-          strictTokenSymbol: itemCurrencyUnit, // Use the correct symbol from blockchain instead of paymentMetadata.tokenSymbol
-          strictTokenName: paymentMetadata.tokenName,
+          strictTokenAddress: strictToken,
+          strictTokenSymbol: itemCurrencyUnit,
           conversionRate
         })
       });
@@ -1053,8 +1052,7 @@ exports.handler = async (event, context) => {
                 // For strict token payments, convert SOL to strict token
                 // Get the correct token symbol from the first strict token item
                 const strictTokenItem = processedItems.find(item => item.isStrictTokenPayment);
-                const correctTokenSymbol = strictTokenItem?.itemCurrencyUnit || 'SNS';
-                const conversionRate = await getTokenConversionRate('SOL', paymentMetadata.tokenAddress, correctTokenSymbol);
+                const conversionRate = strictTokenItem?.conversionRate || 1;
                 const discountInStrictToken = coupon.discount_value / conversionRate;
                 discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
               }
