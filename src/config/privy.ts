@@ -3,7 +3,13 @@ import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 export const PRIVY_CONFIG = {
   appId: import.meta.env.VITE_PRIVY_APP_ID || '',
   config: {
-    loginMethods: ['wallet'] as ('wallet')[],
+    // Enable multiple login methods including social logins and embedded wallets
+    loginMethods: [
+      'wallet',
+      'email',
+      'twitter',
+      'google'
+    ] as ('wallet' | 'email' | 'twitter' | 'google')[],
     appearance: {
       theme: 'dark' as const,
       accentColor: '#0F47E4' as `#${string}`,
@@ -13,8 +19,14 @@ export const PRIVY_CONFIG = {
     },
     walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '',
     embeddedWallets: {
+      // Create embedded wallets for users who sign in with social logins
       createOnLogin: 'users-without-wallets' as const,
+      // Don't prompt for signature to improve UX
       noPromptOnSignature: true,
+      // Enable Solana embedded wallets
+      chainId: 'solana' as const,
+      // Require email verification for embedded wallets
+      requireEmailVerification: true,
     },
     externalWallets: {
       // Solana configuration with explicit wallet prioritization
@@ -39,6 +51,40 @@ export const PRIVY_CONFIG = {
       enableDeepLinking: true,
       // Enable TWA-specific wallet injection
       enableWalletInjection: true,
+    },
+    // Social login configuration
+    socialLogins: {
+      // Enable Twitter/X login
+      twitter: {
+        enabled: true,
+        // Require email for embedded wallet creation
+        requireEmail: true,
+      },
+      // Enable Google/Gmail login
+      google: {
+        enabled: true,
+        // Require email for embedded wallet creation
+        requireEmail: true,
+      },
+      // Enable email-only login for embedded wallets
+      email: {
+        enabled: true,
+        // Require email verification
+        requireVerification: true,
+      }
+    },
+    // Embedded wallet specific settings
+    embeddedWallet: {
+      // Enable Solana embedded wallets
+      solana: {
+        enabled: true,
+        // Use mainnet-beta for production
+        network: 'mainnet-beta' as const,
+        // Enable transaction signing
+        enableSigning: true,
+        // Enable message signing
+        enableMessageSigning: true,
+      }
     }
   },
 };
@@ -57,6 +103,10 @@ console.log('Privy Configuration:', {
   appId: PRIVY_CONFIG.appId ? 'Set' : 'Not Set',
   walletConnectProjectId: PRIVY_CONFIG.config.walletConnectProjectId ? 'Set' : 'Not Set',
   walletChainType: PRIVY_CONFIG.config.appearance.walletChainType,
+  loginMethods: PRIVY_CONFIG.config.loginMethods,
+  embeddedWallets: PRIVY_CONFIG.config.embeddedWallets,
   mobile: PRIVY_CONFIG.config.mobile,
-  twa: PRIVY_CONFIG.config.twa
+  twa: PRIVY_CONFIG.config.twa,
+  socialLogins: PRIVY_CONFIG.config.socialLogins,
+  embeddedWallet: PRIVY_CONFIG.config.embeddedWallet
 });

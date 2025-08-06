@@ -46,6 +46,10 @@ interface WalletContextType {
   ready: boolean;
   authenticated: boolean;
   user: any;
+  // Embedded wallet methods
+  isEmbeddedWallet: boolean;
+  embeddedWalletAddress: string | null;
+  createEmbeddedWallet: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -58,7 +62,10 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     authenticated, 
     user, 
     sendTransaction,
-    signMessage 
+    signMessage,
+    createWallet,
+    linkWallet,
+    unlinkWallet
   } = usePrivy();
   
   const [error, setError] = useState<Error | null>(null);
@@ -66,6 +73,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const [walletAuthToken, setWalletAuthToken] = useState<string | null>(null);
   const [isAuthInProgress, setIsAuthInProgress] = useState(false);
   const [lastAuthTime, setLastAuthTime] = useState<number | null>(null);
+  const [embeddedWalletAddress, setEmbeddedWalletAddress] = useState<string | null>(null);
 
   // Use refs to prevent unnecessary re-renders
   const connectionHandledRef = useRef(false);
@@ -74,7 +82,12 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const mobileAdapterInitializedRef = useRef(false);
 
   // Get Solana wallet address from Privy user with validation
-  const walletAddress = user?.wallet?.address || null;
+  const walletAddress = user?.wallet?.address || embeddedWalletAddress || null;
+  
+  // Check if user has an embedded wallet
+  const isEmbeddedWallet = user?.linkedAccounts?.some((account: any) => 
+    account.type === 'wallet' && account.walletClientType === 'privy'
+  ) || false;
   
   // Create PublicKey with validation - memoized to prevent unnecessary recalculations
   const publicKey = React.useMemo(() => {
@@ -136,6 +149,36 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
+  // Create embedded wallet for users who sign in with social logins
+  const createEmbeddedWallet = useCallback(async () => {
+    if (!authenticated || !user) {
+      console.warn('Cannot create embedded wallet: user not authenticated');
+      return;
+    }
+
+    if (isEmbeddedWallet) {
+      console.log('User already has an embedded wallet');
+      return;
+    }
+
+    try {
+      console.log('Creating embedded wallet for user...');
+      const wallet = await createWallet();
+      
+      if (wallet && wallet.address) {
+        console.log('Embedded wallet created successfully:', wallet.address);
+        setEmbeddedWalletAddress(wallet.address);
+        addNotification('success', 'Embedded wallet created successfully');
+      } else {
+        console.error('Failed to create embedded wallet: no address returned');
+        addNotification('error', 'Failed to create embedded wallet');
+      }
+    } catch (error) {
+      console.error('Error creating embedded wallet:', error);
+      addNotification('error', 'Failed to create embedded wallet');
+    }
+  }, [authenticated, user, isEmbeddedWallet, createWallet, addNotification]);
+
   // Create auth token helper
   const createAuthToken = useCallback(async (silent: boolean = false, skipValidation: boolean = false): Promise<string | null> => {
     if (!walletAddress || !publicKey) {
@@ -165,7 +208,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       const tokenData = {
         walletAddress,
         timestamp: Date.now(),
-        chain: 'solana'
+        chain: 'solana',
+        isEmbeddedWallet
       };
       
       const token = btoa(JSON.stringify(tokenData));
@@ -196,7 +240,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsAuthInProgress(false);
     }
-  }, [walletAddress, publicKey, walletAuthToken, lastAuthTime, addNotification]);
+  }, [walletAddress, publicKey, walletAuthToken, lastAuthTime, isEmbeddedWallet, addNotification]);
 
   // Authenticate helper
   const authenticate = useCallback(async (silent: boolean = false): Promise<string | null> => {
@@ -249,7 +293,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         hasPublicKey: !!publicKey,
         authenticated,
         hasWalletAddress: !!walletAddress,
-        walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null
+        walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null,
+        isEmbeddedWallet
       });
       
       if (isConnected && publicKey) {
@@ -260,10 +305,12 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         // Show a notification on successful authentication
         if (token) {
           console.log('✅ Auth token created, showing success notification');
-          addNotification('success', 'Wallet connected and authenticated');
+          const walletType = isEmbeddedWallet ? 'Embedded wallet' : 'Wallet';
+          addNotification('success', `${walletType} connected and authenticated`);
         } else {
           console.log('⚠️ No auth token created, showing basic success notification');
-          addNotification('success', 'Wallet connected');
+          const walletType = isEmbeddedWallet ? 'Embedded wallet' : 'Wallet';
+          addNotification('success', `${walletType} connected`);
         }
       } else if (authenticated && walletAddress && !publicKey) {
         console.log('❌ User authenticated but invalid wallet address detected');
@@ -292,7 +339,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     };
     
     handleConnection();
-  }, [isConnected, publicKey, authenticated, walletAddress, addNotification, createAuthToken]);
+  }, [isConnected, publicKey, authenticated, walletAddress, isEmbeddedWallet, addNotification, createAuthToken]);
 
   const connect = useCallback(async () => {
     try {
@@ -347,6 +394,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       // First clear our auth token
       setWalletAuthToken(null);
       setLastAuthTime(null);
+      setEmbeddedWalletAddress(null);
       
       // Clear from session storage
       try {
@@ -399,15 +447,31 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     // First ensure we're authenticated - transactions often need wallet verification
     await ensureAuthenticated();
     
-    // Then use Privy to sign and send the transaction
     try {
-      // For Solana transactions with Privy, we need to use the wallet's native methods
-      // Check if we have access to the wallet through window.solana
-      if ((window as any).solana) {
-        const { signature } = await (window as any).solana.signAndSendTransaction(transaction);
-        return signature;
+      // For embedded wallets, we need to convert the transaction to the format Privy expects
+      if (isEmbeddedWallet) {
+        console.log('Using embedded wallet for transaction signing');
+        // Convert Solana transaction to the format Privy expects
+        const serializedTransaction = transaction.serialize({
+          requireAllSignatures: false,
+          verifySignatures: false
+        });
+        
+        // For embedded wallets, we'll use the native Solana provider if available
+        if ((window as any).solana) {
+          const { signature } = await (window as any).solana.signAndSendTransaction(transaction);
+          return signature;
+        } else {
+          throw new Error('No Solana wallet available for transaction signing');
+        }
       } else {
-        throw new Error('No Solana wallet available for transaction signing');
+        // For external wallets, use the wallet's native methods
+        if ((window as any).solana) {
+          const { signature } = await (window as any).solana.signAndSendTransaction(transaction);
+          return signature;
+        } else {
+          throw new Error('No Solana wallet available for transaction signing');
+        }
       }
     } catch (error) {
       console.error('Transaction error:', error);
@@ -416,7 +480,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setError(err);
       throw err;
     }
-  }, [publicKey, ensureAuthenticated]);
+  }, [publicKey, ensureAuthenticated, isEmbeddedWallet]);
 
   // Force disconnect utility
   const forceDisconnect = useCallback(async () => {
@@ -425,6 +489,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setWalletAuthToken(null);
       setLastAuthTime(null);
       setError(null);
+      setEmbeddedWalletAddress(null);
       
       // Clear from session storage
       try {
@@ -451,50 +516,26 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     console.log('🔍 Validating Solana chain...');
     
     if (user?.wallet) {
-      const chainId = user.wallet.chainId;
-      const chainType = user.wallet.chainType;
-      
-      console.log('🔍 Chain validation details:', { 
-        chainId, 
-        chainType, 
-        walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null,
-        isValidAddress: walletAddress ? isValidSolanaAddress(walletAddress) : false
-      });
-      
-      // More flexible Solana chain detection
-      // Solana can be identified in multiple ways:
-      const isSolanaChain = chainId && (
-        chainId.toString() === 'solana' || 
-        chainId.toString() === '7565164' ||
-        chainId.toString() === 'mainnet-beta' ||
-        chainId.toString() === 'mainnet' ||
-        chainType === 'solana' ||
-        // Check if the wallet address is a valid Solana address (this is the most reliable)
-        (walletAddress && isValidSolanaAddress(walletAddress))
-      );
-      
-      console.log('🔍 Solana chain check result:', { isSolanaChain });
-      
-      if (!isSolanaChain) {
-        console.warn('❌ User connected to wrong chain:', { chainId, chainType, walletAddress });
-        // Only show error if we have a wallet address but it's not a valid Solana address
-        if (walletAddress && !isValidSolanaAddress(walletAddress)) {
-          console.log('❌ Showing error notification for invalid Solana address');
-          addNotification('error', 'Please connect to Solana network in your wallet');
-          return false;
-        } else {
-          console.log('⚠️ Chain validation failed but wallet address is valid, not showing error');
-        }
-      } else {
-        console.log('✅ Solana chain validation passed');
+      // For embedded wallets, we don't need to validate chain as they're always Solana
+      if (isEmbeddedWallet) {
+        console.log('✅ Embedded wallet detected, skipping chain validation');
+        return true;
       }
       
-      return true;
+      // For external wallets, check if the address is a valid Solana address
+      if (walletAddress && isValidSolanaAddress(walletAddress)) {
+        console.log('✅ Solana address validation passed');
+        return true;
+      } else {
+        console.log('❌ Invalid Solana address detected');
+        addNotification('error', 'Please connect a valid Solana wallet');
+        return false;
+      }
     } else {
       console.log('⚠️ No user wallet data available for chain validation');
     }
     return false;
-  }, [user?.wallet, walletAddress, addNotification]);
+  }, [user?.wallet, walletAddress, isEmbeddedWallet, addNotification]);
 
   // Add effect to validate chain on connection - only when user changes
   useEffect(() => {
@@ -508,6 +549,25 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       connectionHandledRef.current = false;
     }
   }, [authenticated, user?.wallet, walletAddress, validateSolanaChain]);
+
+  // Effect to handle embedded wallet creation for social login users
+  useEffect(() => {
+    if (authenticated && user && !isEmbeddedWallet && !user.wallet) {
+      // User is authenticated but has no wallet - they likely signed in with social login
+      // Check if they have an email (required for embedded wallet)
+      const hasEmail = user.email?.address || user.linkedAccounts?.some((account: any) => 
+        account.type === 'email' && account.email
+      );
+      
+      if (hasEmail) {
+        console.log('User signed in with social login, creating embedded wallet...');
+        // Delay creation to ensure user is fully authenticated
+        setTimeout(() => {
+          createEmbeddedWallet();
+        }, 1000);
+      }
+    }
+  }, [authenticated, user, isEmbeddedWallet, createEmbeddedWallet]);
 
   return (
     <WalletContext.Provider value={{
@@ -532,7 +592,11 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       logout,
       ready,
       authenticated,
-      user
+      user,
+      // Embedded wallet methods
+      isEmbeddedWallet,
+      embeddedWalletAddress,
+      createEmbeddedWallet
     }}>
       {children}
     </WalletContext.Provider>
