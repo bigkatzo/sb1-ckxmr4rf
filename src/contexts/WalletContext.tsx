@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { usePrivy } from '@privy-io/react-auth';
 import { Transaction, PublicKey, Connection } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
-import { initializeMobileWalletAdapter, isMobile, isTWA, getBestWallet } from '../utils/mobileWalletAdapter';
+import { initializeMobileWalletAdapter, isMobile, isTWA, getBestWallet, detectWallets } from '../utils/mobileWalletAdapter';
 
 // Custom event for auth expiration
 export const AUTH_EXPIRED_EVENT = 'wallet-auth-expired';
@@ -90,6 +90,17 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     if (!mobileAdapterInitializedRef.current && typeof window !== 'undefined') {
       initializeMobileWalletAdapter();
       mobileAdapterInitializedRef.current = true;
+      
+      // For TWA environments, we might need to retry wallet detection after a delay
+      const isTWAEnv = isTWA();
+      if (isTWAEnv) {
+        console.log('TWA environment detected, setting up retry mechanism...');
+        setTimeout(() => {
+          console.log('Retrying wallet detection in TWA environment...');
+          const wallets = detectWallets();
+          console.log('TWA retry wallet detection results:', wallets);
+        }, 3000);
+      }
     }
   }, []);
 
@@ -298,12 +309,22 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       const isTWAEnv = isTWA();
       
       if (isMobileEnv || isTWAEnv) {
+        console.log('Mobile/TWA environment detected');
         const bestWallet = getBestWallet();
         if (bestWallet) {
           console.log(`Mobile environment detected, best wallet: ${bestWallet}`);
+          
+          // For TWA environments, we might need to wait a bit before attempting connection
+          if (isTWAEnv) {
+            console.log('TWA environment detected, waiting for wallet injection...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } else {
+          console.log('No wallet detected on mobile, will attempt standard login');
         }
       }
       
+      console.log('Attempting Privy login...');
       login();
     } catch (error) {
       console.error('Connect error:', error);

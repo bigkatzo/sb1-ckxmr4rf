@@ -21,25 +21,11 @@ import android.os.Build;
 import android.os.Bundle;
 
 
-    import java.util.HashMap;
-
-    import java.util.Map;
-
 
 public class LauncherActivity
         extends com.google.androidbrowserhelper.trusted.LauncherActivity {
     
 
-    
-        @Override
-        protected Map<String, Uri> getProtocolHandlers() {
-            Map<String, Uri> registry = new HashMap<>();
-            registry.put("phantom", Uri.parse("/wallet-redirect?wallet=phantom"));
-registry.put("solflare", Uri.parse("/wallet-redirect?wallet=solflare"));
-registry.put("backpack", Uri.parse("/wallet-redirect?wallet=backpack"));
-registry.put("solana", Uri.parse("/wallet-redirect?wallet=solana"));
-            return registry;
-        }
     
 
     @Override

@@ -16,16 +16,6 @@
 -->
 <resources>
   
-    <string-array name="additional_trusted_origins">
-    
-      <item>https://https://phantom.app</item>
-    
-      <item>https://https://solflare.com</item>
-    
-      <item>https://https://backpack.app</item>
-    
-    </string-array>
-  
 
   <!--
     This variable below expresses the relationship between the app and the site,
@@ -41,30 +31,6 @@
             \"site\": \"https://store.fun\"
         }
     }]
-    
-      ,[{
-          \"relation\": [\"delegate_permission/common.handle_all_urls\"],
-          \"target\": {
-              \"namespace\": \"web\",
-              \"site\": \"https://https://phantom.app\"
-          }
-      }]        
-    
-      ,[{
-          \"relation\": [\"delegate_permission/common.handle_all_urls\"],
-          \"target\": {
-              \"namespace\": \"web\",
-              \"site\": \"https://https://solflare.com\"
-          }
-      }]        
-    
-      ,[{
-          \"relation\": [\"delegate_permission/common.handle_all_urls\"],
-          \"target\": {
-              \"namespace\": \"web\",
-              \"site\": \"https://https://backpack.app\"
-          }
-      }]        
     
   </string>  
 </resources>
