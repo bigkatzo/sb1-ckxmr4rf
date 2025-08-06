@@ -54,13 +54,37 @@ export function EmbeddedWalletTest() {
   // Get embedded wallet info from Privy user
   const getEmbeddedWalletInfo = () => {
     if (user?.linkedAccounts) {
-      const embeddedWalletAccount = user.linkedAccounts.find((account: any) => 
+      // Find all embedded wallets
+      const embeddedWallets = user.linkedAccounts.filter((account: any) => 
         account.type === 'wallet' && (account as any).walletClientType === 'privy'
       );
+      
+      // Find Solana embedded wallet specifically
+      const solanaEmbeddedWallet = embeddedWallets.find((account: any) => 
+        (account as any).chain_type === 'solana'
+      );
+      
+      // Find Ethereum embedded wallet specifically
+      const ethereumEmbeddedWallet = embeddedWallets.find((account: any) => 
+        (account as any).chain_type === 'ethereum'
+      );
+      
       return {
-        address: (embeddedWalletAccount as any)?.address,
-        type: embeddedWalletAccount?.type,
-        clientType: (embeddedWalletAccount as any)?.walletClientType
+        allEmbeddedWallets: embeddedWallets.map((wallet: any) => ({
+          address: (wallet as any)?.address,
+          chainType: (wallet as any)?.chain_type,
+          chainId: (wallet as any)?.chain_id
+        })),
+        solanaWallet: solanaEmbeddedWallet ? {
+          address: (solanaEmbeddedWallet as any)?.address,
+          chainType: (solanaEmbeddedWallet as any)?.chain_type,
+          chainId: (solanaEmbeddedWallet as any)?.chain_id
+        } : null,
+        ethereumWallet: ethereumEmbeddedWallet ? {
+          address: (ethereumEmbeddedWallet as any)?.address,
+          chainType: (ethereumEmbeddedWallet as any)?.chain_type,
+          chainId: (ethereumEmbeddedWallet as any)?.chain_id
+        } : null
       };
     }
     return null;
@@ -105,19 +129,43 @@ export function EmbeddedWalletTest() {
         </div>
 
         {embeddedWalletInfo && (
-          <div className="text-sm">
-            <span className="text-gray-400">Privy Embedded: </span>
-            <span className="text-green-400 font-mono">
-              {embeddedWalletInfo.address ? `${embeddedWalletInfo.address.slice(0, 8)}...${embeddedWalletInfo.address.slice(-8)}` : 'No address'}
-            </span>
-            {embeddedWalletInfo.address && (
-              <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                embeddedWalletInfo.address.startsWith('0x') 
-                  ? 'bg-red-900 text-red-200' 
-                  : 'bg-green-900 text-green-200'
-              }`}>
-                {embeddedWalletInfo.address.startsWith('0x') ? 'ETH' : 'SOL'}
-              </span>
+          <div className="space-y-2">
+            <div className="text-sm">
+              <span className="text-gray-400">All Embedded Wallets: </span>
+              <div className="ml-4 space-y-1">
+                {embeddedWalletInfo.allEmbeddedWallets.map((wallet: any, index: number) => (
+                  <div key={index} className="text-xs">
+                    <span className="text-green-400 font-mono">
+                      {wallet.address ? `${wallet.address.slice(0, 8)}...${wallet.address.slice(-8)}` : 'No address'}
+                    </span>
+                    <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                      wallet.chainType === 'ethereum' 
+                        ? 'bg-red-900 text-red-200' 
+                        : 'bg-green-900 text-green-200'
+                    }`}>
+                      {wallet.chainType?.toUpperCase() || 'UNKNOWN'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {embeddedWalletInfo.solanaWallet && (
+              <div className="text-sm">
+                <span className="text-gray-400">✅ Solana Wallet: </span>
+                <span className="text-green-400 font-mono">
+                  {embeddedWalletInfo.solanaWallet.address ? `${embeddedWalletInfo.solanaWallet.address.slice(0, 8)}...${embeddedWalletInfo.solanaWallet.address.slice(-8)}` : 'No address'}
+                </span>
+              </div>
+            )}
+            
+            {embeddedWalletInfo.ethereumWallet && (
+              <div className="text-sm">
+                <span className="text-gray-400">⚠️ Ethereum Wallet: </span>
+                <span className="text-red-400 font-mono">
+                  {embeddedWalletInfo.ethereumWallet.address ? `${embeddedWalletInfo.ethereumWallet.address.slice(0, 8)}...${embeddedWalletInfo.ethereumWallet.address.slice(-8)}` : 'No address'}
+                </span>
+              </div>
             )}
           </div>
         )}

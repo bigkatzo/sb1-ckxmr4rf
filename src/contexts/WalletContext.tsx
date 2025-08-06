@@ -82,19 +82,43 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const lastAuthenticatedRef = useRef(false);
   const mobileAdapterInitializedRef = useRef(false);
 
-  // Check if user has an embedded wallet from Privy
+  // Check if user has a Solana embedded wallet from Privy
   const isEmbeddedWallet = user?.linkedAccounts?.some((account: any) => 
-    account.type === 'wallet' && account.walletClientType === 'privy'
+    account.type === 'wallet' && 
+    (account as any).walletClientType === 'privy' &&
+    (account as any).chain_type === 'solana'
   ) || false;
 
-  // Get the embedded wallet address from Privy user
+  // Get the embedded wallet address from Privy user - prioritize Solana over Ethereum
   const getEmbeddedWalletAddress = useCallback(() => {
     if (user?.linkedAccounts) {
-      const embeddedWalletAccount = user.linkedAccounts.find((account: any) => 
-        account.type === 'wallet' && account.walletClientType === 'privy'
+      // First, try to find a Solana embedded wallet
+      const solanaEmbeddedWallet = user.linkedAccounts.find((account: any) => 
+        account.type === 'wallet' && 
+        (account as any).walletClientType === 'privy' &&
+        (account as any).chain_type === 'solana'
       );
-      // Access the address property safely
-      return (embeddedWalletAccount as any)?.address || null;
+      
+      if (solanaEmbeddedWallet) {
+        console.log('✅ Found Solana embedded wallet:', (solanaEmbeddedWallet as any).address);
+        return (solanaEmbeddedWallet as any)?.address || null;
+      }
+      
+      // If no Solana wallet, fall back to any embedded wallet (but warn about Ethereum)
+      const anyEmbeddedWallet = user.linkedAccounts.find((account: any) => 
+        account.type === 'wallet' && (account as any).walletClientType === 'privy'
+      );
+      
+      if (anyEmbeddedWallet) {
+        const walletAddress = (anyEmbeddedWallet as any)?.address;
+        const chainType = (anyEmbeddedWallet as any)?.chain_type;
+        
+        if (chainType === 'ethereum') {
+          console.warn('⚠️ Found Ethereum embedded wallet instead of Solana:', walletAddress);
+        }
+        
+        return walletAddress || null;
+      }
     }
     return null;
   }, [user?.linkedAccounts]);
