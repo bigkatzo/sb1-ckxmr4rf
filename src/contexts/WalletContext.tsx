@@ -99,7 +99,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       const solanaEmbeddedWallet = user.linkedAccounts.find((account: any) => 
         account.type === 'wallet' && 
         (account as any).walletClientType === 'privy' &&
-        (account as any).chain_type === 'solana'
+        (account as any).chainType === 'solana'
       );
       
       if (solanaEmbeddedWallet) {
