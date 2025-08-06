@@ -61,15 +61,15 @@ export function usePayment() {
     try {
       const connection = new Connection(SOLANA_CONNECTION.rpcEndpoint);
       
-      // Wait for confirmation with timeout
-      const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+      // Wait for finalization with timeout
+      const confirmation = await connection.confirmTransaction(signature, 'finalized');
       
       const success = !confirmation.value.err;
       
       const newStatus: PaymentStatus = {
         processing: false,
         success,
-        error: success ? null : 'Transaction failed to confirm',
+        error: success ? null : 'Transaction failed to finalize',
         signature: success ? signature : null
       };
       
@@ -82,7 +82,7 @@ export function usePayment() {
       const newStatus: PaymentStatus = {
         processing: false,
         success: false,
-        error: 'Failed to confirm transaction',
+        error: 'Failed to finalize transaction',
         signature: null
       };
       
