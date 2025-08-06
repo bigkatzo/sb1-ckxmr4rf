@@ -562,22 +562,18 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     await ensureAuthenticated();
     
     try {
-      // For embedded wallets, we need to convert the transaction to the format Privy expects
+      // For embedded wallets, use Privy's sendTransaction method
       if (isEmbeddedWallet) {
         console.log('Using embedded wallet for transaction signing');
-        // Convert Solana transaction to the format Privy expects
-        const serializedTransaction = transaction.serialize({
-          requireAllSignatures: false,
-          verifySignatures: false
+        
+        // Use Privy's sendTransaction method for embedded wallets
+        const result = await sendTransaction({
+          transaction: transaction,
+          chainId: 'solana:mainnet' // or 'solana:devnet' depending on your network
         });
         
-        // For embedded wallets, we'll use the native Solana provider if available
-        if ((window as any).solana) {
-          const { signature } = await (window as any).solana.signAndSendTransaction(transaction);
-          return signature;
-        } else {
-          throw new Error('No Solana wallet available for transaction signing');
-        }
+        console.log('✅ Embedded wallet transaction sent:', result);
+        return result.hash;
       } else {
         // For external wallets, use the wallet's native methods
         if ((window as any).solana) {
@@ -594,7 +590,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setError(err);
       throw err;
     }
-  }, [publicKey, ensureAuthenticated, isEmbeddedWallet]);
+  }, [publicKey, ensureAuthenticated, isEmbeddedWallet, sendTransaction]);
 
   // Force disconnect utility
   const forceDisconnect = useCallback(async () => {
