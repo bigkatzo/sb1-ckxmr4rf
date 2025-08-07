@@ -562,18 +562,18 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     await ensureAuthenticated();
     
     try {
-      // For embedded wallets, use Privy's sendTransaction method
+      // For embedded wallets, use the wallet's native methods
       if (isEmbeddedWallet) {
         console.log('Using embedded wallet for transaction signing');
         
-        // Use Privy's sendTransaction method for embedded wallets
-        const result = await sendTransaction({
-          transaction: transaction,
-          chainId: 'solana:mainnet' // or 'solana:devnet' depending on your network
-        });
-        
-        console.log('✅ Embedded wallet transaction sent:', result);
-        return result.hash;
+        // For embedded wallets, we need to use the wallet's native signAndSendTransaction
+        // Privy embedded wallets support Solana transactions natively
+        if ((window as any).solana) {
+          const { signature } = await (window as any).solana.signAndSendTransaction(transaction);
+          return signature;
+        } else {
+          throw new Error('No Solana wallet available for embedded wallet transaction signing');
+        }
       } else {
         // For external wallets, use the wallet's native methods
         if ((window as any).solana) {

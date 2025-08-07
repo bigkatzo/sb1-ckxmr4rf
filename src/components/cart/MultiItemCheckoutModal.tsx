@@ -51,7 +51,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   }
 
   const { isConnected, walletAddress, login } = useWallet();
-  const { processPayment, processTokenPayment } = usePayment();
+  const { processPayment, processTokenPayment, processSwapPayment } = usePayment();
   
   // Form state
   const [shipping, setShipping] = useState<{
@@ -554,22 +554,23 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
 
     let success;
     let signature: string | undefined;
+    
     if(paymentMethod?.type === 'default') {
       if(paymentMethod?.defaultToken === 'sol') {
         const { success: paymentSuccess, signature: txSignature } = await processPayment(paymentAmount, cartId, receiverWallet);
         success = paymentSuccess;
         signature = txSignature;
       } else {
-        // For default token payments, we need the token address
-        const tokenAddress = paymentMethod?.tokenAddress || 'USDC_ADDRESS'; // Default USDC address
-        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(paymentAmount, cartId, receiverWallet, tokenAddress);
+        // For default USDC payments, use USDC token address
+        const usdcAddress = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(paymentAmount, cartId, receiverWallet, usdcAddress);
         success = paymentSuccess;
         signature = txSignature;
       }
     } else if(paymentMethod?.type === 'spl-tokens') {
       // Check if this is a strict token payment (user receives the same token they're paying with)
       if (hasStrictTokenRestriction && collectionStrictToken) {
-        // For strict token payments, use processTokenPayment instead of swap
+        // For strict token payments, use processTokenPayment
         // because the user receives the same token they're paying with
         const tokenAddress = paymentMethod?.tokenAddress || collectionStrictToken;
         const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(
@@ -581,14 +582,26 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         success = paymentSuccess;
         signature = txSignature;
       } else {
-        // For regular SPL token payments, use processTokenPayment as fallback
-        // Note: SPL token swap functionality has been removed with Privy integration
-        const tokenAddress = paymentMethod?.tokenAddress || 'USDC_ADDRESS'; // Default USDC address
-        const { success: paymentSuccess, signature: txSignature } = await processTokenPayment(
-          paymentAmount, 
+        // For regular SPL token payments (non-strict), use Jupiter swap to convert to USDC
+        // This is where the user pays with their token but the receiver gets USDC
+        const inputTokenAddress = paymentMethod?.tokenAddress;
+        const outputTokenAddress = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'; // USDC
+        
+        if (!inputTokenAddress) {
+          throw new Error('Token address is required for SPL token payments');
+        }
+        
+        console.log('🔄 Processing Jupiter swap payment...');
+        console.log(`Input token: ${inputTokenAddress}`);
+        console.log(`Output token: ${outputTokenAddress}`);
+        console.log(`Amount: ${paymentAmount}`);
+        
+        const { success: paymentSuccess, signature: txSignature } = await processSwapPayment(
+          paymentAmount,
           cartId,
           receiverWallet,
-          tokenAddress
+          inputTokenAddress,
+          outputTokenAddress
         );
         success = paymentSuccess;
         signature = txSignature;
