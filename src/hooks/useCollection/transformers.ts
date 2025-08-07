@@ -1,4 +1,5 @@
 import type { Category, Collection, DatabaseCollection, Product } from '../../types/index';
+import { isValidStrictToken } from '../../utils/strictTokenValidation';
 
 export function transformCategory(category: any): Category | undefined {
   if (!category?.id) return undefined;
@@ -46,7 +47,7 @@ export function transformProduct(product: any, collectionData: any): Product | n
     collectionName: collectionData.name || '',
     collectionSlug: collectionData.slug,
     collectionCa: collectionData.ca || '',
-    collectionStrictToken: collectionData.strict_token || '',
+    collectionStrictToken: isValidStrictToken(collectionData.strict_token) ? collectionData.strict_token : '',
     slug: product.slug,
     stock: product.quantity,
     minimumOrderQuantity: product.minimum_order_quantity || 50,

@@ -6,6 +6,7 @@ import { canPreviewHiddenContent, getPreviewAwareCacheKey } from '../utils/previ
 import type { Collection } from '../types/collections';
 import { normalizeStorageUrl } from '../lib/storage';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
+import { isValidStrictToken } from '../utils/strictTokenValidation';
 
 export function useCollection(slug: string) {
   const [collection, setCollection] = useState<Collection | null>(null);
@@ -256,7 +257,7 @@ export function useCollection(slug: string) {
             collectionName: product.collection_name || product.collections?.name,
             collectionSlug: product.collection_slug || product.collections?.slug,
             collectionCa: collectionData.ca || '',
-            collectionStrictToken: collectionData.strict_token || '',
+            collectionStrictToken: isValidStrictToken(collectionData.strict_token) ? collectionData.strict_token : '',
             slug: product.slug || '',
             variants: product.variants || [],
             baseCurrency: product.base_currency || 'sol',

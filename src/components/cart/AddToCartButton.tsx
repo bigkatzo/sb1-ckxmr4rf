@@ -8,6 +8,7 @@ import { toast } from 'react-toastify';
 import { verifyAndAddToCart } from '../../utils/productAccessVerification';
 import { useModifiedPrice } from '../../hooks/useModifiedPrice';
 import { getVariantKey } from '../../utils/variant-helpers';
+import { isValidStrictToken } from '../../utils/strictTokenValidation';
 
 interface AddToCartButtonProps {
   product: Product;
@@ -99,27 +100,27 @@ export function AddToCartButton({
     }
     
     // Check for strict token cart restriction
-    const productHasStrictToken = Boolean(product.collectionStrictToken);
+    const productHasStrictToken = isValidStrictToken(product.collectionStrictToken);
     const hasOtherItemsInCart = items.length > 0;
     
     if (hasOtherItemsInCart) {
-      // Check if there are any existing items with strict tokens
-      const existingStrictTokenItems = items.filter(item => item.product.collectionStrictToken);
-      const existingNonStrictTokenItems = items.filter(item => !item.product.collectionStrictToken);
+      // Check if there are any existing items with valid strict tokens
+      const existingStrictTokenItems = items.filter(item => isValidStrictToken(item.product.collectionStrictToken));
+      const existingNonStrictTokenItems = items.filter(item => !isValidStrictToken(item.product.collectionStrictToken));
       
-      // Case 1: New item has strict token, but cart has non-strict items
+      // Case 1: New item has valid strict token, but cart has non-strict items
       if (productHasStrictToken && existingNonStrictTokenItems.length > 0) {
         toast.error('You cannot add items with strict token requirements to a cart with regular items. Please clear your cart first.');
         return;
       }
       
-      // Case 2: New item doesn't have strict token, but cart has strict token items
+      // Case 2: New item doesn't have valid strict token, but cart has strict token items
       if (!productHasStrictToken && existingStrictTokenItems.length > 0) {
         toast.error('You cannot add regular items to a cart with strict token requirements. Please clear your cart first.');
         return;
       }
       
-      // Case 3: New item has strict token, and cart has strict token items with different tokens
+      // Case 3: New item has valid strict token, and cart has strict token items with different tokens
       if (productHasStrictToken && existingStrictTokenItems.length > 0) {
         const hasDifferentStrictTokens = existingStrictTokenItems.some(
           item => item.product.collectionStrictToken !== product.collectionStrictToken

@@ -24,6 +24,7 @@ import { useSolanaPrice } from '../../utils/price-conversion.ts';
 import { useCurrency } from '../../contexts/CurrencyContext.tsx';
 import { PublicKey } from '@solana/web3.js';
 import { calculateTotalPrice } from '../../utils/currencyUtils';
+import { isValidStrictToken, hasConsistentStrictTokens, hasMixedStrictTokens, hasDifferentStrictTokens } from '../../utils/strictTokenValidation';
 
 interface MultiItemCheckoutModalProps {
   onClose: () => void;
@@ -90,38 +91,24 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
   // Get collection strict token from the first item's collection
   const collectionStrictToken = items[0]?.product?.collectionStrictToken;
   
-  // Check if all items in cart are from the same collection with strict token
-  const hasStrictTokenRestriction = Boolean(collectionStrictToken && 
-    items.every(item => item.product.collectionStrictToken === collectionStrictToken));
+  // Check if all items in cart are from the same collection with valid strict token
+  const hasStrictTokenRestriction = hasConsistentStrictTokens(
+    items, 
+    (item) => item.product.collectionStrictToken
+  );
 
   // Check for mixed cart with strict tokens - prevent checkout if items have different strict tokens
   // OR if there are strict token items mixed with non-strict token items
-  const hasMixedStrictTokens = (() => {
-    // If there are no strict token items, no mixing issue
-    if (!items.some(item => item.product.collectionStrictToken)) {
-      return false;
-    }
-    
-    // If there are strict token items, check for mixing
-    const strictTokenItems = items.filter(item => item.product.collectionStrictToken);
-    const nonStrictTokenItems = items.filter(item => !item.product.collectionStrictToken);
-    
-    // If there are both strict and non-strict items, that's mixing
-    if (strictTokenItems.length > 0 && nonStrictTokenItems.length > 0) {
-      return true;
-    }
-    
-    // If all items have strict tokens, check if they're different
-    if (strictTokenItems.length > 0 && nonStrictTokenItems.length === 0) {
-      const firstStrictToken = strictTokenItems[0].product.collectionStrictToken;
-      return strictTokenItems.some(item => item.product.collectionStrictToken !== firstStrictToken);
-    }
-    
-    return false;
-  })();
+  const hasMixedStrictTokensInCart = hasMixedStrictTokens(
+    items, 
+    (item) => item.product.collectionStrictToken
+  ) || hasDifferentStrictTokens(
+    items, 
+    (item) => item.product.collectionStrictToken
+  );
 
-  // Use strict token if available, otherwise use recommended CAs
-  const recommendedCas = collectionStrictToken 
+  // Use strict token if available and valid, otherwise use recommended CAs
+  const recommendedCas = isValidStrictToken(collectionStrictToken) && collectionStrictToken
     ? [collectionStrictToken]
     : (() => {
         const validCollectionCas = items
@@ -1089,7 +1076,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                   />
 
                   {/* Mixed Strict Tokens Warning */}
-                  {hasMixedStrictTokens && (
+                  {hasMixedStrictTokensInCart && (
                     <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                       <p className="text-red-400 text-sm">
                         Cannot checkout items with strict token requirements mixed with regular items. Items that require specific collection tokens must be purchased separately from items that don't have token restrictions.
@@ -1098,7 +1085,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                   )}
 
                   {/* Strict Token Requirement Notice */}
-                  {hasStrictTokenRestriction && !hasMixedStrictTokens && (
+                  {hasStrictTokenRestriction && !hasMixedStrictTokensInCart && (
                     <div className="mt-2 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
                       <p className="text-purple-400 text-sm">
                         This collection requires payment with <strong>{paymentMethod?.tokenName || 'the collection token'}</strong>. 
@@ -1490,7 +1477,7 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
                     size="lg"
                     isLoading={processingPayment}
                     loadingText={processingPayment ? "Processing..." : ""}
-                    disabled={processingPayment || hasMixedStrictTokens || (paymentMethod?.type === 'spl-tokens' && !isConnected) || !paymentMethod || 
+                    disabled={processingPayment || hasMixedStrictTokensInCart || (paymentMethod?.type === 'spl-tokens' && !isConnected) || !paymentMethod || 
                       (['solana', 'usdc', 'other-tokens'].includes(paymentMethod?.type || '') && !isConnected) || 
                       !paymentMethod || 
                       (paymentMethod && ['solana', 'usdc', 'other-tokens'].includes(paymentMethod.type) && !isConnected) || 
