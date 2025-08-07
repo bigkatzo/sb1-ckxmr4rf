@@ -25,21 +25,6 @@
     
         <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     
-    <!-- Additional permissions for better TWA and wallet detection -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.INSTALL_PACKAGES" />
-    
-    <!-- Optional: Add these if you need to detect installed wallet apps -->
-    <queries>
-        <package android:name="app.phantom" />
-        <package android:name="com.solflare.mobile" />
-        <package android:name="com.backpack.app" />
-        <package android:name="com.metamask" />
-        <package android:name="io.metamask" />
-    </queries>
 
     
 
@@ -95,6 +80,10 @@
                 android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
                 android:resource="@color/colorPrimary" />
 
+            
+                <meta-data
+                    android:name="android.support.customtabs.trusted.LAUNCH_HANDLER_CLIENT_MODE"
+                    android:value="@string/launchHandlerClientMode" />
             
 
             <meta-data

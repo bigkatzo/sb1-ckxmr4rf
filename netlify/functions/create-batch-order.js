@@ -36,10 +36,70 @@ const ALLOWED_MIME_TYPES = [
 let SOLANA_CONNECTION = null;
 
 /**
- * Fetch token decimals and symbol from Solana blockchain
+ * Fetch token decimals and symbol from Jupiter API (primary) with fallbacks
  */
 async function getTokenInfo(tokenAddress) {
   try {
+    console.log(`Fetching token info for ${tokenAddress} using Jupiter API`);
+    
+    // Try Jupiter API first (most reliable)
+    try {
+      const jupiterResponse = await fetch(`https://tokens.jup.ag/token/${tokenAddress}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (jupiterResponse.ok) {
+        const jupiterData = await jupiterResponse.json();
+        
+        if (jupiterData && jupiterData.decimals !== undefined) {
+          const tokenInfo = {
+            decimals: jupiterData.decimals,
+            symbol: jupiterData.symbol,
+            name: jupiterData.name || jupiterData.symbol
+          };
+          
+          console.log(`Jupiter API: Fetched token info for ${tokenAddress}:`, tokenInfo);
+          return tokenInfo;
+        }
+      }
+    } catch (jupiterError) {
+      console.warn(`Jupiter API failed for ${tokenAddress}:`, jupiterError);
+    }
+    
+    // Fallback to DexScreener API
+    try {
+      console.log(`Trying DexScreener fallback for ${tokenAddress}`);
+      const dexScreenerResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
+      
+      if (dexScreenerResponse.ok) {
+        const dexScreenerData = await dexScreenerResponse.json();
+        
+        if (dexScreenerData && dexScreenerData.pairs && dexScreenerData.pairs.length > 0) {
+          const pair = dexScreenerData.pairs[0];
+          const token = pair.baseToken || pair.token0;
+          
+          if (token && token.symbol && token.decimals !== undefined) {
+            const tokenInfo = {
+              decimals: token.decimals,
+              symbol: token.symbol,
+              name: token.name || token.symbol
+            };
+            
+            console.log(`DexScreener API: Fetched token info for ${tokenAddress}:`, tokenInfo);
+            return tokenInfo;
+          }
+        }
+      }
+    } catch (dexScreenerError) {
+      console.warn(`DexScreener API failed for ${tokenAddress}:`, dexScreenerError);
+    }
+    
+    // Final fallback to Solana connection for known tokens
+    console.log(`Trying Solana connection fallback for ${tokenAddress}`);
+    
     if (!SOLANA_CONNECTION) {
       SOLANA_CONNECTION = await createConnectionWithRetry(ENV);
     }
@@ -60,39 +120,32 @@ async function getTokenInfo(tokenAddress) {
           console.log(`Symbol not available, using name for ${tokenAddress}: ${name}`);
         } else {
           // If both symbol and name are unavailable, use a default
-          symbol = undefined;
+          symbol = 'TOKEN';
           console.log(`Neither symbol nor name available for ${tokenAddress}, using default: TOKEN`);
         }
       }
       
-      console.log(`Fetched token info for ${tokenAddress}: decimals=${decimals}, symbol=${symbol}`);
-      return { decimals, symbol };
+      const tokenInfo = { decimals, symbol, name: name || symbol };
+      console.log(`Solana connection: Fetched token info for ${tokenAddress}:`, tokenInfo);
+      return tokenInfo;
     }
     
     throw new Error('Invalid mint account data');
   } catch (error) {
-    console.warn(`Failed to fetch token info from Solana for ${tokenAddress}, using defaults:`, error);
+    console.warn(`Failed to fetch token info from all sources for ${tokenAddress}, using defaults:`, error);
     
     // Fallback to known token info
     if (tokenAddress === 'So11111111111111111111111111111111111111112') {
-      return { decimals: 9, symbol: 'SOL' };
+      return { decimals: 9, symbol: 'SOL', name: 'Solana' };
+    }
+    
+    if (tokenAddress === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
+      return { decimals: 6, symbol: 'USDC', name: 'USD Coin' };
     }
     
     // Default to 6 decimals and unknown symbol for unknown tokens
-    return { decimals: 6, symbol: 'UNKNOWN' };
+    return { decimals: 6, symbol: 'TOKEN', name: 'Unknown Token' };
   }
-}
-
-/**
- * Fetch token decimals from Solana blockchain (legacy function for backward compatibility)
- */
-async function getTokenDecimals(tokenAddress) {
-  if(tokenAddress === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
-    // USDC token address
-    return 6; // USDC has 6 decimals
-  }
-  const tokenInfo = await getTokenInfo(tokenAddress);
-  return tokenInfo.decimals;
 }
 
 /**

@@ -63,10 +63,10 @@ class TokenService {
 
     // Try multiple sources in order of preference
     const sources = [
-      () => this.fetchFromBirdeye(cleanAddress),
-      () => this.fetchFromSolscan(cleanAddress),
-      () => this.fetchFromDexScreener(cleanAddress),
       () => this.fetchFromJupiter(cleanAddress), // Keep as fallback for now
+      () => this.fetchFromDexScreener(cleanAddress),
+      // () => this.fetchFromBirdeye(cleanAddress),
+      // () => this.fetchFromSolscan(cleanAddress),
     ];
 
     for (const source of sources) {
