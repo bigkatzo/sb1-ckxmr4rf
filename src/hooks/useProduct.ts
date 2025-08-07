@@ -5,6 +5,7 @@ import { normalizeStorageUrl } from '../lib/storage';
 import { canPreviewHiddenContent } from '../utils/preview';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Product } from '../types/index';
+import { isValidStrictToken } from '../utils/strictTokenValidation';
 
 export function useProduct(collectionSlug?: string, productSlug?: string, includeHiddenForDesign?: boolean) {
   const [product, setProduct] = useState<Product | null>(null);
@@ -170,7 +171,9 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
           collectionSaleEnded: data.collection_sale_ended ?? data.collections?.sale_ended ?? false,
           categorySaleEnded: data.category_sale_ended ?? data.categories?.sale_ended ?? false,
           collectionCa: data.collection_ca ?? data.collections?.ca,
-          collectionStrictToken: data.collection_strict_token ?? data.collections?.strict_token,
+          collectionStrictToken: isValidStrictToken(data.collection_strict_token ?? data.collections?.strict_token) 
+            ? (data.collection_strict_token ?? data.collections?.strict_token) 
+            : '',
           slug: data.slug || '',
           stock: data.quantity,
           minimumOrderQuantity: data.minimum_order_quantity || 50,

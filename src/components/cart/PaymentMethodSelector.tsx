@@ -6,6 +6,8 @@ import { toast } from 'react-toastify';
 import { tokenService } from '../../services/tokenService';
 import { SOLANA_CONNECTION } from '../../config/solana';
 import { PublicKey } from '@solana/web3.js';
+import { useWallet } from '../../contexts/WalletContext';
+import { isValidStrictToken } from '../../utils/strictTokenValidation';
 
 export interface PaymentMethod {
   type: 'default' | 'stripe' | 'spl-tokens' | 'cross-chain';
@@ -179,7 +181,7 @@ export function PaymentMethodSelector({
 
   // Auto-select strict token payment method when restriction is enabled
   useEffect(() => {
-    if (hasStrictTokenRestriction && collectionStrictToken) {
+    if (hasStrictTokenRestriction && isValidStrictToken(collectionStrictToken)) {
       onMethodChange({
         type: 'spl-tokens',
         tokenAddress: collectionStrictToken
