@@ -4,6 +4,7 @@ import { Transaction, PublicKey, Connection } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
 import { initializeMobileWalletAdapter, isMobile, isTWA, getBestWallet, detectWallets } from '../utils/mobileWalletAdapter';
 import { SOLANA_CONNECTION } from '../config/solana';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 // Custom event for auth expiration
 export const AUTH_EXPIRED_EVENT = 'wallet-auth-expired';
@@ -52,6 +53,9 @@ interface WalletContextType {
   embeddedWalletAddress: string | null;
   createEmbeddedWallet: () => Promise<void>;
   createSolanaEmbeddedWallet: () => Promise<void>;
+  exportEmbeddedWallet: () => Promise<any>;
+  getEmbeddedWalletBalance: () => Promise<number | null>;
+  transactionHistory: any[];
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -67,7 +71,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     signMessage,
     createWallet,
     linkWallet,
-    unlinkWallet
+    unlinkWallet,
+    // Add new embedded wallet methods
+    exportWallet
   } = usePrivy();
   
   const [error, setError] = useState<Error | null>(null);
@@ -76,6 +82,10 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const [isAuthInProgress, setIsAuthInProgress] = useState(false);
   const [lastAuthTime, setLastAuthTime] = useState<number | null>(null);
   const [embeddedWalletAddress, setEmbeddedWalletAddress] = useState<string | null>(null);
+  // Add enhanced embedded wallet state
+  const [isExportingWallet, setIsExportingWallet] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<string | null>(null);
+  const [transactionHistory, setTransactionHistory] = useState<any[]>([]);
 
   // Use refs to prevent unnecessary re-renders
   const connectionHandledRef = useRef(false);
@@ -282,6 +292,57 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       addNotification('error', 'Failed to create embedded wallet');
     }
   }, [authenticated, user, createWallet, addNotification]);
+
+  // Export embedded wallet
+  const exportEmbeddedWallet = useCallback(async () => {
+    if (!authenticated || !user || !isEmbeddedWallet) {
+      console.warn('Cannot export wallet: user not authenticated or no embedded wallet');
+      return null;
+    }
+
+    try {
+      setIsExportingWallet(true);
+      console.log('Exporting embedded wallet...');
+      
+      await exportWallet();
+      
+      console.log('Wallet exported successfully');
+      addNotification('success', 'Wallet exported successfully');
+      return { success: true, message: 'Wallet exported successfully' };
+    } catch (error) {
+      console.error('Error exporting wallet:', error);
+      addNotification('error', 'Failed to export wallet');
+      return null;
+    } finally {
+      setIsExportingWallet(false);
+    }
+  }, [authenticated, user, isEmbeddedWallet, exportWallet, addNotification]);
+
+  // Get wallet balance
+  const getEmbeddedWalletBalance = useCallback(async () => {
+    if (!authenticated || !user || !isEmbeddedWallet || !walletAddress) {
+      console.warn('Cannot get balance: user not authenticated or no embedded wallet');
+      return null;
+    }
+
+    try {
+      console.log('Getting embedded wallet balance...');
+      
+      // Use Solana connection to get balance
+      const connection = new Connection(SOLANA_CONNECTION.rpcEndpoint);
+      const balance = await connection.getBalance(new PublicKey(walletAddress));
+      
+      const balanceInSOL = balance / LAMPORTS_PER_SOL;
+      setWalletBalance(balanceInSOL.toString());
+      
+      console.log('Wallet balance:', balanceInSOL, 'SOL');
+      return balanceInSOL;
+    } catch (error) {
+      console.error('Error getting wallet balance:', error);
+      addNotification('error', 'Failed to get wallet balance');
+      return null;
+    }
+  }, [authenticated, user, isEmbeddedWallet, walletAddress, addNotification]);
 
   // Create auth token helper
   const createAuthToken = useCallback(async (silent: boolean = false, skipValidation: boolean = false): Promise<string | null> => {
@@ -722,7 +783,10 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       isEmbeddedWallet,
       embeddedWalletAddress: getEmbeddedWalletAddress(),
       createEmbeddedWallet,
-      createSolanaEmbeddedWallet
+      createSolanaEmbeddedWallet,
+      exportEmbeddedWallet,
+      getEmbeddedWalletBalance,
+      transactionHistory
     }}>
       {children}
     </WalletContext.Provider>
