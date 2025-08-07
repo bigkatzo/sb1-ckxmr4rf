@@ -3,6 +3,7 @@ import { usePrivy } from '@privy-io/react-auth';
 import { Transaction, PublicKey, Connection } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
 import { initializeMobileWalletAdapter, isMobile, isTWA, getBestWallet, detectWallets } from '../utils/mobileWalletAdapter';
+import { SOLANA_CONNECTION } from '../config/solana';
 
 // Custom event for auth expiration
 export const AUTH_EXPIRED_EVENT = 'wallet-auth-expired';
@@ -562,17 +563,31 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     await ensureAuthenticated();
     
     try {
-      // For embedded wallets, use the wallet's native methods
+      // For embedded wallets, use Privy's transaction signing
       if (isEmbeddedWallet) {
         console.log('Using embedded wallet for transaction signing');
         
-        // For embedded wallets, we need to use the wallet's native signAndSendTransaction
-        // Privy embedded wallets support Solana transactions natively
-        if ((window as any).solana) {
-          const { signature } = await (window as any).solana.signAndSendTransaction(transaction);
-          return signature;
-        } else {
-          throw new Error('No Solana wallet available for embedded wallet transaction signing');
+        // For embedded wallets, we need to use Privy's transaction signing
+        // Privy handles the private key management and signing
+        try {
+          // Serialize the transaction to get the message
+          const message = transaction.serializeMessage();
+          
+          // Use Privy's signMessage method to sign the transaction
+          const signatureResponse = await signMessage({ message: message.toString('base64') });
+          
+          // Add the signature to the transaction
+          transaction.addSignature(publicKey, Buffer.from(signatureResponse.signature, 'base64'));
+          
+          // Send the signed transaction
+          const connection = new Connection(SOLANA_CONNECTION.rpcEndpoint);
+          const txid = await connection.sendRawTransaction(transaction.serialize());
+          
+          console.log('✅ Embedded wallet transaction sent:', txid);
+          return txid;
+        } catch (error) {
+          console.error('Embedded wallet transaction error:', error);
+          throw new Error('Failed to sign transaction with embedded wallet');
         }
       } else {
         // For external wallets, use the wallet's native methods
@@ -590,7 +605,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setError(err);
       throw err;
     }
-  }, [publicKey, ensureAuthenticated, isEmbeddedWallet, sendTransaction]);
+  }, [publicKey, ensureAuthenticated, isEmbeddedWallet, signMessage]);
 
   // Force disconnect utility
   const forceDisconnect = useCallback(async () => {
