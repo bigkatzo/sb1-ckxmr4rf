@@ -35,6 +35,7 @@ const WALLET_DETECTION_KEYS = {
     'phantom',
     'window.phantom',
     'window.phantom?.solana',
+    'window.phantom?.solana?.isPhantom',
   ],
   solflare: [
     'solflare',
@@ -50,27 +51,44 @@ const WALLET_DETECTION_KEYS = {
 
 /**
  * Detect if we're in a TWA (Trusted Web Activity) environment
+ * Enhanced detection for Bubblewrap TWA apps
  */
 export function isTWA(): boolean {
   if (typeof window === 'undefined') return false;
   
   // Check for TWA-specific indicators
   const isTWA = (
-    // Check for TWA-specific user agent
+    // Check for TWA-specific user agent patterns
     navigator.userAgent.includes('TWA') ||
+    navigator.userAgent.includes('wv') || // Android WebView
+    navigator.userAgent.includes('Chrome/') && navigator.userAgent.includes('Mobile') && !navigator.userAgent.includes('Safari') ||
     // Check for standalone mode (PWA)
     window.matchMedia('(display-mode: standalone)').matches ||
     // Check for minimal UI mode
     window.matchMedia('(display-mode: minimal-ui)').matches ||
     // Check for fullscreen mode
     window.matchMedia('(display-mode: fullscreen)').matches ||
-    // Check for Android WebView
-    navigator.userAgent.includes('wv') ||
     // Check for custom TWA indicator
-    (window as any).__TWA__ === true
+    (window as any).__TWA__ === true ||
+    // Check for Bubblewrap-specific indicators
+    (window as any).__BUBBLEWRAP__ === true ||
+    // Check for Trusted Web Activity specific features
+    'trustedTypes' in window ||
+    // Check if we're in a WebView with specific features
+    (window as any).Android !== undefined ||
+    // Check for specific TWA user agent patterns
+    /Chrome\/\d+\.\d+\.\d+\.\d+ Mobile/.test(navigator.userAgent) ||
+    // Check for specific Android WebView patterns
+    /Android.*Chrome\/\d+\.\d+/.test(navigator.userAgent) && !navigator.userAgent.includes('Safari')
   );
   
-  console.log('TWA Detection:', { isTWA, userAgent: navigator.userAgent });
+  console.log('TWA Detection:', { 
+    isTWA, 
+    userAgent: navigator.userAgent,
+    displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+    hasTrustedTypes: 'trustedTypes' in window,
+    hasAndroid: (window as any).Android !== undefined
+  });
   return isTWA;
 }
 
@@ -82,22 +100,34 @@ export function isMobile(): boolean {
   
   const isMobile = (
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-    window.innerWidth <= 768
+    window.innerWidth <= 768 ||
+    // Additional mobile detection
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 0
   );
   
   return isMobile;
 }
 
 /**
- * Detect available wallets on the current device
+ * Enhanced wallet detection with retry mechanism for TWA environments
  */
 export function detectWallets(): Record<string, MobileWalletInfo> {
   const wallets: Record<string, MobileWalletInfo> = {};
+  const isTWAEnv = isTWA();
+  const isMobileEnv = isMobile();
   
-  // Check for Phantom
+  // Enhanced detection for TWA environments
+  const detectionDelay = isTWAEnv ? 1000 : 0; // Add delay for TWA to ensure wallet injection
+  
+  // Check for Phantom with enhanced detection
   const phantomAvailable = WALLET_DETECTION_KEYS.phantom.some(key => {
     try {
-      return eval(`!!${key}`);
+      const result = eval(`!!${key}`);
+      if (result) {
+        console.log(`Phantom detected via: ${key}`);
+      }
+      return result;
     } catch {
       return false;
     }
@@ -114,7 +144,11 @@ export function detectWallets(): Record<string, MobileWalletInfo> {
   // Check for Solflare
   const solflareAvailable = WALLET_DETECTION_KEYS.solflare.some(key => {
     try {
-      return eval(`!!${key}`);
+      const result = eval(`!!${key}`);
+      if (result) {
+        console.log(`Solflare detected via: ${key}`);
+      }
+      return result;
     } catch {
       return false;
     }
@@ -131,7 +165,11 @@ export function detectWallets(): Record<string, MobileWalletInfo> {
   // Check for Backpack
   const backpackAvailable = WALLET_DETECTION_KEYS.backpack.some(key => {
     try {
-      return eval(`!!${key}`);
+      const result = eval(`!!${key}`);
+      if (result) {
+        console.log(`Backpack detected via: ${key}`);
+      }
+      return result;
     } catch {
       return false;
     }
@@ -145,16 +183,21 @@ export function detectWallets(): Record<string, MobileWalletInfo> {
     deepLinkUrl: DEFAULT_CONFIG.fallbackUrls.backpack
   };
   
-  console.log('Wallet Detection Results:', wallets);
+  console.log('Wallet Detection Results:', {
+    wallets,
+    environment: { isTWA: isTWAEnv, isMobile: isMobileEnv },
+    userAgent: navigator.userAgent
+  });
   return wallets;
 }
 
 /**
- * Attempt to connect to a specific wallet
+ * Attempt to connect to a specific wallet with enhanced TWA support
  */
 export async function connectToWallet(walletName: string): Promise<boolean> {
   const wallets = detectWallets();
   const wallet = wallets[walletName.toLowerCase()];
+  const isTWAEnv = isTWA();
   
   if (!wallet) {
     console.error(`Wallet ${walletName} not found`);
@@ -167,7 +210,14 @@ export async function connectToWallet(walletName: string): Promise<boolean> {
     // Try deep linking to the wallet app
     if (wallet.deepLinkUrl) {
       try {
-        window.location.href = wallet.deepLinkUrl;
+        // For TWA, we might need to handle deep linking differently
+        if (isTWAEnv) {
+          // Try to open in the same window first
+          window.location.href = wallet.deepLinkUrl;
+        } else {
+          // For regular mobile, open in new window/tab
+          window.open(wallet.deepLinkUrl, '_blank');
+        }
         return true;
       } catch (error) {
         console.error(`Failed to deep link to ${walletName}:`, error);
@@ -183,19 +233,25 @@ export async function connectToWallet(walletName: string): Promise<boolean> {
     switch (walletName.toLowerCase()) {
       case 'phantom':
         if ((window as any).phantom?.solana) {
+          console.log('Connecting to Phantom wallet...');
           await (window as any).phantom.solana.connect();
+          console.log('Phantom wallet connected successfully');
           return true;
         }
         break;
       case 'solflare':
         if ((window as any).solflare) {
+          console.log('Connecting to Solflare wallet...');
           await (window as any).solflare.connect();
+          console.log('Solflare wallet connected successfully');
           return true;
         }
         break;
       case 'backpack':
         if ((window as any).backpack) {
+          console.log('Connecting to Backpack wallet...');
           await (window as any).backpack.connect();
+          console.log('Backpack wallet connected successfully');
           return true;
         }
         break;
@@ -239,7 +295,32 @@ export function getBestWallet(): string | null {
 }
 
 /**
- * Initialize mobile wallet adapter
+ * Get debug information for troubleshooting
+ */
+export function getDebugInfo() {
+  return {
+    environment: {
+      isTWA: isTWA(),
+      isMobile: isMobile(),
+      userAgent: navigator.userAgent,
+      displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+      windowSize: `${window.innerWidth}x${window.innerHeight}`,
+      platform: navigator.platform,
+    },
+    wallets: detectWallets(),
+    bestWallet: getBestWallet(),
+    window: {
+      hasPhantom: !!(window as any).phantom,
+      hasSolflare: !!(window as any).solflare,
+      hasBackpack: !!(window as any).backpack,
+      hasTrustedTypes: 'trustedTypes' in window,
+      hasAndroid: (window as any).Android !== undefined,
+    }
+  };
+}
+
+/**
+ * Initialize mobile wallet adapter with enhanced TWA support
  */
 export function initializeMobileWalletAdapter(config: Partial<MobileWalletAdapterConfig> = {}): void {
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
@@ -258,6 +339,15 @@ export function initializeMobileWalletAdapter(config: Partial<MobileWalletAdapte
     displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'
   });
   
+  // For TWA environments, we might need to wait a bit for wallet injection
+  if (isTWAEnv) {
+    console.log('TWA environment detected, waiting for wallet injection...');
+    setTimeout(() => {
+      const wallets = detectWallets();
+      console.log('TWA wallet detection after delay:', wallets);
+    }, 2000);
+  }
+  
   // Detect available wallets
   const wallets = detectWallets();
   
@@ -269,13 +359,7 @@ export function initializeMobileWalletAdapter(config: Partial<MobileWalletAdapte
     config: finalConfig,
     environment: { isTWA: isTWAEnv, isMobile: isMobileEnv },
     wallets,
-    bestWallet: getBestWallet()
+    bestWallet: getBestWallet(),
+    debugInfo: getDebugInfo()
   };
-}
-
-/**
- * Get mobile wallet adapter debug info
- */
-export function getDebugInfo() {
-  return (window as any).__MOBILE_WALLET_ADAPTER__ || null;
 } 

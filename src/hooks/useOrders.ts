@@ -137,6 +137,12 @@ export function useOrders() {
           setError(null);
           console.log('Orders loaded successfully from RPC fallback');
           return;
+        } else {
+          // If get_user_fallback returns empty, set a specific message to place an order
+          console.log('No orders found from fallback, user should place an order');
+          setOrders([]);
+          setError('No orders found. Ready to place your first order!');
+          return;
         }
       } catch (rpcError) {
         console.error('Error with RPC fallback:', rpcError);

@@ -13,6 +13,7 @@ export function MobileWalletTest() {
   const [logs, setLogs] = useState<string[]>([]);
   const [wallets, setWallets] = useState<Record<string, any>>({});
   const [environment, setEnvironment] = useState<any>({});
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   const { isConnected, walletAddress, connect, disconnect, toggleConnect } = useWallet();
 
   const addLog = (message: string) => {
@@ -36,6 +37,8 @@ export function MobileWalletTest() {
       displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
       windowSize: `${window.innerWidth}x${window.innerHeight}`,
       platform: navigator.platform,
+      hasTrustedTypes: 'trustedTypes' in window,
+      hasAndroid: (window as any).Android !== undefined,
     });
     
     addLog(`TWA Environment: ${isTWAEnv}`);
@@ -44,6 +47,8 @@ export function MobileWalletTest() {
     addLog(`Display Mode: ${window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'}`);
     addLog(`Window Size: ${window.innerWidth}x${window.innerHeight}`);
     addLog(`Platform: ${navigator.platform}`);
+    addLog(`Has TrustedTypes: ${'trustedTypes' in window}`);
+    addLog(`Has Android: ${(window as any).Android !== undefined}`);
   };
 
   const testWalletDetection = () => {
@@ -52,7 +57,7 @@ export function MobileWalletTest() {
     setWallets(detectedWallets);
     
     Object.entries(detectedWallets).forEach(([name, wallet]) => {
-      addLog(`${name}: Available=${wallet.isAvailable}, Installed=${wallet.isInstalled}, CanConnect=${wallet.canConnect}`);
+      addLog(`${name}: Available=${wallet.isAvailable}, CanConnect=${wallet.canConnect}`);
     });
     
     const bestWallet = getBestWallet();
@@ -72,79 +77,30 @@ export function MobileWalletTest() {
   const testPrivyConnection = async () => {
     addLog('=== Testing Privy Connection ===');
     try {
-      if (isConnected) {
-        await disconnect();
-        addLog('Disconnected from Privy');
-      } else {
-        await connect();
-        addLog('Connected to Privy');
-      }
+      await connect();
+      addLog('Privy connection attempt completed');
     } catch (error) {
       addLog(`Privy connection error: ${error}`);
     }
   };
 
-  const testToggleConnection = async () => {
-    addLog('=== Testing Toggle Connection ===');
-    try {
-      await toggleConnect();
-      addLog(`Connection toggled: ${isConnected ? 'disconnected' : 'connected'}`);
-    } catch (error) {
-      addLog(`Toggle connection error: ${error}`);
-    }
+  const getFullDebugInfo = () => {
+    addLog('=== Getting Full Debug Info ===');
+    const info = getDebugInfo();
+    setDebugInfo(info);
+    addLog('Debug info captured, check the debug panel below');
   };
 
-  const getDebugInformation = () => {
-    addLog('=== Debug Information ===');
-    const debugInfo = getDebugInfo();
-    if (debugInfo) {
-      addLog(`Config: ${JSON.stringify(debugInfo.config)}`);
-      addLog(`Environment: ${JSON.stringify(debugInfo.environment)}`);
-      addLog(`Wallets: ${JSON.stringify(debugInfo.wallets)}`);
-      addLog(`Best Wallet: ${debugInfo.bestWallet}`);
-    } else {
-      addLog('No debug information available');
-    }
-  };
-
-  const testDeepLinks = () => {
-    addLog('=== Testing Deep Links ===');
-    const deepLinks = {
-      phantom: 'https://phantom.app/ul/browse/',
-      solflare: 'https://solflare.com/',
-      backpack: 'https://backpack.app/',
-    };
-    
-    Object.entries(deepLinks).forEach(([wallet, url]) => {
-      addLog(`${wallet}: ${url}`);
-    });
-  };
-
-  const runComprehensiveTest = async () => {
-    addLog('=== Starting Comprehensive Test ===');
-    
-    // Test environment
-    testEnvironment();
-    
-    // Test wallet detection
+  const retryDetection = () => {
+    addLog('=== Retrying Wallet Detection ===');
     testWalletDetection();
-    
-    // Test debug info
-    getDebugInformation();
-    
-    // Test deep links
-    testDeepLinks();
-    
-    // Test Privy connection
-    await testPrivyConnection();
-    
-    addLog('=== Comprehensive Test Complete ===');
   };
 
-  // Auto-run environment test on mount
+  // Auto-run tests on mount
   useEffect(() => {
     testEnvironment();
     testWalletDetection();
+    getFullDebugInfo();
   }, []);
 
   return (
@@ -160,6 +116,8 @@ export function MobileWalletTest() {
           <div>Display Mode: {environment.displayMode}</div>
           <div>Window Size: {environment.windowSize}</div>
           <div>Platform: {environment.platform}</div>
+          <div>Has TrustedTypes: {environment.hasTrustedTypes ? '✅ Yes' : '❌ No'}</div>
+          <div>Has Android: {environment.hasAndroid ? '✅ Yes' : '❌ No'}</div>
         </div>
       </div>
 
@@ -189,85 +147,94 @@ export function MobileWalletTest() {
       </div>
 
       {/* Test Buttons */}
-      <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-        <button
-          onClick={testEnvironment}
-          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm"
-        >
-          Test Environment
-        </button>
-        <button
-          onClick={testWalletDetection}
-          className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded text-sm"
-        >
-          Detect Wallets
-        </button>
-        <button
-          onClick={testPrivyConnection}
-          className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded text-sm"
-        >
-          Test Privy
-        </button>
-        <button
-          onClick={testToggleConnection}
-          className="px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded text-sm"
-        >
-          Toggle Connect
-        </button>
-        <button
-          onClick={getDebugInformation}
-          className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm"
-        >
-          Debug Info
-        </button>
-        <button
-          onClick={testDeepLinks}
-          className="px-3 py-2 bg-teal-600 hover:bg-teal-700 rounded text-sm"
-        >
-          Test Deep Links
-        </button>
-        <button
-          onClick={runComprehensiveTest}
-          className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded text-sm"
-        >
-          Full Test
-        </button>
-        <button
-          onClick={clearLogs}
-          className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded text-sm"
-        >
-          Clear Logs
-        </button>
-      </div>
-
-      {/* Individual Wallet Test Buttons */}
-      <div className="mb-4">
-        <h3 className="font-semibold mb-2">Test Individual Wallets</h3>
-        <div className="flex gap-2 flex-wrap">
-          {Object.keys(wallets).map(walletName => (
-            <button
-              key={walletName}
-              onClick={() => testWalletConnection(walletName)}
-              className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-sm"
-            >
-              Test {walletName}
-            </button>
-          ))}
+      <div className="mb-4 p-3 bg-gray-800 rounded">
+        <h3 className="font-semibold mb-2">Test Actions</h3>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={testEnvironment}
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm"
+          >
+            Test Environment
+          </button>
+          <button
+            onClick={testWalletDetection}
+            className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
+          >
+            Test Wallet Detection
+          </button>
+          <button
+            onClick={retryDetection}
+            className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-sm"
+          >
+            Retry Detection
+          </button>
+          <button
+            onClick={testPrivyConnection}
+            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-sm"
+          >
+            Test Privy Connection
+          </button>
+          <button
+            onClick={getFullDebugInfo}
+            className="px-3 py-1 bg-gray-600 hover:bg-gray-700 rounded text-sm"
+          >
+            Get Debug Info
+          </button>
+          <button
+            onClick={clearLogs}
+            className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm"
+          >
+            Clear Logs
+          </button>
         </div>
       </div>
 
+      {/* Individual Wallet Test Buttons */}
+      <div className="mb-4 p-3 bg-gray-800 rounded">
+        <h3 className="font-semibold mb-2">Test Individual Wallets</h3>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => testWalletConnection('phantom')}
+            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-sm"
+          >
+            Test Phantom
+          </button>
+          <button
+            onClick={() => testWalletConnection('solflare')}
+            className="px-3 py-1 bg-orange-600 hover:bg-orange-700 rounded text-sm"
+          >
+            Test Solflare
+          </button>
+          <button
+            onClick={() => testWalletConnection('backpack')}
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm"
+          >
+            Test Backpack
+          </button>
+        </div>
+      </div>
+
+      {/* Debug Info Panel */}
+      {debugInfo && (
+        <div className="mb-4 p-3 bg-gray-800 rounded">
+          <h3 className="font-semibold mb-2">Debug Info</h3>
+          <details className="text-sm">
+            <summary className="cursor-pointer">Click to expand debug info</summary>
+            <pre className="mt-2 text-xs overflow-auto max-h-40">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
+
       {/* Logs */}
-      <div className="bg-black p-3 rounded font-mono text-xs max-h-96 overflow-y-auto">
+      <div className="mb-4 p-3 bg-gray-800 rounded">
         <h3 className="font-semibold mb-2">Logs</h3>
-        {logs.length === 0 ? (
-          <div className="text-gray-500">No logs yet. Run a test to see results.</div>
-        ) : (
-          logs.map((log, index) => (
-            <div key={index} className="mb-1">
-              {log}
-            </div>
-          ))
-        )}
+        <div className="text-xs space-y-1 max-h-40 overflow-y-auto">
+          {logs.map((log, index) => (
+            <div key={index} className="font-mono">{log}</div>
+          ))}
+        </div>
       </div>
     </div>
   );

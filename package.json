@@ -37,7 +37,7 @@
     "@pixi/filter-adjustment": "^5.1.1",
     "@pixi/filter-bulge-pinch": "^5.1.1",
     "@pixi/filter-displacement": "^7.4.3",
-    "@privy-io/react-auth": "^1.99.1",
+    "@privy-io/react-auth": "^2.21.1",
     "@radix-ui/react-tooltip": "^1.1.8",
     "@solana/spl-token": "^0.3.8",
     "@solana/web3.js": "^1.98.0",

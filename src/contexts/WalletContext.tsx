@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { usePrivy } from '@privy-io/react-auth';
 import { Transaction, PublicKey, Connection } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
-import { initializeMobileWalletAdapter, isMobile, isTWA, getBestWallet } from '../utils/mobileWalletAdapter';
+import { initializeMobileWalletAdapter, isMobile, isTWA, getBestWallet, detectWallets } from '../utils/mobileWalletAdapter';
+import { SOLANA_CONNECTION } from '../config/solana';
 
 // Custom event for auth expiration
 export const AUTH_EXPIRED_EVENT = 'wallet-auth-expired';
@@ -46,6 +47,11 @@ interface WalletContextType {
   ready: boolean;
   authenticated: boolean;
   user: any;
+  // Embedded wallet methods
+  isEmbeddedWallet: boolean;
+  embeddedWalletAddress: string | null;
+  createEmbeddedWallet: () => Promise<void>;
+  createSolanaEmbeddedWallet: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -58,7 +64,10 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     authenticated, 
     user, 
     sendTransaction,
-    signMessage 
+    signMessage,
+    createWallet,
+    linkWallet,
+    unlinkWallet
   } = usePrivy();
   
   const [error, setError] = useState<Error | null>(null);
@@ -66,6 +75,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const [walletAuthToken, setWalletAuthToken] = useState<string | null>(null);
   const [isAuthInProgress, setIsAuthInProgress] = useState(false);
   const [lastAuthTime, setLastAuthTime] = useState<number | null>(null);
+  const [embeddedWalletAddress, setEmbeddedWalletAddress] = useState<string | null>(null);
 
   // Use refs to prevent unnecessary re-renders
   const connectionHandledRef = useRef(false);
@@ -73,8 +83,86 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const lastAuthenticatedRef = useRef(false);
   const mobileAdapterInitializedRef = useRef(false);
 
+  // Check if user has a Solana embedded wallet from Privy
+  const isEmbeddedWallet = user?.linkedAccounts?.some((account: any) => 
+    account.type === 'wallet' && 
+    (account as any).walletClientType === 'privy' &&
+    (account as any).chainType === 'solana'
+  ) || false;
+
+  // Get the embedded wallet address from Privy user - prioritize Solana over Ethereum
+  const getEmbeddedWalletAddress = useCallback(() => {
+    console.log('🔍 Searching for embedded wallet address...');
+    console.log('User linked accounts:', user?.linkedAccounts);
+    
+    if (user?.linkedAccounts) {
+      // First, try to find a Solana embedded wallet
+      const solanaEmbeddedWallet = user.linkedAccounts.find((account: any) => 
+        account.type === 'wallet' && 
+        (account as any).walletClientType === 'privy' &&
+        (account as any).chainType === 'solana'
+      );
+      
+      if (solanaEmbeddedWallet) {
+        const address = (solanaEmbeddedWallet as any)?.address;
+        console.log('✅ Found Solana embedded wallet:', address);
+        return address || null;
+      }
+      
+      // If no Solana wallet, fall back to any embedded wallet (but warn about Ethereum)
+      const anyEmbeddedWallet = user.linkedAccounts.find((account: any) => 
+        account.type === 'wallet' && (account as any).walletClientType === 'privy'
+      );
+      
+      if (anyEmbeddedWallet) {
+        const walletAddress = (anyEmbeddedWallet as any)?.address;
+        const chainType = (anyEmbeddedWallet as any)?.chainType;
+        
+        console.log('⚠️ Found embedded wallet (not Solana):', { address: walletAddress, chainType });
+        
+        if (chainType === 'ethereum') {
+          console.warn('⚠️ Found Ethereum embedded wallet instead of Solana:', walletAddress);
+        }
+        
+        return walletAddress || null;
+      }
+    }
+    
+    console.log('❌ No embedded wallet found');
+    return null;
+  }, [user?.linkedAccounts]);
+
   // Get Solana wallet address from Privy user with validation
-  const walletAddress = user?.wallet?.address || null;
+  // Priority: 1. Solana embedded wallet address, 2. Solana external wallet address, 3. Local embedded wallet address
+  const walletAddress = (() => {
+    // First, try to get Solana embedded wallet address
+    const embeddedWalletAddress = getEmbeddedWalletAddress();
+    if (embeddedWalletAddress && isValidSolanaAddress(embeddedWalletAddress)) {
+      console.log('✅ Using Solana embedded wallet address:', embeddedWalletAddress);
+      return embeddedWalletAddress;
+    }
+    
+    // Second, check if external wallet is Solana
+    const externalWalletAddress = user?.wallet?.address;
+    if (externalWalletAddress && isValidSolanaAddress(externalWalletAddress)) {
+      console.log('✅ Using Solana external wallet address:', externalWalletAddress);
+      return externalWalletAddress;
+    }
+    
+    // Third, fall back to local embedded wallet address
+    if (embeddedWalletAddress) {
+      console.log('⚠️ Using embedded wallet address (may not be Solana):', embeddedWalletAddress);
+      return embeddedWalletAddress;
+    }
+    
+    // Finally, fall back to external wallet address (even if not Solana)
+    if (externalWalletAddress) {
+      console.log('⚠️ Using external wallet address (may not be Solana):', externalWalletAddress);
+      return externalWalletAddress;
+    }
+    
+    return null;
+  })();
   
   // Create PublicKey with validation - memoized to prevent unnecessary recalculations
   const publicKey = React.useMemo(() => {
@@ -90,6 +178,17 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     if (!mobileAdapterInitializedRef.current && typeof window !== 'undefined') {
       initializeMobileWalletAdapter();
       mobileAdapterInitializedRef.current = true;
+      
+      // For TWA environments, we might need to retry wallet detection after a delay
+      const isTWAEnv = isTWA();
+      if (isTWAEnv) {
+        console.log('TWA environment detected, setting up retry mechanism...');
+        setTimeout(() => {
+          console.log('Retrying wallet detection in TWA environment...');
+          const wallets = detectWallets();
+          console.log('TWA retry wallet detection results:', wallets);
+        }, 3000);
+      }
     }
   }, []);
 
@@ -125,6 +224,65 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
+  // Create embedded wallet for users who sign in with social logins
+  const createEmbeddedWallet = useCallback(async () => {
+    if (!authenticated || !user) {
+      console.warn('Cannot create embedded wallet: user not authenticated');
+      return;
+    }
+
+    if (isEmbeddedWallet) {
+      console.log('User already has an embedded wallet');
+      return;
+    }
+
+    try {
+      console.log('Creating Solana embedded wallet for user...');
+      
+      // Create embedded wallet - Privy should use the configuration to create Solana wallet
+      const wallet = await createWallet();
+      
+      if (wallet && wallet.address) {
+        console.log('Embedded wallet created successfully:', wallet.address);
+        setEmbeddedWalletAddress(wallet.address);
+        addNotification('success', 'Embedded wallet created successfully');
+      } else {
+        console.error('Failed to create embedded wallet: no address returned');
+        addNotification('error', 'Failed to create embedded wallet');
+      }
+    } catch (error) {
+      console.error('Error creating embedded wallet:', error);
+      addNotification('error', 'Failed to create embedded wallet');
+    }
+  }, [authenticated, user, isEmbeddedWallet, createWallet, addNotification]);
+
+  // Create Solana embedded wallet specifically
+  const createSolanaEmbeddedWallet = useCallback(async () => {
+    if (!authenticated || !user) {
+      console.warn('Cannot create Solana embedded wallet: user not authenticated');
+      return;
+    }
+
+    try {
+      console.log('Forcing creation of Solana embedded wallet...');
+      
+      // Force create a wallet - should be Solana based on configuration
+      const wallet = await createWallet();
+      
+      if (wallet && wallet.address) {
+        console.log('Embedded wallet created successfully:', wallet.address);
+        setEmbeddedWalletAddress(wallet.address);
+        addNotification('success', 'Embedded wallet created successfully');
+      } else {
+        console.error('Failed to create embedded wallet: no address returned');
+        addNotification('error', 'Failed to create embedded wallet');
+      }
+    } catch (error) {
+      console.error('Error creating embedded wallet:', error);
+      addNotification('error', 'Failed to create embedded wallet');
+    }
+  }, [authenticated, user, createWallet, addNotification]);
+
   // Create auth token helper
   const createAuthToken = useCallback(async (silent: boolean = false, skipValidation: boolean = false): Promise<string | null> => {
     if (!walletAddress || !publicKey) {
@@ -154,7 +312,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       const tokenData = {
         walletAddress,
         timestamp: Date.now(),
-        chain: 'solana'
+        chain: 'solana',
+        isEmbeddedWallet
       };
       
       const token = btoa(JSON.stringify(tokenData));
@@ -185,7 +344,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsAuthInProgress(false);
     }
-  }, [walletAddress, publicKey, walletAuthToken, lastAuthTime, addNotification]);
+  }, [walletAddress, publicKey, walletAuthToken, lastAuthTime, isEmbeddedWallet, addNotification]);
 
   // Authenticate helper
   const authenticate = useCallback(async (silent: boolean = false): Promise<string | null> => {
@@ -238,7 +397,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         hasPublicKey: !!publicKey,
         authenticated,
         hasWalletAddress: !!walletAddress,
-        walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null
+        walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null,
+        isEmbeddedWallet,
+        embeddedWalletAddress: getEmbeddedWalletAddress()
       });
       
       if (isConnected && publicKey) {
@@ -249,21 +410,33 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         // Show a notification on successful authentication
         if (token) {
           console.log('✅ Auth token created, showing success notification');
-          addNotification('success', 'Wallet connected and authenticated');
+          const walletType = isEmbeddedWallet ? 'Embedded wallet' : 'Wallet';
+          addNotification('success', `${walletType} connected and authenticated`);
         } else {
           console.log('⚠️ No auth token created, showing basic success notification');
-          addNotification('success', 'Wallet connected');
+          const walletType = isEmbeddedWallet ? 'Embedded wallet' : 'Wallet';
+          addNotification('success', `${walletType} connected`);
         }
       } else if (authenticated && walletAddress && !publicKey) {
         console.log('❌ User authenticated but invalid wallet address detected');
-        // User is authenticated but has an invalid wallet address (likely Ethereum)
-        // Only show this error if we're not in the middle of a successful connection
-        if (!isConnected) {
-          console.log('❌ Showing error notification for invalid wallet type');
-          addNotification('error', 'Please connect a Solana wallet like Phantom');
-          setError(new Error('Invalid wallet type. Please connect a Solana wallet.'));
+        
+        // Check if this is an Ethereum address (starts with 0x)
+        const isEthereumAddress = walletAddress.startsWith('0x');
+        
+        if (isEthereumAddress) {
+          console.log('❌ Ethereum wallet detected instead of Solana wallet');
+          addNotification('error', 'Ethereum wallet detected. Please use a Solana wallet or contact support.');
+          setError(new Error('Ethereum wallet detected. This application requires Solana wallets.'));
         } else {
-          console.log('⚠️ Skipping error notification - wallet is connected');
+          // User is authenticated but has an invalid wallet address
+          // Only show this error if we're not in the middle of a successful connection
+          if (!isConnected) {
+            console.log('❌ Showing error notification for invalid wallet type');
+            addNotification('error', 'Please connect a Solana wallet like Phantom');
+            setError(new Error('Invalid wallet type. Please connect a Solana wallet.'));
+          } else {
+            console.log('⚠️ Skipping error notification - wallet is connected');
+          }
         }
       } else if (!isConnected) {
         console.log('🔌 Wallet disconnected, clearing auth data');
@@ -281,7 +454,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     };
     
     handleConnection();
-  }, [isConnected, publicKey, authenticated, walletAddress, addNotification, createAuthToken]);
+  }, [isConnected, publicKey, authenticated, walletAddress, isEmbeddedWallet, addNotification, createAuthToken, getEmbeddedWalletAddress]);
 
   const connect = useCallback(async () => {
     try {
@@ -298,12 +471,22 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       const isTWAEnv = isTWA();
       
       if (isMobileEnv || isTWAEnv) {
+        console.log('Mobile/TWA environment detected');
         const bestWallet = getBestWallet();
         if (bestWallet) {
           console.log(`Mobile environment detected, best wallet: ${bestWallet}`);
+          
+          // For TWA environments, we might need to wait a bit before attempting connection
+          if (isTWAEnv) {
+            console.log('TWA environment detected, waiting for wallet injection...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } else {
+          console.log('No wallet detected on mobile, will attempt standard login');
         }
       }
       
+      console.log('Attempting Privy login...');
       login();
     } catch (error) {
       console.error('Connect error:', error);
@@ -326,6 +509,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       // First clear our auth token
       setWalletAuthToken(null);
       setLastAuthTime(null);
+      setEmbeddedWalletAddress(null);
       
       // Clear from session storage
       try {
@@ -378,15 +562,41 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     // First ensure we're authenticated - transactions often need wallet verification
     await ensureAuthenticated();
     
-    // Then use Privy to sign and send the transaction
     try {
-      // For Solana transactions with Privy, we need to use the wallet's native methods
-      // Check if we have access to the wallet through window.solana
-      if ((window as any).solana) {
-        const { signature } = await (window as any).solana.signAndSendTransaction(transaction);
-        return signature;
+      // For embedded wallets, use Privy's transaction signing
+      if (isEmbeddedWallet) {
+        console.log('Using embedded wallet for transaction signing');
+        
+        // For embedded wallets, we need to use Privy's transaction signing
+        // Privy handles the private key management and signing
+        try {
+          // Serialize the transaction to get the message
+          const message = transaction.serializeMessage();
+          
+          // Use Privy's signMessage method to sign the transaction
+          const signatureResponse = await signMessage({ message: message.toString('base64') });
+          
+          // Add the signature to the transaction
+          transaction.addSignature(publicKey, Buffer.from(signatureResponse.signature, 'base64'));
+          
+          // Send the signed transaction
+          const connection = new Connection(SOLANA_CONNECTION.rpcEndpoint);
+          const txid = await connection.sendRawTransaction(transaction.serialize());
+          
+          console.log('✅ Embedded wallet transaction sent:', txid);
+          return txid;
+        } catch (error) {
+          console.error('Embedded wallet transaction error:', error);
+          throw new Error('Failed to sign transaction with embedded wallet');
+        }
       } else {
-        throw new Error('No Solana wallet available for transaction signing');
+        // For external wallets, use the wallet's native methods
+        if ((window as any).solana) {
+          const { signature } = await (window as any).solana.signAndSendTransaction(transaction);
+          return signature;
+        } else {
+          throw new Error('No Solana wallet available for transaction signing');
+        }
       }
     } catch (error) {
       console.error('Transaction error:', error);
@@ -395,7 +605,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setError(err);
       throw err;
     }
-  }, [publicKey, ensureAuthenticated]);
+  }, [publicKey, ensureAuthenticated, isEmbeddedWallet, signMessage]);
 
   // Force disconnect utility
   const forceDisconnect = useCallback(async () => {
@@ -404,6 +614,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setWalletAuthToken(null);
       setLastAuthTime(null);
       setError(null);
+      setEmbeddedWalletAddress(null);
       
       // Clear from session storage
       try {
@@ -430,50 +641,26 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     console.log('🔍 Validating Solana chain...');
     
     if (user?.wallet) {
-      const chainId = user.wallet.chainId;
-      const chainType = user.wallet.chainType;
-      
-      console.log('🔍 Chain validation details:', { 
-        chainId, 
-        chainType, 
-        walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null,
-        isValidAddress: walletAddress ? isValidSolanaAddress(walletAddress) : false
-      });
-      
-      // More flexible Solana chain detection
-      // Solana can be identified in multiple ways:
-      const isSolanaChain = chainId && (
-        chainId.toString() === 'solana' || 
-        chainId.toString() === '7565164' ||
-        chainId.toString() === 'mainnet-beta' ||
-        chainId.toString() === 'mainnet' ||
-        chainType === 'solana' ||
-        // Check if the wallet address is a valid Solana address (this is the most reliable)
-        (walletAddress && isValidSolanaAddress(walletAddress))
-      );
-      
-      console.log('🔍 Solana chain check result:', { isSolanaChain });
-      
-      if (!isSolanaChain) {
-        console.warn('❌ User connected to wrong chain:', { chainId, chainType, walletAddress });
-        // Only show error if we have a wallet address but it's not a valid Solana address
-        if (walletAddress && !isValidSolanaAddress(walletAddress)) {
-          console.log('❌ Showing error notification for invalid Solana address');
-          addNotification('error', 'Please connect to Solana network in your wallet');
-          return false;
-        } else {
-          console.log('⚠️ Chain validation failed but wallet address is valid, not showing error');
-        }
-      } else {
-        console.log('✅ Solana chain validation passed');
+      // For embedded wallets, we don't need to validate chain as they're always Solana
+      if (isEmbeddedWallet) {
+        console.log('✅ Embedded wallet detected, skipping chain validation');
+        return true;
       }
       
-      return true;
+      // For external wallets, check if the address is a valid Solana address
+      if (walletAddress && isValidSolanaAddress(walletAddress)) {
+        console.log('✅ Solana address validation passed');
+        return true;
+      } else {
+        console.log('❌ Invalid Solana address detected');
+        addNotification('error', 'Please connect a valid Solana wallet');
+        return false;
+      }
     } else {
       console.log('⚠️ No user wallet data available for chain validation');
     }
     return false;
-  }, [user?.wallet, walletAddress, addNotification]);
+  }, [user?.wallet, walletAddress, isEmbeddedWallet, addNotification]);
 
   // Add effect to validate chain on connection - only when user changes
   useEffect(() => {
@@ -487,6 +674,25 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       connectionHandledRef.current = false;
     }
   }, [authenticated, user?.wallet, walletAddress, validateSolanaChain]);
+
+  // Effect to handle embedded wallet creation for social login users
+  useEffect(() => {
+    if (authenticated && user && !isEmbeddedWallet && !user.wallet) {
+      // User is authenticated but has no wallet - they likely signed in with social login
+      // Check if they have an email (required for embedded wallet)
+      const hasEmail = user.email?.address || user.linkedAccounts?.some((account: any) => 
+        account.type === 'email' && account.email
+      );
+      
+      if (hasEmail) {
+        console.log('User signed in with social login, creating embedded wallet...');
+        // Delay creation to ensure user is fully authenticated
+        setTimeout(() => {
+          createEmbeddedWallet();
+        }, 1000);
+      }
+    }
+  }, [authenticated, user, isEmbeddedWallet, createEmbeddedWallet]);
 
   return (
     <WalletContext.Provider value={{
@@ -511,7 +717,12 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       logout,
       ready,
       authenticated,
-      user
+      user,
+      // Embedded wallet methods
+      isEmbeddedWallet,
+      embeddedWalletAddress: getEmbeddedWalletAddress(),
+      createEmbeddedWallet,
+      createSolanaEmbeddedWallet
     }}>
       {children}
     </WalletContext.Provider>

@@ -30,6 +30,7 @@ import { useSyncWalletClaims } from './hooks/useSyncWalletClaims';
 import { PRIVY_CONFIG } from './config/privy';
 import { initializeMobileWalletAdapter } from './utils/mobileWalletAdapter';
 import { MobileWalletTest } from './components/wallet/MobileWalletTest';
+import { EmbeddedWalletTest } from './components/wallet/EmbeddedWalletTest';
 
 // Create a client with optimized settings
 const queryClient = new QueryClient({
@@ -226,13 +227,22 @@ export function App() {
                               <AppContent />
                               {/* Mobile Wallet Test Component - Only show in development */}
                               {import.meta.env.DEV && (
-                                <div className="fixed bottom-4 right-4 z-50">
+                                <div className="fixed bottom-4 right-4 z-50 space-y-4">
                                   <details className="bg-gray-900 text-white p-4 rounded-lg shadow-lg max-w-sm">
                                     <summary className="cursor-pointer font-semibold text-sm">
                                       🧪 Mobile Wallet Test
                                     </summary>
                                     <div className="mt-2">
                                       <MobileWalletTest />
+                                    </div>
+                                  </details>
+                                  
+                                  <details className="bg-gray-900 text-white p-4 rounded-lg shadow-lg max-w-sm">
+                                    <summary className="cursor-pointer font-semibold text-sm">
+                                      🧪 Embedded Wallet Test
+                                    </summary>
+                                    <div className="mt-2">
+                                      <EmbeddedWalletTest />
                                     </div>
                                   </details>
                                 </div>
