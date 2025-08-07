@@ -29,12 +29,16 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES" />
     
     <!-- Optional: Add these if you need to detect installed wallet apps -->
     <queries>
         <package android:name="app.phantom" />
         <package android:name="com.solflare.mobile" />
         <package android:name="com.backpack.app" />
+        <package android:name="com.metamask" />
+        <package android:name="io.metamask" />
     </queries>
 
     

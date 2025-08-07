@@ -26,6 +26,12 @@ The application now supports multiple authentication methods:
 - **Transaction Signing**: Embedded wallets can sign and send Solana transactions
 - **Message Signing**: Embedded wallets can sign messages for authentication
 - **Mobile Support**: Works seamlessly on mobile devices and TWA (Trusted Web Activity)
+- **Wallet Export**: Users can export their embedded wallet for backup
+- **Balance Checking**: Real-time SOL balance checking
+- **Gasless Transactions**: Support for gasless transactions (when available)
+- **Transaction Batching**: Automatic transaction batching for better UX
+- **Wallet Recovery**: Automatic wallet recovery with email verification
+- **Social Recovery**: Social recovery options for enhanced security
 
 ### Wallet Prioritization
 
@@ -65,6 +71,27 @@ export const PRIVY_CONFIG = {
       noPromptOnSignature: true,
       chainId: 'solana',
       requireEmailVerification: true,
+      gasless: true,
+      batchTransactions: true,
+      enableRecovery: true,
+      enableExport: true,
+    },
+    
+    // Wallet recovery configuration
+    walletRecovery: {
+      enabled: true,
+      requireEmailVerification: true,
+      socialRecovery: true,
+      backupCodes: true,
+    },
+    
+    // Enhanced transaction configuration
+    transactions: {
+      simulateBeforeSend: true,
+      retryOnFailure: true,
+      maxRetries: 3,
+      enableBatching: true,
+      enableGasEstimation: true,
     },
     
     // Solana wallet configuration

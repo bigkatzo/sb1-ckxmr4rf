@@ -10,6 +10,8 @@ export function EmbeddedWalletTest() {
     embeddedWalletAddress,
     createEmbeddedWallet,
     createSolanaEmbeddedWallet,
+    exportEmbeddedWallet,
+    getEmbeddedWalletBalance,
     connect,
     disconnect,
     toggleConnect
@@ -37,6 +39,24 @@ export function EmbeddedWalletTest() {
       await createEmbeddedWallet();
     } catch (error) {
       console.error('Error creating embedded wallet:', error);
+    }
+  };
+
+  const handleExportWallet = async () => {
+    try {
+      const result = await exportEmbeddedWallet();
+      console.log('Export result:', result);
+    } catch (error) {
+      console.error('Error exporting wallet:', error);
+    }
+  };
+
+  const handleGetBalance = async () => {
+    try {
+      const balance = await getEmbeddedWalletBalance();
+      console.log('Wallet balance:', balance);
+    } catch (error) {
+      console.error('Error getting balance:', error);
     }
   };
 
@@ -234,6 +254,37 @@ export function EmbeddedWalletTest() {
           >
             Create Embedded Wallet
           </button>
+        </div>
+      )}
+
+      {/* Enhanced Embedded Wallet Actions */}
+      {isEmbeddedWallet && (
+        <div className="space-y-2">
+          <h4 className="text-md font-medium text-white">Enhanced Embedded Wallet:</h4>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={handleCreateEmbeddedWallet}
+              className="w-full px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+            >
+              Create Embedded Wallet
+            </button>
+            
+            <button
+              onClick={handleExportWallet}
+              className="w-full px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+              disabled={!isEmbeddedWallet}
+            >
+              Export Wallet
+            </button>
+            
+            <button
+              onClick={handleGetBalance}
+              className="w-full px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700"
+              disabled={!isEmbeddedWallet}
+            >
+              Get Balance
+            </button>
+          </div>
         </div>
       )}
 

@@ -25,6 +25,16 @@ export const PRIVY_CONFIG = {
       noPromptOnSignature: true,
       // Require email verification for embedded wallets
       requireEmailVerification: true,
+      // Specify Solana as the chain for embedded wallets
+      chainId: 'solana' as const,
+      // Enable gasless transactions for embedded wallets
+      gasless: true,
+      // Enable transaction batching for better UX
+      batchTransactions: true,
+      // Enable automatic wallet recovery
+      enableRecovery: true,
+      // Enable wallet export functionality
+      enableExport: true,
     },
     externalWallets: {
       // Solana configuration with explicit wallet prioritization
@@ -50,6 +60,17 @@ export const PRIVY_CONFIG = {
       // Enable TWA-specific wallet injection
       enableWalletInjection: true,
     },
+    // Wallet recovery configuration
+    walletRecovery: {
+      // Enable wallet recovery for embedded wallets
+      enabled: true,
+      // Require email verification for recovery
+      requireEmailVerification: true,
+      // Enable social recovery
+      socialRecovery: true,
+      // Enable backup codes
+      backupCodes: true,
+    },
     // Social login configuration
     socialLogins: {
       // Enable Twitter/X login
@@ -70,6 +91,19 @@ export const PRIVY_CONFIG = {
         // Require email verification
         requireVerification: true,
       }
+    },
+    // Enhanced transaction configuration
+    transactions: {
+      // Enable transaction simulation before sending
+      simulateBeforeSend: true,
+      // Enable transaction retry on failure
+      retryOnFailure: true,
+      // Maximum retry attempts
+      maxRetries: 3,
+      // Enable transaction batching
+      enableBatching: true,
+      // Enable gas estimation
+      enableGasEstimation: true,
     }
   },
 };
