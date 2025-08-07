@@ -4,6 +4,7 @@ import { Transaction, PublicKey, Connection, SystemProgram, LAMPORTS_PER_SOL } f
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, createTransferInstruction, getAccount, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import { SOLANA_CONNECTION } from '../config/solana';
 import { tokenService } from '../services/tokenService';
+import { toast } from 'react-toastify';
 
 interface PaymentStatus {
   processing: boolean;
@@ -389,6 +390,7 @@ export function usePayment() {
       // Check user's token balance first
       const balanceCheck = await checkTokenBalance(inputTokenAddress, amount);
       if (!balanceCheck.hasEnough) {
+        toast.error(balanceCheck.error || 'Insufficient token balance');
         throw new Error(balanceCheck.error || 'Insufficient token balance');
       }
 
@@ -461,6 +463,7 @@ export function usePayment() {
       // Check user's token balance first
       const balanceCheck = await checkTokenBalance(tokenAddress, amount);
       if (!balanceCheck.hasEnough) {
+        toast.error(balanceCheck.error || 'Insufficient token balance');
         throw new Error(balanceCheck.error || 'Insufficient token balance');
       }
 
@@ -518,6 +521,7 @@ export function usePayment() {
       const solBalance = balance / LAMPORTS_PER_SOL;
       
       if (solBalance < amount) {
+        toast.error(`Insufficient SOL balance. You have ${solBalance.toFixed(4)} SOL but need ${amount} SOL`);
         throw new Error(`Insufficient SOL balance. You have ${solBalance.toFixed(4)} SOL but need ${amount} SOL`);
       }
 
