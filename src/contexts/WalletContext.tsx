@@ -628,14 +628,24 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       if (isEmbeddedWallet) {
         console.log('Using embedded wallet for transaction signing');
         
-        // For embedded wallets, we need to use Privy's transaction signing
-        // Privy handles the private key management and signing
         try {
-          // Serialize the transaction to get the message
+          // For embedded wallets, use Privy's transaction signing
+          // Since user?.wallet doesn't have signTransaction, we need to use the correct approach
+          
+          // Ensure transaction is properly prepared
+          if (!transaction.recentBlockhash) {
+            const connection = new Connection(SOLANA_CONNECTION.rpcEndpoint);
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+          }
+          
+          // For embedded wallets, we need to sign the transaction message
           const message = transaction.serializeMessage();
           
-          // Use Privy's signMessage method to sign the transaction
-          const signatureResponse = await signMessage({ message: message.toString('base64') });
+          // Use Privy's signMessage to sign the transaction message
+          const signatureResponse = await signMessage({ 
+            message: message.toString('base64') 
+          });
           
           // Add the signature to the transaction
           transaction.addSignature(publicKey, Buffer.from(signatureResponse.signature, 'base64'));
@@ -644,7 +654,10 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
           const connection = new Connection(SOLANA_CONNECTION.rpcEndpoint);
           const txid = await connection.sendRawTransaction(transaction.serialize());
           
-          console.log('✅ Embedded wallet transaction sent:', txid);
+          // Confirm the transaction
+          await connection.confirmTransaction(txid);
+          
+          console.log('✅ Embedded wallet transaction sent and confirmed:', txid);
           return txid;
         } catch (error) {
           console.error('Embedded wallet transaction error:', error);
