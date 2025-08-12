@@ -476,7 +476,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         if (token) {
           console.log('✅ Auth token created, showing success notification');
           const walletType = isEmbeddedWallet ? 'Embedded wallet' : 'Wallet';
-          addNotification('success', `${walletType} connected and authenticated`);
+          addNotification('success', `${walletType} connected`); // Only show 'connected'
         } else {
           console.log('⚠️ No auth token created, showing basic success notification');
           const walletType = isEmbeddedWallet ? 'Embedded wallet' : 'Wallet';
