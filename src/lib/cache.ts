@@ -858,7 +858,7 @@ export class EnhancedCacheManager {
 export const cacheManager = new EnhancedCacheManager({
   enableMetrics: true,
   enablePrefetch: true,
-  websocketUrl: process.env.CACHE_WEBSOCKET_URL || undefined
+  websocketUrl: import.meta.env.VITE_CACHE_WEBSOCKET_URL || undefined
 });
 
 export const setupRealtimeInvalidation = (supabase: any, options: {

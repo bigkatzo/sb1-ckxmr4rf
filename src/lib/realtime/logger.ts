@@ -81,7 +81,7 @@ class RealtimeLogger {
 export const logger = RealtimeLogger.getInstance();
 
 // Set initial log level based on environment
-if (process.env.NODE_ENV === 'production') {
+if (import.meta.env.NODE_ENV === 'production') {
   logger.setLogLevel('warn');
 } else {
   logger.setLogLevel('debug');

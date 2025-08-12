@@ -53,7 +53,7 @@ export async function getTrackingInfo(trackingNumber: string) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        '17token': process.env.SEVENTEEN_TRACK_API_KEY || ''
+        '17token': import.meta.env.VITE_SEVENTEEN_TRACK_API_KEY || ''
       },
       body: JSON.stringify([{
         number: trackingNumber,

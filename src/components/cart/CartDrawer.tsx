@@ -113,7 +113,7 @@ export function CartDrawer() {
                         </div>
                         
                         {/* Debug button - only in development */}
-                        {process.env.NODE_ENV !== 'production' && (
+                        {import.meta.env.NODE_ENV !== 'production' && (
                           <button
                             onClick={() => {
                               console.log('Item debug:', item);
