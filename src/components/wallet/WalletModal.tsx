@@ -194,8 +194,10 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
 
   if (!isOpen) return null;
 
+  console.log('WalletModal: isOpen =', isOpen); // Debug log
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/80 backdrop-blur-sm" 
@@ -204,7 +206,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
 
       {/* Modal */}
       <div className="relative min-h-screen flex items-center justify-center p-4">
-        <div className="relative bg-gray-900 rounded-xl max-w-md w-full border border-gray-700 shadow-2xl">
+        <div className="relative bg-gray-900 rounded-xl max-w-md w-full border border-gray-700 shadow-2xl z-[10000]">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-700">
             <div className="flex items-center gap-3">

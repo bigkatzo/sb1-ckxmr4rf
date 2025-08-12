@@ -12,6 +12,7 @@ export function WalletButton() {
     try {
       if (isConnected) {
         // If connected, open the wallet modal instead of disconnecting
+        console.log('Opening wallet modal...'); // Debug log
         setIsModalOpen(true);
       } else {
         // If not connected, connect the wallet
@@ -77,6 +78,9 @@ export function WalletButton() {
           </button>
         )}
       </div>
+
+      {/* Debug info */}
+      {console.log('WalletButton: isModalOpen =', isModalOpen)}
 
       {/* Wallet Modal */}
       <WalletModal 
