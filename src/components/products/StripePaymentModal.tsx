@@ -16,7 +16,7 @@ import { Button } from '../ui/Button';
 
 // Stripe initialization function
 function getStripe(): Promise<Stripe | null> {
-  const key = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY;
+  const key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
   if (!key) {
     console.error('Stripe publishable key is missing from environment variables');
     return Promise.resolve(null);
