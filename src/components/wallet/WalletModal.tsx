@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Copy, Check, Wallet, RefreshCw, LogOut, CreditCard, Apple, Download, ExternalLink } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { toast } from 'react-toastify';
@@ -218,7 +219,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
 
   console.log('WalletModal: isOpen =', isOpen); // Debug log
 
-  return (
+  const modalContent = (
     <div 
       className="fixed inset-0 z-[45] overflow-y-auto overscroll-contain" 
       aria-modal="true" 
@@ -406,4 +407,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
       </div>
     </div>
   );
+
+  // Render the modal at the root level to avoid stacking context issues
+  return createPortal(modalContent, document.body);
 } 
