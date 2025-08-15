@@ -115,6 +115,26 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     }
   };
 
+  // Handle export wallet
+  const handleExportWallet = async () => {
+    if (!isEmbeddedWallet) {
+      toast.error('Export is only available for embedded wallets');
+      return;
+    }
+
+    try {
+      const result = await exportEmbeddedWallet();
+      if (result?.success) {
+        toast.success('Wallet exported successfully');
+      } else {
+        toast.error('Failed to export wallet');
+      }
+    } catch (error) {
+      console.error('Export wallet error:', error);
+      toast.error('Failed to export wallet');
+    }
+  };
+
   // Handle Apple Pay payment
   const handleApplePayPayment = async () => {
     if (!isApplePayAvailable || !window.ApplePaySession) {
@@ -182,26 +202,6 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     }
   };
 
-  // Handle export wallet
-  const handleExportWallet = async () => {
-    if (!isEmbeddedWallet) {
-      toast.error('Export is only available for embedded wallets');
-      return;
-    }
-
-    try {
-      const result = await exportEmbeddedWallet();
-      if (result?.success) {
-        toast.success('Wallet exported successfully');
-      } else {
-        toast.error('Failed to export wallet');
-      }
-    } catch (error) {
-      console.error('Export wallet error:', error);
-      toast.error('Failed to export wallet');
-    }
-  };
-
   // Handle disconnect
   const handleDisconnect = async () => {
     try {
@@ -229,33 +229,33 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
       {/* Modal */}
       <div className="relative bg-gray-900 rounded-xl max-w-md w-full border border-gray-700 shadow-2xl z-[10000]">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-              <Wallet className="h-5 w-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+              <Wallet className="h-4 w-4 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Wallet</h2>
-              <p className="text-sm text-gray-400">
+              <h2 className="text-base font-semibold text-white">Wallet</h2>
+              <p className="text-xs text-gray-400">
                 {isEmbeddedWallet ? 'Embedded Wallet' : 'Connected Wallet'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
+            className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800 transition-colors"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 space-y-4">
           {/* Wallet Address */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium text-gray-300">Wallet Address</h3>
-            <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
-              <code className="flex-1 text-sm text-gray-200 font-mono break-all">
+          <div className="space-y-2">
+            <h3 className="text-xs font-medium text-gray-300">Wallet Address</h3>
+            <div className="flex items-center gap-2 p-2 bg-gray-800 rounded-lg">
+              <code className="flex-1 text-xs text-gray-200 font-mono break-all">
                 {currentWalletAddress ? 
                   `${currentWalletAddress.slice(0, 8)}...${currentWalletAddress.slice(-8)}` :
                   'No wallet connected'
@@ -264,7 +264,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
               {currentWalletAddress && (
                 <button
                   onClick={handleCopyAddress}
-                  className="flex items-center gap-1 bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs transition-colors"
+                  className="flex items-center gap-1 bg-gray-700 hover:bg-gray-600 text-gray-300 px-1.5 py-1 rounded text-xs transition-colors"
                 >
                   {copied ? (
                     <Check className="h-3 w-3 text-green-400" />
@@ -278,9 +278,9 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
           </div>
 
           {/* Balance */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-300">Balance</h3>
+              <h3 className="text-xs font-medium text-gray-300">Balance</h3>
               <button
                 onClick={loadBalance}
                 disabled={isLoadingBalance}
@@ -290,38 +290,38 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                 Refresh
               </button>
             </div>
-            <div className="p-4 bg-gray-800 rounded-lg">
+            <div className="p-3 bg-gray-800 rounded-lg">
               {isLoadingBalance ? (
                 <div className="flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin text-gray-400" />
-                  <span className="text-gray-400">Loading balance...</span>
+                  <RefreshCw className="h-3 w-3 animate-spin text-gray-400" />
+                  <span className="text-xs text-gray-400">Loading balance...</span>
                 </div>
               ) : balance !== null ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-white">
+                  <span className="text-lg font-bold text-white">
                     {balance.toFixed(4)}
                   </span>
-                  <span className="text-lg text-gray-400">SOL</span>
+                  <span className="text-sm text-gray-400">SOL</span>
                 </div>
               ) : (
-                <span className="text-gray-400">Unable to load balance</span>
+                <span className="text-xs text-gray-400">Unable to load balance</span>
               )}
             </div>
           </div>
 
           {/* Export Wallet Section */}
           {isEmbeddedWallet && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-300">Wallet Management</h3>
+            <div className="space-y-2">
+              <h3 className="text-xs font-medium text-gray-300">Wallet Management</h3>
               <button
                 onClick={handleExportWallet}
                 disabled={isExportingWallet}
-                className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-3 px-4 rounded-lg border border-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-2 px-3 rounded-lg border border-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 {isExportingWallet ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <RefreshCw className="h-3 w-3 animate-spin" />
                 ) : (
-                  <Download className="h-4 w-4" />
+                  <Download className="h-3 w-3" />
                 )}
                 {isExportingWallet ? 'Exporting...' : 'Export Wallet'}
               </button>
@@ -334,26 +334,26 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
           {/* Fund Wallet Section */}
           {isEmbeddedWallet && (
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-300">Fund Wallet</h3>
+              <h3 className="text-xs font-medium text-gray-300">Fund Wallet</h3>
               
               {/* Apple Pay Button */}
               {isApplePayAvailable && (
                 <button
                   onClick={handleApplePayPayment}
                   disabled={isApplePayLoading}
-                  className="w-full flex items-center justify-center gap-2 bg-black text-white py-3 px-4 rounded-lg border border-gray-600 hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 bg-black text-white py-2 px-3 rounded-lg border border-gray-600 hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {isApplePayLoading ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <RefreshCw className="h-3 w-3 animate-spin" />
                   ) : (
-                    <Apple className="h-5 w-5" />
+                    <Apple className="h-4 w-4" />
                   )}
                   {isApplePayLoading ? 'Processing...' : 'Pay with Apple Pay'}
                 </button>
               )}
 
               {/* Funding options coming soon */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-gray-700" />
@@ -366,17 +366,17 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     disabled
-                    className="flex items-center justify-center gap-2 bg-gray-800/50 text-gray-500 py-2 px-3 rounded-lg border border-gray-700 cursor-not-allowed"
+                    className="flex items-center justify-center gap-1 bg-gray-800/50 text-gray-500 py-1.5 px-2 rounded-lg border border-gray-700 cursor-not-allowed text-xs"
                   >
-                    <CreditCard className="h-4 w-4" />
-                    <span className="text-sm">Credit Card</span>
+                    <Apple className="h-3 w-3" />
+                    <span>Apple Pay</span>
                   </button>
                   <button
                     disabled
-                    className="flex items-center justify-center gap-2 bg-gray-800/50 text-gray-500 py-2 px-3 rounded-lg border border-gray-700 cursor-not-allowed"
+                    className="flex items-center justify-center gap-1 bg-gray-800/50 text-gray-500 py-1.5 px-2 rounded-lg border border-gray-700 cursor-not-allowed text-xs"
                   >
-                    <ExternalLink className="h-4 w-4" />
-                    <span className="text-sm">Bank Transfer</span>
+                    <ExternalLink className="h-3 w-3" />
+                    <span>Bank Transfer</span>
                   </button>
                 </div>
                 
@@ -388,12 +388,12 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
           )}
 
           {/* Disconnect Button */}
-          <div className="pt-4 border-t border-gray-700">
+          <div className="pt-3 border-t border-gray-700">
             <button
               onClick={handleDisconnect}
-              className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-3 px-4 rounded-lg transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-2 px-3 rounded-lg transition-colors text-sm"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-3 w-3" />
               Disconnect Wallet
             </button>
           </div>
