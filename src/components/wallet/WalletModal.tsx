@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Copy, Check, Wallet, RefreshCw, LogOut, CreditCard, Apple } from 'lucide-react';
+import { X, Copy, Check, Wallet, RefreshCw, LogOut, CreditCard, Apple, Download, ExternalLink } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
 import { toast } from 'react-toastify';
 import { SOLANA_CONNECTION } from '../../config/solana';
@@ -38,7 +38,9 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     embeddedWalletAddress,
     isEmbeddedWallet,
     disconnect,
-    getEmbeddedWalletBalance
+    getEmbeddedWalletBalance,
+    exportEmbeddedWallet,
+    isExportingWallet
   } = useWallet();
   
   const [copied, setCopied] = useState(false);
@@ -180,6 +182,26 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     }
   };
 
+  // Handle export wallet
+  const handleExportWallet = async () => {
+    if (!isEmbeddedWallet) {
+      toast.error('Export is only available for embedded wallets');
+      return;
+    }
+
+    try {
+      const result = await exportEmbeddedWallet();
+      if (result?.success) {
+        toast.success('Wallet exported successfully');
+      } else {
+        toast.error('Failed to export wallet');
+      }
+    } catch (error) {
+      console.error('Export wallet error:', error);
+      toast.error('Failed to export wallet');
+    }
+  };
+
   // Handle disconnect
   const handleDisconnect = async () => {
     try {
@@ -205,11 +227,11 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
       />
 
       {/* Modal */}
-      <div className="relative bg-red-500 rounded-xl max-w-md w-full border border-gray-700 shadow-2xl z-[10000]">
+      <div className="relative bg-gray-900 rounded-xl max-w-md w-full border border-gray-700 shadow-2xl z-[10000]">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
               <Wallet className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -287,6 +309,28 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
             </div>
           </div>
 
+          {/* Export Wallet Section */}
+          {isEmbeddedWallet && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-gray-300">Wallet Management</h3>
+              <button
+                onClick={handleExportWallet}
+                disabled={isExportingWallet}
+                className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-3 px-4 rounded-lg border border-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isExportingWallet ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {isExportingWallet ? 'Exporting...' : 'Export Wallet'}
+              </button>
+              <p className="text-xs text-gray-400 text-center">
+                Export your wallet to use it in other applications
+              </p>
+            </div>
+          )}
+
           {/* Fund Wallet Section */}
           {isEmbeddedWallet && (
             <div className="space-y-3">
@@ -308,19 +352,37 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                 </button>
               )}
 
-              {/* Alternative funding options */}
-              <div className="space-y-2">
-                <p className="text-xs text-gray-400 text-center">
-                  Other funding options coming soon
-                </p>
-                <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-                  <CreditCard className="h-3 w-3" />
-                  <span>Credit Card</span>
-                  <span>•</span>
-                  <span>Bank Transfer</span>
-                  <span>•</span>
-                  <span>Crypto</span>
+              {/* Funding options coming soon */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-700" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-gray-900 px-2 text-gray-400">Coming Soon</span>
+                  </div>
                 </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    disabled
+                    className="flex items-center justify-center gap-2 bg-gray-800/50 text-gray-500 py-2 px-3 rounded-lg border border-gray-700 cursor-not-allowed"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    <span className="text-sm">Credit Card</span>
+                  </button>
+                  <button
+                    disabled
+                    className="flex items-center justify-center gap-2 bg-gray-800/50 text-gray-500 py-2 px-3 rounded-lg border border-gray-700 cursor-not-allowed"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="text-sm">Bank Transfer</span>
+                  </button>
+                </div>
+                
+                <p className="text-xs text-gray-500 text-center">
+                  More funding options will be available soon
+                </p>
               </div>
             </div>
           )}
@@ -329,7 +391,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
           <div className="pt-4 border-t border-gray-700">
             <button
               onClick={handleDisconnect}
-              className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-lg transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-3 px-4 rounded-lg transition-colors"
             >
               <LogOut className="h-4 w-4" />
               Disconnect Wallet

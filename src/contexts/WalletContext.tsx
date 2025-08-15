@@ -56,6 +56,7 @@ interface WalletContextType {
   createSolanaEmbeddedWallet: () => Promise<void>;
   exportEmbeddedWallet: () => Promise<any>;
   getEmbeddedWalletBalance: () => Promise<number | null>;
+  isExportingWallet: boolean;
   transactionHistory: any[];
 }
 
@@ -811,6 +812,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       createSolanaEmbeddedWallet,
       exportEmbeddedWallet,
       getEmbeddedWalletBalance,
+      isExportingWallet,
       transactionHistory
     }}>
       {children}
