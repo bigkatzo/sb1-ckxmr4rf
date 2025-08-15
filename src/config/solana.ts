@@ -29,8 +29,8 @@ const METAPLEX_RPC_ENDPOINTS = {
       : 'https://api.mainnet-beta.solana.com',
   fallbacks: [
     // Quicknode has good NFT support if you have an API key
-    process.env.QUICKNODE_API_KEY
-      ? `https://withered-white-rain.solana-mainnet.quiknode.pro/${process.env.QUICKNODE_API_KEY}/`
+    import.meta.env.VITE_QUICKNODE_API_KEY
+      ? `https://withered-white-rain.solana-mainnet.quiknode.pro/${import.meta.env.VITE_QUICKNODE_API_KEY}/`
       : null,
     // These are generally reliable for NFT operations
     'https://solana-api.projectserum.com',

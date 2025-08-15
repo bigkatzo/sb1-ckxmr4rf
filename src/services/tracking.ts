@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import { OrderTracking } from '../types/orders';
 
 // API proxy endpoint for frontend calls to avoid CSP issues
-const API_PROXY_URL = process.env.NODE_ENV === 'production' 
+const API_PROXY_URL = import.meta.env.NODE_ENV === 'production' 
   ? 'https://store.fun/.netlify/functions/tracking-api-proxy'
   : '/.netlify/functions/tracking-api-proxy';
 

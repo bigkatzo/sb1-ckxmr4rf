@@ -42,9 +42,34 @@ interface ImportMetaEnv {
   readonly VITE_STRIPE_PUBLISHABLE_KEY: string
 
   /**
+   * The Privy App ID for embedded wallet functionality
+   */
+  readonly VITE_PRIVY_APP_ID: string
+
+  /**
+   * The 17Track API key for package tracking
+   */
+  readonly VITE_SEVENTEEN_TRACK_API_KEY: string
+
+  /**
+   * The QuickNode API key for Solana RPC access
+   */
+  readonly VITE_QUICKNODE_API_KEY: string
+
+  /**
+   * The cache WebSocket URL for real-time updates
+   */
+  readonly VITE_CACHE_WEBSOCKET_URL: string
+
+  /**
    * Whether we're running in development mode
    */
   readonly DEV: boolean
+
+  /**
+   * Whether we're running in production mode
+   */
+  readonly PROD: boolean
 
   /**
    * The current mode (development, production, etc)
@@ -55,6 +80,11 @@ interface ImportMetaEnv {
    * The base URL where the app is being served
    */
   readonly BASE_URL: string
+
+  /**
+   * The Node.js environment (development, production, etc)
+   */
+  readonly NODE_ENV: string
 }
 
 interface ImportMeta {

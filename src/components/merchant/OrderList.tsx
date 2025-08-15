@@ -121,6 +121,10 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
   const [selectedOrderForCustomization, setSelectedOrderForCustomization] = useState<Order | null>(null);
   const [customData, setCustomData] = useState<any | null>(null);
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  
   // Base URL for product and design links
   const BASE_URL = 'https://store.fun';
   
@@ -705,6 +709,18 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
   const filteredOrders = filterOrdersByDate(orders, dateFilter);
 
+  // Pagination logic
+  const totalOrders = filteredOrders.length;
+  const totalPages = Math.ceil(totalOrders / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter, startDate, endDate]);
+
   // Group orders by batch ID for displaying batched orders together
   const groupOrdersByBatch = useCallback((orders: Order[]) => {
     // Create a map of batch_order_id to count of related orders
@@ -739,8 +755,8 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
 
   // Group the filtered orders by batch
   const groupedOrders = useMemo(() => {
-    return groupOrdersByBatch(filteredOrders);
-  }, [filteredOrders, groupOrdersByBatch]);
+    return groupOrdersByBatch(paginatedOrders);
+  }, [paginatedOrders, groupOrdersByBatch]);
 
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
@@ -1190,7 +1206,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         {/* Order Counter and Refresh Button */}
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-400">
-            Showing {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''} ({calculateTotalQuantity(filteredOrders)} items)
+            Showing {paginatedOrders.length} of {totalOrders} order{totalOrders !== 1 ? 's' : ''} ({calculateTotalQuantity(filteredOrders)} items)
           </span>
           {dateFilter !== 'all' && (
             <span className="text-xs text-gray-500">
@@ -1215,6 +1231,23 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
           >
             <Download className="h-4 w-4" />
           </Button>
+
+          {/* Mobile Rows per page selector */}
+          <div className="sm:hidden flex items-center gap-2">
+            <span className="text-xs text-gray-400">Rows:</span>
+            <select
+              value={rowsPerPage}
+              onChange={(e) => {
+                setRowsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-gray-800 text-gray-200 text-xs rounded-md border border-gray-700 px-2 py-1 focus:ring-2 focus:ring-primary/40 focus:outline-none cursor-pointer"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+            </select>
+          </div>
         </div>
 
         {/* Filters and Actions */}
@@ -1284,8 +1317,108 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
             <Download className="h-4 w-4" />
             Export to CSV
           </Button>
+
+          {/* Rows per page selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-400">Rows per page:</span>
+            <select
+              value={rowsPerPage}
+              onChange={(e) => {
+                setRowsPerPage(Number(e.target.value));
+                setCurrentPage(1); // Reset to first page when changing rows per page
+              }}
+              className="bg-gray-800 text-gray-200 text-sm rounded-md border border-gray-700 px-3 py-1.5 focus:ring-2 focus:ring-primary/40 focus:outline-none cursor-pointer"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
         </div>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mb-6">
+          <div className="text-sm text-gray-400">
+            Showing {startIndex + 1} to {Math.min(endIndex, totalOrders)} of {totalOrders} orders
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-sm bg-gray-800 text-gray-200 rounded-md border border-gray-700 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors"
+            >
+              Previous
+            </button>
+            
+            {/* Page numbers */}
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-3 py-1.5 text-sm rounded-md border transition-colors focus:ring-2 focus:ring-primary/40 focus:outline-none ${
+                      currentPage === pageNum
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <button
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 text-sm bg-gray-800 text-gray-200 rounded-md border border-gray-700 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="sm:hidden flex items-center justify-between mb-6">
+          <div className="text-sm text-gray-400">
+            Page {currentPage} of {totalPages}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-sm bg-gray-800 text-gray-200 rounded-md border border-gray-700 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors"
+            >
+              ←
+            </button>
+            <button
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 text-sm bg-gray-800 text-gray-200 rounded-md border border-gray-700 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors"
+            >
+              →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Analytics Section */}
       {showAnalytics && (
@@ -1300,7 +1433,7 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
         </div>
       )}
 
-      {filteredOrders.length === 0 ? (
+      {paginatedOrders.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-400">No orders found for the selected time period</p>
         </div>
@@ -1450,27 +1583,21 @@ export function OrderList({ orders, onStatusUpdate, onTrackingUpdate, refreshOrd
                     {renderTrackingSection(order)}
 
                     {/* Customization Section */}
-                    <div className="mt-4">
-                      <button
-                        onClick={() => handleOpenCustomizationModal(order)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                          hasCustomizationData(order)
-                            ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border border-purple-500/30'
-                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700'
-                        }`}
-                        title={hasCustomizationData(order) ? 'View customization details' : 'No customization data'}
-                      >
-                        <Palette className="h-4 w-4" />
-                        <span>
-                          {hasCustomizationData(order) ? 'View Customization' : 'No Customization'}
-                        </span>
-                        {hasCustomizationData(order) && (
+                    {hasCustomizationData(order) && (
+                      <div className="mt-4">
+                        <button
+                          onClick={() => handleOpenCustomizationModal(order)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border border-purple-500/30"
+                          title="View customization details"
+                        >
+                          <Palette className="h-4 w-4" />
+                          <span>View Customization</span>
                           <span className="ml-1 bg-purple-500 text-white text-xs px-1.5 py-0.5 rounded-full">
                             ✓
                           </span>
-                        )}
-                      </button>
-                    </div>
+                        </button>
+                      </div>
+                    )}
 
                     {/* Order Details */}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
