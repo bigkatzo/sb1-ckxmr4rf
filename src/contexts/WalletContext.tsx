@@ -321,48 +321,29 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setIsExportingWallet(true);
       console.log('🔍 Starting Solana wallet export process...');
       console.log('User linked accounts:', user.linkedAccounts);
+      console.log('Solana wallets from hook:', solanaWallets);
       
-      // Find the specific Solana embedded wallet from user's linked accounts
-      const solanaEmbeddedWallet = getSolanaEmbeddedWallet();
+      // Find the Solana embedded wallet from the solanaWallets hook
+      const solanaEmbeddedWallet = solanaWallets.find(wallet => 
+        wallet.walletClientType === 'privy'
+      );
       
       if (!solanaEmbeddedWallet) {
-        console.error('❌ No Solana embedded wallet found to export');
+        console.error('❌ No Solana embedded wallet found in solanaWallets');
         addNotification('error', 'No Solana wallet found to export');
         return null;
       }
       
-      const walletAddress = (solanaEmbeddedWallet as any)?.address;
-      const chainType = (solanaEmbeddedWallet as any)?.chainType;
-      const walletId = (solanaEmbeddedWallet as any)?.walletId || (solanaEmbeddedWallet as any)?.id;
-      
       console.log('✅ Found Solana embedded wallet to export:', {
-        address: walletAddress,
-        chainType: chainType,
-        walletId: walletId
+        address: solanaEmbeddedWallet.address,
+        walletClientType: solanaEmbeddedWallet.walletClientType
       });
       
-      // Verify this is actually a Solana wallet
-      if (chainType !== 'solana') {
-        console.error('❌ Found wallet is not Solana:', chainType);
-        addNotification('error', 'Found wallet is not a Solana wallet');
-        return null;
-      }
-      
-      // Since exportWallet doesn't accept parameters, we need to ensure
-      // that the Solana wallet is the active/default wallet before exporting
-      // The configuration should already ensure this, but let's verify
-      const currentWalletAddress = getEmbeddedWalletAddress();
-      
-      if (walletAddress && currentWalletAddress === walletAddress) {
-        console.log('✅ Solana wallet is active, proceeding with export...');
-        await exportWallet();
-      } else {
-        console.warn('⚠️ Solana wallet is not the active wallet, but proceeding with export...');
-        console.log('Current wallet address:', currentWalletAddress);
-        console.log('Target Solana wallet address:', walletAddress);
-        // Still try to export - the configuration should ensure Solana is prioritized
-        await exportWallet();
-      }
+      // Export the specific Solana wallet using Privy's exportWallet function
+      // Since the wallet is already identified as the Solana embedded wallet,
+      // we can use the default export which should export the active wallet
+      console.log('✅ Exporting Solana embedded wallet...');
+      await exportWallet();
       
       console.log('✅ Solana wallet exported successfully');
       addNotification('success', 'Solana wallet exported successfully');
@@ -374,7 +355,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsExportingWallet(false);
     }
-  }, [authenticated, user, isEmbeddedWallet, exportWallet, addNotification, getEmbeddedWalletAddress, getSolanaEmbeddedWallet]);
+  }, [authenticated, user, isEmbeddedWallet, exportWallet, addNotification, solanaWallets]);
 
   // Get wallet balance
   const getEmbeddedWalletBalance = useCallback(async () => {
