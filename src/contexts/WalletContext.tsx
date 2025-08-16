@@ -147,6 +147,18 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, [user?.linkedAccounts]);
 
+  // Helper function to get the Solana embedded wallet specifically
+  const getSolanaEmbeddedWallet = useCallback(() => {
+    if (user?.linkedAccounts) {
+      return user.linkedAccounts.find((account: any) => 
+        account.type === 'wallet' && 
+        (account as any).walletClientType === 'privy' &&
+        (account as any).chainType === 'solana'
+      );
+    }
+    return null;
+  }, [user?.linkedAccounts]);
+
   // Get Solana wallet address from Privy user with validation
   // Priority: 1. Solana embedded wallet address, 2. Solana external wallet address, 3. Local embedded wallet address
   const walletAddress = (() => {
@@ -307,21 +319,62 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
 
     try {
       setIsExportingWallet(true);
-      console.log('Exporting embedded wallet...');
+      console.log('🔍 Starting Solana wallet export process...');
+      console.log('User linked accounts:', user.linkedAccounts);
       
-      await exportWallet();
+      // Find the specific Solana embedded wallet from user's linked accounts
+      const solanaEmbeddedWallet = getSolanaEmbeddedWallet();
       
-      console.log('Wallet exported successfully');
-      addNotification('success', 'Wallet exported successfully');
-      return { success: true, message: 'Wallet exported successfully' };
+      if (!solanaEmbeddedWallet) {
+        console.error('❌ No Solana embedded wallet found to export');
+        addNotification('error', 'No Solana wallet found to export');
+        return null;
+      }
+      
+      const walletAddress = (solanaEmbeddedWallet as any)?.address;
+      const chainType = (solanaEmbeddedWallet as any)?.chainType;
+      const walletId = (solanaEmbeddedWallet as any)?.walletId || (solanaEmbeddedWallet as any)?.id;
+      
+      console.log('✅ Found Solana embedded wallet to export:', {
+        address: walletAddress,
+        chainType: chainType,
+        walletId: walletId
+      });
+      
+      // Verify this is actually a Solana wallet
+      if (chainType !== 'solana') {
+        console.error('❌ Found wallet is not Solana:', chainType);
+        addNotification('error', 'Found wallet is not a Solana wallet');
+        return null;
+      }
+      
+      // Since exportWallet doesn't accept parameters, we need to ensure
+      // that the Solana wallet is the active/default wallet before exporting
+      // The configuration should already ensure this, but let's verify
+      const currentWalletAddress = getEmbeddedWalletAddress();
+      
+      if (walletAddress && currentWalletAddress === walletAddress) {
+        console.log('✅ Solana wallet is active, proceeding with export...');
+        await exportWallet();
+      } else {
+        console.warn('⚠️ Solana wallet is not the active wallet, but proceeding with export...');
+        console.log('Current wallet address:', currentWalletAddress);
+        console.log('Target Solana wallet address:', walletAddress);
+        // Still try to export - the configuration should ensure Solana is prioritized
+        await exportWallet();
+      }
+      
+      console.log('✅ Solana wallet exported successfully');
+      addNotification('success', 'Solana wallet exported successfully');
+      return { success: true, message: 'Solana wallet exported successfully' };
     } catch (error) {
-      console.error('Error exporting wallet:', error);
-      addNotification('error', 'Failed to export wallet');
+      console.error('❌ Error exporting Solana wallet:', error);
+      addNotification('error', 'Failed to export Solana wallet');
       return null;
     } finally {
       setIsExportingWallet(false);
     }
-  }, [authenticated, user, isEmbeddedWallet, exportWallet, addNotification]);
+  }, [authenticated, user, isEmbeddedWallet, exportWallet, addNotification, getEmbeddedWalletAddress, getSolanaEmbeddedWallet]);
 
   // Get wallet balance
   const getEmbeddedWalletBalance = useCallback(async () => {

@@ -44,10 +44,11 @@ export function EmbeddedWalletTest() {
 
   const handleExportWallet = async () => {
     try {
+      console.log('Exporting Solana wallet...');
       const result = await exportEmbeddedWallet();
-      console.log('Export result:', result);
+      console.log('Solana wallet export result:', result);
     } catch (error) {
-      console.error('Error exporting wallet:', error);
+      console.error('Error exporting Solana wallet:', error);
     }
   };
 
@@ -271,10 +272,9 @@ export function EmbeddedWalletTest() {
             
             <button
               onClick={handleExportWallet}
-              className="w-full px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-              disabled={!isEmbeddedWallet}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
             >
-              Export Wallet
+              Export Solana Wallet
             </button>
             
             <button
