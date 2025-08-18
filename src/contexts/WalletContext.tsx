@@ -72,13 +72,11 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     signMessage,
     createWallet,
     linkWallet,
-    unlinkWallet,
-    // Add new embedded wallet methods
-    exportWallet
+    unlinkWallet
   } = usePrivy();
   
   // Add Solana-specific hooks
-  const { wallets: solanaWallets } = useSolanaWallets();
+  const { wallets: solanaWallets, exportWallet: exportSolanaWallet } = useSolanaWallets();
   const { sendTransaction } = useSendTransaction();
   
   const [error, setError] = useState<Error | null>(null);
@@ -369,7 +367,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       
       // Now try to export using Privy's exportWallet function
       console.log('✅ Exporting Solana embedded wallet...');
-      await exportWallet();
+      await exportSolanaWallet();
       
       console.log('✅ Solana wallet exported successfully');
       addNotification('success', 'Solana wallet exported successfully');
@@ -381,7 +379,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsExportingWallet(false);
     }
-  }, [authenticated, user, isEmbeddedWallet, exportWallet, unlinkWallet, addNotification, solanaWallets]);
+  }, [authenticated, user, isEmbeddedWallet, solanaWallets, unlinkWallet, addNotification, exportSolanaWallet]);
 
   // Get wallet balance
   const getEmbeddedWalletBalance = useCallback(async () => {
