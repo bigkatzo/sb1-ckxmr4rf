@@ -339,9 +339,35 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         walletClientType: solanaEmbeddedWallet.walletClientType
       });
       
-      // Export the specific Solana wallet using Privy's exportWallet function
-      // Since the wallet is already identified as the Solana embedded wallet,
-      // we can use the default export which should export the active wallet
+      // Check if there are any Ethereum wallets that might interfere
+      const ethereumWallets = user.linkedAccounts?.filter((account: any) => 
+        account.type === 'wallet' && 
+        (account as any).walletClientType === 'privy' &&
+        (account as any).chainType === 'ethereum'
+      ) || [];
+      
+      if (ethereumWallets.length > 0) {
+        console.warn('⚠️ Found Ethereum wallets that might interfere with export:', ethereumWallets);
+        console.log('Attempting to unlink Ethereum wallets to ensure Solana wallet export...');
+        
+        // Try to unlink Ethereum wallets to ensure Solana wallet is the only one available
+        for (const ethereumWallet of ethereumWallets) {
+          try {
+            const walletId = (ethereumWallet as any)?.walletId || (ethereumWallet as any)?.id;
+            if (walletId) {
+              console.log('Unlinking Ethereum wallet:', walletId);
+              await unlinkWallet(walletId);
+            }
+          } catch (unlinkError) {
+            console.warn('Failed to unlink Ethereum wallet:', unlinkError);
+          }
+        }
+        
+        // Wait a moment for the unlink to take effect
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      // Now try to export using Privy's exportWallet function
       console.log('✅ Exporting Solana embedded wallet...');
       await exportWallet();
       
@@ -355,7 +381,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsExportingWallet(false);
     }
-  }, [authenticated, user, isEmbeddedWallet, exportWallet, addNotification, solanaWallets]);
+  }, [authenticated, user, isEmbeddedWallet, exportWallet, unlinkWallet, addNotification, solanaWallets]);
 
   // Get wallet balance
   const getEmbeddedWalletBalance = useCallback(async () => {
