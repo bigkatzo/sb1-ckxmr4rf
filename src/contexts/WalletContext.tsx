@@ -72,13 +72,11 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     signMessage,
     createWallet,
     linkWallet,
-    unlinkWallet,
-    // Add new embedded wallet methods
-    exportWallet
+    unlinkWallet
   } = usePrivy();
   
   // Add Solana-specific hooks
-  const { wallets: solanaWallets } = useSolanaWallets();
+  const { wallets: solanaWallets, exportWallet: exportSolanaWallet } = useSolanaWallets();
   const { sendTransaction } = useSendTransaction();
   
   const [error, setError] = useState<Error | null>(null);
@@ -144,6 +142,18 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     }
     
     console.log('❌ No embedded wallet found');
+    return null;
+  }, [user?.linkedAccounts]);
+
+  // Helper function to get the Solana embedded wallet specifically
+  const getSolanaEmbeddedWallet = useCallback(() => {
+    if (user?.linkedAccounts) {
+      return user.linkedAccounts.find((account: any) => 
+        account.type === 'wallet' && 
+        (account as any).walletClientType === 'privy' &&
+        (account as any).chainType === 'solana'
+      );
+    }
     return null;
   }, [user?.linkedAccounts]);
 
@@ -307,21 +317,69 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
 
     try {
       setIsExportingWallet(true);
-      console.log('Exporting embedded wallet...');
+      console.log('🔍 Starting Solana wallet export process...');
+      console.log('User linked accounts:', user.linkedAccounts);
+      console.log('Solana wallets from hook:', solanaWallets);
       
-      await exportWallet();
+      // Find the Solana embedded wallet from the solanaWallets hook
+      const solanaEmbeddedWallet = solanaWallets.find(wallet => 
+        wallet.walletClientType === 'privy'
+      );
       
-      console.log('Wallet exported successfully');
-      addNotification('success', 'Wallet exported successfully');
-      return { success: true, message: 'Wallet exported successfully' };
+      if (!solanaEmbeddedWallet) {
+        console.error('❌ No Solana embedded wallet found in solanaWallets');
+        addNotification('error', 'No Solana wallet found to export');
+        return null;
+      }
+      
+      console.log('✅ Found Solana embedded wallet to export:', {
+        address: solanaEmbeddedWallet.address,
+        walletClientType: solanaEmbeddedWallet.walletClientType
+      });
+      
+      // Check if there are any Ethereum wallets that might interfere
+      const ethereumWallets = user.linkedAccounts?.filter((account: any) => 
+        account.type === 'wallet' && 
+        (account as any).walletClientType === 'privy' &&
+        (account as any).chainType === 'ethereum'
+      ) || [];
+      
+      if (ethereumWallets.length > 0) {
+        console.warn('⚠️ Found Ethereum wallets that might interfere with export:', ethereumWallets);
+        console.log('Attempting to unlink Ethereum wallets to ensure Solana wallet export...');
+        
+        // Try to unlink Ethereum wallets to ensure Solana wallet is the only one available
+        for (const ethereumWallet of ethereumWallets) {
+          try {
+            const walletId = (ethereumWallet as any)?.walletId || (ethereumWallet as any)?.id;
+            if (walletId) {
+              console.log('Unlinking Ethereum wallet:', walletId);
+              await unlinkWallet(walletId);
+            }
+          } catch (unlinkError) {
+            console.warn('Failed to unlink Ethereum wallet:', unlinkError);
+          }
+        }
+        
+        // Wait a moment for the unlink to take effect
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      // Now try to export using Privy's exportWallet function
+      console.log('✅ Exporting Solana embedded wallet...');
+      await exportSolanaWallet();
+      
+      console.log('✅ Solana wallet exported successfully');
+      addNotification('success', 'Solana wallet exported successfully');
+      return { success: true, message: 'Solana wallet exported successfully' };
     } catch (error) {
-      console.error('Error exporting wallet:', error);
-      addNotification('error', 'Failed to export wallet');
+      console.error('❌ Error exporting Solana wallet:', error);
+      addNotification('error', 'Failed to export Solana wallet');
       return null;
     } finally {
       setIsExportingWallet(false);
     }
-  }, [authenticated, user, isEmbeddedWallet, exportWallet, addNotification]);
+  }, [authenticated, user, isEmbeddedWallet, solanaWallets, unlinkWallet, addNotification, exportSolanaWallet]);
 
   // Get wallet balance
   const getEmbeddedWalletBalance = useCallback(async () => {

@@ -42,10 +42,22 @@ const generateOrderNumber = () => {
  */
 const getProductPrice = async (productId, selectedOptions) => {
   try {
-    // Fetch the product with its variants from Supabase
+    // Fetch the product with its variants, collection information, and price modifier fields from Supabase
     const { data: product, error } = await supabase
       .from('products')
-      .select('price, variants')
+      .select(`
+        price, 
+        variants, 
+        base_currency,
+        minimum_order_quantity,
+        quantity,
+        price_modifier_before_min,
+        price_modifier_after_min,
+        collection:collection_id (
+          id,
+          strict_token
+        )
+      `)
       .eq('id', productId)
       .single();
 
@@ -57,68 +69,152 @@ const getProductPrice = async (productId, selectedOptions) => {
       throw new Error(`Product ${productId} not found`);
     }
 
-    // If no variants or no selected options, return base price
-    if (!product.variants || !selectedOptions || Object.keys(selectedOptions).length === 0) {
-      return {
-        price: product.price,
-        variantKey: null,
-        variantSelections: []
-      };
+    // Ensure baseCurrency has a default value
+    const baseCurrency = product.base_currency?.toUpperCase() || 'SOL';
+
+    // Get collection information
+    const collection = product.collection;
+    const strictToken = collection?.strict_token;
+
+    // Get current order count for price modification
+    let currentOrders = 0;
+    try {
+      const { data: orderCountData, error: orderCountError } = await supabase
+        .from('public_order_counts')
+        .select('total_orders')
+        .eq('product_id', productId)
+        .single();
+      
+      if (!orderCountError && orderCountData) {
+        currentOrders = orderCountData.total_orders || 0;
+      }
+    } catch (orderCountErr) {
+      console.warn(`Failed to fetch order count for ${productId}, using 0:`, orderCountErr.message);
+      currentOrders = 0;
     }
 
-    // Build variant key and find matching variant price
-    const variantSelections = [];
-    let variantKey = '';
-    
-    // Process selected options to build variant key
-    for (const [variantId, variantValue] of Object.entries(selectedOptions)) {
-      if (variantId && variantValue) {
-        // Find the variant name from the variants array
-        let variantName = 'Unknown';
-        if (Array.isArray(product.variants)) {
-          const variant = product.variants.find(v => v.id === variantId);
-          if (variant) {
-            variantName = variant.name;
+    // Get base price (either variant price or product price)
+    let basePrice = product.price;
+    let variantKey = null;
+    let variantSelections = [];
+
+    // If no variants or no selected options, use base price
+    if (product.variants && selectedOptions && Object.keys(selectedOptions).length > 0) {
+      // Build variant key and find matching variant price
+      for (const [variantId, variantValue] of Object.entries(selectedOptions)) {
+        if (variantId && variantValue) {
+          // Find the variant name from the variants array
+          let variantName = 'Unknown';
+          if (Array.isArray(product.variants)) {
+            const variant = product.variants.find(v => v.id === variantId);
+            if (variant) {
+              variantName = variant.name;
+            }
           }
+          
+          variantSelections.push({
+            name: variantName,
+            value: variantValue
+          });
+          
+          // Build variant key (assuming format: variantId:variantValue)
+          if (variantKey) {
+            variantKey += ',';
+          }
+          variantKey += `${variantId}:${variantValue}`;
         }
-        
-        variantSelections.push({
-          name: variantName,
-          value: variantValue
-        });
-        
-        // Build variant key (assuming format: variantId:variantValue)
-        if (variantKey) {
-          variantKey += ',';
+      }
+
+      // Check if product has variant prices in JSONB format
+      if (product.variants && typeof product.variants === 'object') {
+        // If variants is a JSONB object with pricing info
+        const variantPrice = product.variants[variantKey];
+        if (variantPrice && typeof variantPrice === 'number') {
+          basePrice = variantPrice;
         }
-        variantKey += `${variantId}:${variantValue}`;
       }
     }
 
-    // Check if product has variant prices in JSONB format
-    if (product.variants && typeof product.variants === 'object') {
-      // If variants is a JSONB object with pricing info
-      const variantPrice = product.variants[variantKey];
-      if (variantPrice && typeof variantPrice === 'number') {
-        return {
-          price: variantPrice,
-          variantKey,
-          variantSelections
-        };
-      }
-    }
+    // Apply price modification logic (same as client-side)
+    const modifiedPrice = calculateModifiedPrice({
+      basePrice,
+      currentOrders,
+      minOrders: product.minimum_order_quantity || 1,
+      maxStock: product.quantity, // Use quantity field (can be null for unlimited)
+      modifierBefore: product.price_modifier_before_min,
+      modifierAfter: product.price_modifier_after_min
+    });
 
-    // If no variant price found, return base price
+    console.log(`Price calculation for ${productId}: Base: ${basePrice}, Current Orders: ${currentOrders}, Max Stock: ${product.quantity}, Modified: ${modifiedPrice}`);
+
     return {
-      price: product.price,
+      price: modifiedPrice,
+      basePrice: basePrice, // Keep original base price for reference
+      baseCurrency: baseCurrency,
       variantKey: variantKey || null,
-      variantSelections
+      variantSelections,
+      collectionId: collection?.id,
+      strictToken: strictToken,
+      currentOrders,
+      priceModifierBefore: product.price_modifier_before_min,
+      priceModifierAfter: product.price_modifier_after_min
     };
 
   } catch (error) {
     console.error(`Error fetching product price for ${productId}:`, error);
     throw error;
   }
+};
+
+/**
+ * Calculate modified price based on current orders and modifiers (same logic as client-side)
+ */
+const calculateModifiedPrice = (params) => {
+  const { 
+    basePrice, 
+    currentOrders, 
+    minOrders, 
+    maxStock, 
+    modifierBefore, 
+    modifierAfter 
+  } = params;
+
+  // If no modifiers set, return base price
+  if (!modifierBefore && !modifierAfter) {
+    return Number(basePrice.toFixed(2));
+  }
+
+  // Before minimum orders
+  if (currentOrders < minOrders) {
+    if (!modifierBefore) return Number(basePrice.toFixed(2));
+    
+    const progress = currentOrders / minOrders;
+    const currentModifier = modifierBefore + (progress * (0 - modifierBefore));
+    return Number((basePrice * (1 + currentModifier)).toFixed(2));
+  }
+
+  // At minimum orders exactly
+  if (currentOrders === minOrders) {
+    return Number(basePrice.toFixed(2));
+  }
+
+  // After minimum orders
+  if (modifierAfter && maxStock) {
+    const remainingStock = maxStock - minOrders;
+    // Safety check for invalid state
+    if (remainingStock <= 0) return Number(basePrice.toFixed(2));
+    
+    const progress = Math.min((currentOrders - minOrders) / remainingStock, 1);
+    const currentModifier = progress * modifierAfter;
+    return Number((basePrice * (1 + currentModifier)).toFixed(2));
+  }
+
+  // If unlimited stock or no after-modifier, only apply before-min modifier
+  if (modifierBefore) {
+    return Number((basePrice * (1 + modifierBefore)).toFixed(2));
+  }
+
+  return Number(basePrice.toFixed(2));
 };
 
 /**
@@ -273,11 +369,21 @@ exports.handler = async (event, context) => {
     }
 
     // Get actual price from Supabase
-    const { price, variantKey, variantSelections } = await getProductPrice(productId, selectedOptions);
+    const { 
+      price, 
+      basePrice, 
+      variantKey, 
+      variantSelections, 
+      baseCurrency, 
+      strictToken,
+      currentOrders,
+      priceModifierBefore,
+      priceModifierAfter
+    } = await getProductPrice(productId, selectedOptions);
     const quantity = 1; // Single orders always have quantity 1
     const itemTotal = price * quantity;
 
-    console.log(`Processing single order: ${product.name}, Price: ${price}, Merchant: ${merchantWallet.substring(0, 6)}...`);
+    console.log(`Processing single order: ${product.name}, Base Price: ${basePrice}, Modified Price: ${price}, Current Orders: ${currentOrders}, Modifiers: ${priceModifierBefore}/${priceModifierAfter}`);
 
     // Verify and apply discount
     const couponCode = paymentMetadata?.couponCode;
@@ -392,6 +498,11 @@ exports.handler = async (event, context) => {
       fee,
       walletAmounts: { [merchantWallet]: originalPrice },
       receiverWallet: merchantWallet,
+      priceModifierBefore,
+      priceModifierAfter,
+      baseCurrency,
+      strictToken,
+      currentOrders,
     };
 
     console.log('Creating single order with enhanced metadata');
@@ -423,6 +534,7 @@ exports.handler = async (event, context) => {
         amount_sol: itemTotal,
         total_amount_paid_for_batch: totalPaymentAmount,
         quantity: 1,
+        base_currency: baseCurrency, // Include base currency
         order_number: orderNumber,
         status: isFreeOrder ? 'confirmed' : 'draft',
         ...(isFreeOrder && { 
@@ -445,6 +557,11 @@ exports.handler = async (event, context) => {
       fee,
       couponDiscount,
       originalPrice,
+      basePrice,
+      modifiedPrice: price,
+      currentOrders,
+      priceModifierBefore,
+      priceModifierAfter,
     });
 
     return {
@@ -462,6 +579,14 @@ exports.handler = async (event, context) => {
         originalPrice,
         walletAmounts: { [merchantWallet]: originalPrice },
         receiverWallet: merchantWallet,
+        // Price modifier information
+        basePrice: basePrice,
+        modifiedPrice: price,
+        currentOrders,
+        priceModifierBefore,
+        priceModifierAfter,
+        baseCurrency,
+        strictToken,
       })
     };
 

@@ -124,15 +124,16 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     }
 
     try {
+      toast.info('Exporting Solana wallet...');
       const result = await exportEmbeddedWallet();
       if (result?.success) {
-        toast.success('Wallet exported successfully');
+        toast.success('Solana wallet exported successfully');
       } else {
-        toast.error('Failed to export wallet');
+        toast.error('Failed to export Solana wallet');
       }
     } catch (error) {
       console.error('Export wallet error:', error);
-      toast.error('Failed to export wallet');
+      toast.error('Failed to export Solana wallet');
     }
   };
 
@@ -324,14 +325,16 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                   className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-2 px-3 rounded-lg border border-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {isExportingWallet ? (
-                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Exporting Solana Wallet...</span>
+                    </div>
                   ) : (
-                    <Download className="h-3 w-3" />
+                    <span>Export Solana Wallet</span>
                   )}
-                  {isExportingWallet ? 'Exporting...' : 'Export Wallet'}
                 </button>
-                <p className="text-xs text-gray-400 text-center">
-                  Export your wallet to use it in other applications
+                <p className="text-xs text-gray-400 mt-1">
+                  Export your Solana wallet to use it in other applications
                 </p>
               </div>
             )}

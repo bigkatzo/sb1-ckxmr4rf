@@ -432,13 +432,17 @@ async function createCustomDataEntry(orderId, productId, walletAddress, customiz
  */
 const getProductPrice = async (productId, selectedOptions) => {
   try {
-    // Fetch the product with its variants and collection information from Supabase
+    // Fetch the product with its variants, collection information, and price modifier fields from Supabase
     const { data: product, error } = await supabase
       .from('products')
       .select(`
         price, 
         variants, 
         base_currency,
+        minimum_order_quantity,
+        quantity,
+        price_modifier_before_min,
+        price_modifier_after_min,
         collection:collection_id (
           id,
           strict_token
@@ -464,77 +468,145 @@ const getProductPrice = async (productId, selectedOptions) => {
     const collection = product.collection;
     const strictToken = collection?.strict_token;
 
-    // If no variants or no selected options, return base price
-    if (!product.variants || !selectedOptions || Object.keys(selectedOptions).length === 0) {
-      return {
-        price: product.price,
-        baseCurrency: baseCurrency,
-        variantKey: null,
-        variantSelections: [],
-        collectionId: collection?.id,
-        strictToken: strictToken
-      };
+    // Get current order count for price modification
+    let currentOrders = 0;
+    try {
+      const { data: orderCountData, error: orderCountError } = await supabase
+        .from('public_order_counts')
+        .select('total_orders')
+        .eq('product_id', productId)
+        .single();
+      
+      if (!orderCountError && orderCountData) {
+        currentOrders = orderCountData.total_orders || 0;
+      }
+    } catch (orderCountErr) {
+      console.warn(`Failed to fetch order count for ${productId}, using 0:`, orderCountErr.message);
+      currentOrders = 0;
     }
 
-    // Build variant key and find matching variant price
-    const variantSelections = [];
-    let variantKey = '';
-    
-    // Process selected options to build variant key
-    for (const [variantId, variantValue] of Object.entries(selectedOptions)) {
-      if (variantId && variantValue) {
-        // Find the variant name from the variants array
-        let variantName = 'Unknown';
-        if (Array.isArray(product.variants)) {
-          const variant = product.variants.find(v => v.id === variantId);
-          if (variant) {
-            variantName = variant.name;
+    // Get base price (either variant price or product price)
+    let basePrice = product.price;
+    let variantKey = null;
+    let variantSelections = [];
+
+    // If no variants or no selected options, use base price
+    if (product.variants && selectedOptions && Object.keys(selectedOptions).length > 0) {
+      // Build variant key and find matching variant price
+      for (const [variantId, variantValue] of Object.entries(selectedOptions)) {
+        if (variantId && variantValue) {
+          // Find the variant name from the variants array
+          let variantName = 'Unknown';
+          if (Array.isArray(product.variants)) {
+            const variant = product.variants.find(v => v.id === variantId);
+            if (variant) {
+              variantName = variant.name;
+            }
           }
+          
+          variantSelections.push({
+            name: variantName,
+            value: variantValue
+          });
+          
+          // Build variant key (assuming format: variantId:variantValue)
+          if (variantKey) {
+            variantKey += ',';
+          }
+          variantKey += `${variantId}:${variantValue}`;
         }
-        
-        variantSelections.push({
-          name: variantName,
-          value: variantValue
-        });
-        
-        // Build variant key (assuming format: variantId:variantValue)
-        if (variantKey) {
-          variantKey += ',';
+      }
+
+      // Check if product has variant prices in JSONB format
+      if (product.variants && typeof product.variants === 'object') {
+        // If variants is a JSONB object with pricing info
+        const variantPrice = product.variants[variantKey];
+        if (variantPrice && typeof variantPrice === 'number') {
+          basePrice = variantPrice;
         }
-        variantKey += `${variantId}:${variantValue}`;
       }
     }
 
-    // Check if product has variant prices in JSONB format
-    if (product.variants && typeof product.variants === 'object') {
-      // If variants is a JSONB object with pricing info
-      const variantPrice = product.variants[variantKey];
-      if (variantPrice && typeof variantPrice === 'number') {
-        return {
-          price: variantPrice,
-          baseCurrency: baseCurrency,
-          variantKey,
-          variantSelections,
-          collectionId: collection?.id,
-          strictToken: strictToken
-        };
-      }
-    }
+    // Apply price modification logic (same as client-side)
+    const modifiedPrice = calculateModifiedPrice({
+      basePrice,
+      currentOrders,
+      minOrders: product.minimum_order_quantity || 1,
+      maxStock: product.quantity, // Use quantity field (can be null for unlimited)
+      modifierBefore: product.price_modifier_before_min,
+      modifierAfter: product.price_modifier_after_min
+    });
 
-    // If no variant price found, return base price
+    console.log(`Price calculation for ${productId}: Base: ${basePrice}, Current Orders: ${currentOrders}, Max Stock: ${product.quantity}, Modified: ${modifiedPrice}`);
+
     return {
-      price: product.price,
+      price: modifiedPrice,
+      basePrice: basePrice, // Keep original base price for reference
       baseCurrency: baseCurrency,
       variantKey: variantKey || null,
       variantSelections,
       collectionId: collection?.id,
-      strictToken: strictToken
+      strictToken: strictToken,
+      currentOrders,
+      priceModifierBefore: product.price_modifier_before_min,
+      priceModifierAfter: product.price_modifier_after_min
     };
 
   } catch (error) {
     console.error(`Error fetching product price for ${productId}:`, error);
     throw error;
   }
+};
+
+/**
+ * Calculate modified price based on current orders and modifiers (same logic as client-side)
+ */
+const calculateModifiedPrice = (params) => {
+  const { 
+    basePrice, 
+    currentOrders, 
+    minOrders, 
+    maxStock, 
+    modifierBefore, 
+    modifierAfter 
+  } = params;
+
+  // If no modifiers set, return base price
+  if (!modifierBefore && !modifierAfter) {
+    return Number(basePrice.toFixed(2));
+  }
+
+  // Before minimum orders
+  if (currentOrders < minOrders) {
+    if (!modifierBefore) return Number(basePrice.toFixed(2));
+    
+    const progress = currentOrders / minOrders;
+    const currentModifier = modifierBefore + (progress * (0 - modifierBefore));
+    return Number((basePrice * (1 + currentModifier)).toFixed(2));
+  }
+
+  // At minimum orders exactly
+  if (currentOrders === minOrders) {
+    return Number(basePrice.toFixed(2));
+  }
+
+  // After minimum orders
+  if (modifierAfter && maxStock) {
+    const remainingStock = maxStock - minOrders;
+    // Safety check for invalid state
+    if (remainingStock <= 0) return Number(basePrice.toFixed(2));
+    
+    const progress = Math.min((currentOrders - minOrders) / remainingStock, 1);
+    const currentModifier = progress * modifierAfter;
+    return Number((basePrice * (1 + currentModifier)).toFixed(2));
+  }
+
+  // If unlimited stock or no after-modifier, only apply before-min modifier
+  if (modifierBefore) {
+    return Number((basePrice * (1 + modifierBefore)).toFixed(2));
+  }
+
+  return Number(basePrice.toFixed(2));
 };
 
 /**
@@ -870,12 +942,22 @@ exports.handler = async (event, context) => {
         throw new Error(`Missing collectionId for product: ${product.name}`);
       }
       
-      const { price, variantKey, variantSelections, baseCurrency, strictToken } = await getProductPrice(
+      const { 
+        price, 
+        basePrice, 
+        variantKey, 
+        variantSelections, 
+        baseCurrency, 
+        strictToken,
+        currentOrders,
+        priceModifierBefore,
+        priceModifierAfter
+      } = await getProductPrice(
         product.id,
         item.selectedOptions
       );
 
-      console.log(price, baseCurrency, strictToken);
+      console.log(`Product ${product.name}: Base Price: ${basePrice}, Modified Price: ${price}, Current Orders: ${currentOrders}, Modifiers: ${priceModifierBefore}/${priceModifierAfter}`);
 
       const itemTotalInBase = price * quantity;
 
@@ -1020,12 +1102,16 @@ exports.handler = async (event, context) => {
       processedItems.push({
         ...item,
         actualPrice: price,
+        basePrice: basePrice, // Store original base price for reference
         variantKey,
         variantSelections,
         merchantWallet,
         itemTotal: itemTotalInTarget,
         quantity,
         baseCurrency,
+        currentOrders,
+        priceModifierBefore,
+        priceModifierAfter,
         isStrictTokenPayment: !!strictToken && strictToken.toUpperCase() !== 'NULL' && paymentMetadata?.paymentMethod === 'spl-tokens',
         itemCurrencyUnit, // Store the currency unit for this specific item (now using correct symbol from blockchain)
         strictToken, // Store the strict token from backend
@@ -1037,7 +1123,7 @@ exports.handler = async (event, context) => {
       });
 
       console.log(
-        `Processed item: ${product.name}, Base Price: ${price} ${baseCurrency}, Qty: ${quantity}, ` +
+        `Processed item: ${product.name}, Base Price: ${basePrice} ${baseCurrency}, Modified Price: ${price} ${baseCurrency}, Qty: ${quantity}, ` +
         `Converted Total: ${itemTotalInTarget} ${itemCurrencyUnit}, Merchant: ${merchantWallet.substring(0, 6)}...`
       );
     }
@@ -1071,36 +1157,66 @@ exports.handler = async (event, context) => {
     const couponCode = paymentMetadata?.couponCode;
     let couponDiscount = 0;
 
+    console.log(`=== COUPON PROCESSING START ===`);
+    console.log(`Coupon code from paymentMetadata:`, couponCode);
+    console.log(`PaymentMetadata:`, JSON.stringify(paymentMetadata, null, 2));
+    console.log(`Total payment before coupon: ${totalPaymentForBatch} ${finalCurrencyUnit}`);
+
     if (couponCode) {
+      console.log(`Processing coupon code: ${couponCode}`);
       try {
+        console.log(`Fetching coupon from database with code: ${couponCode.toUpperCase()}`);
         const { data: coupon, error } = await supabase
-          .from('coupon')
+          .from('coupons')
           .select('*')
           .eq('code', couponCode.toUpperCase())
           .eq('status', 'active')
           .single();
 
+        console.log(`Database query result:`, { coupon, error });
+        console.log(`Coupon data:`, JSON.stringify(coupon, null, 2));
+
         if (!error && coupon) {
+          console.log(`Coupon found in database, verifying eligibility...`);
+          console.log(`Wallet address: ${walletAddress}`);
+          console.log(`Collection IDs:`, processedItems.map(item => item.product.collectionId));
+          
           const { isValid } = await verifyEligibilityAccess(
             coupon,
             walletAddress,
             processedItems.map(item => item.product.collectionId)
           );
 
+          console.log(`Eligibility verification result:`, { isValid });
+          console.log(`Coupon details:`, {
+            id: coupon.id,
+            code: coupon.code,
+            discount_type: coupon.discount_type,
+            discount_value: coupon.discount_value,
+            status: coupon.status
+          });
+
           if (isValid) {
+            console.log(`Coupon is valid, calculating discount...`);
             let discountAmount;
             if (coupon.discount_type === 'fixed_sol') {
+              console.log(`Processing fixed SOL discount: ${coupon.discount_value} SOL`);
               // Convert fixed SOL discount to target currency
               if (finalCurrencyUnit === 'SOL') {
                 // Same currency - no conversion needed
                 discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
+                console.log(`Same currency (SOL): discountAmount = Math.min(${coupon.discount_value}, ${totalPaymentForBatch}) = ${discountAmount}`);
               } else if (finalCurrencyUnit === 'USDC') {
                 // Convert SOL to USDC using solRate
                 if (!solRate) {
+                  console.log(`Fetching SOL rate for conversion...`);
                   solRate = await getSolanaRate();
+                  console.log(`SOL rate: ${solRate}`);
                 }
                 const discountInUSDC = convertCurrency(coupon.discount_value, 'SOL', 'USDC', solRate);
                 discountAmount = Math.min(discountInUSDC, totalPaymentForBatch);
+                console.log(`Converting SOL to USDC: ${coupon.discount_value} SOL * ${solRate} = ${discountInUSDC} USDC`);
+                console.log(`Final discountAmount = Math.min(${discountInUSDC}, ${totalPaymentForBatch}) = ${discountAmount}`);
               } else {
                 // For strict token payments, convert SOL to strict token
                 // Get the correct token symbol from the first strict token item
@@ -1108,29 +1224,60 @@ exports.handler = async (event, context) => {
                 const conversionRate = strictTokenItem?.conversionRate || 1;
                 const discountInStrictToken = coupon.discount_value / conversionRate;
                 discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
+                console.log(`Strict token conversion: ${coupon.discount_value} SOL / ${conversionRate} = ${discountInStrictToken} ${finalCurrencyUnit}`);
+                console.log(`Final discountAmount = Math.min(${discountInStrictToken}, ${totalPaymentForBatch}) = ${discountAmount}`);
               }
             } else {
+              console.log(`Processing percentage discount: ${coupon.discount_value}%`);
               // Percentage discount - use precise arithmetic
               const discountInSmallestUnit = toSmallestUnit(totalPaymentForBatch, finalCurrencyUnit);
               const percentageInSmallestUnit = discountInSmallestUnit * coupon.discount_value / 100;
               discountAmount = fromSmallestUnit(percentageInSmallestUnit, finalCurrencyUnit);
+              console.log(`Percentage calculation: ${totalPaymentForBatch} ${finalCurrencyUnit} * ${coupon.discount_value}% = ${discountAmount} ${finalCurrencyUnit}`);
             }
             
             couponDiscount = discountAmount;
             console.log(`Coupon ${couponCode} applied: ${couponDiscount} ${finalCurrencyUnit} discount (original: ${coupon.discount_value} ${coupon.discount_type === 'fixed_sol' ? 'SOL' : '%'})`);
+          } else {
+            console.log(`Coupon eligibility verification failed - coupon not applied`);
           }
+        } else {
+          console.log(`Coupon not found or database error:`, error);
         }
       } catch (error) {
         console.error('Error processing coupon:', error);
+        console.error('Error stack:', error.stack);
       }
+    } else {
+      console.log(`No coupon code provided in paymentMetadata`);
     }
+
+    console.log(`Final coupon discount calculated: ${couponDiscount} ${finalCurrencyUnit}`);
+    console.log(`=== COUPON PROCESSING END ===`);
     
     const originalPrice = totalPaymentForBatch;
-    const isFreeOrder = originalPrice - couponDiscount <= 0;
     const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
     const chargeFeeMethods = ['default', 'spl-tokens'];
     // const fee = (chargeFeeMethods.includes(paymentMethod)) && Object.keys(walletAmounts).length > 1 && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
     const fee = 0;
+    
+    // Apply coupon discount to totalPaymentForBatch first
+    if (couponDiscount > 0) {
+      // Convert to smallest units for precise calculation
+      const totalInSmallestUnit = toSmallestUnit(totalPaymentForBatch, finalCurrencyUnit);
+      const discountInSmallestUnit = toSmallestUnit(couponDiscount, finalCurrencyUnit);
+      
+      // Subtract discount
+      const discountedTotalInSmallestUnit = totalInSmallestUnit - discountInSmallestUnit;
+      
+      // Convert back to display format
+      totalPaymentForBatch = fromSmallestUnit(discountedTotalInSmallestUnit, finalCurrencyUnit);
+      
+      console.log(`Applied coupon discount: ${originalPrice} - ${couponDiscount} = ${totalPaymentForBatch} ${finalCurrencyUnit}`);
+    }
+    
+    // Check if order is free after applying discount
+    const isFreeOrder = totalPaymentForBatch <= 0;
     
     // Log fee calculation details
     console.log(`Fee calculation: Payment method: ${paymentMethod}, Charge fee methods: ${chargeFeeMethods.join(', ')}, Multiple wallets: ${Object.keys(walletAmounts).length > 1}, Free order: ${isFreeOrder}, Fee: ${fee} ${finalCurrencyUnit}`);
@@ -1139,13 +1286,12 @@ exports.handler = async (event, context) => {
     if (isFreeOrder) {
       totalPaymentForBatch = 0;
     } else {
-      // Convert to smallest units for precise calculation
+      // Add fee to the already-discounted total
       const totalInSmallestUnit = toSmallestUnit(totalPaymentForBatch, finalCurrencyUnit);
       const feeInSmallestUnit = toSmallestUnit(fee, finalCurrencyUnit);
-      const discountInSmallestUnit = toSmallestUnit(couponDiscount, finalCurrencyUnit);
       
-      // Add fee and subtract discount
-      const finalTotalInSmallestUnit = totalInSmallestUnit + feeInSmallestUnit - discountInSmallestUnit;
+      // Add fee
+      const finalTotalInSmallestUnit = totalInSmallestUnit + feeInSmallestUnit;
       
       // Convert back to display format
       totalPaymentForBatch = fromSmallestUnit(finalTotalInSmallestUnit, finalCurrencyUnit);
@@ -1194,6 +1340,7 @@ exports.handler = async (event, context) => {
           merchantWallet: processedItem.merchantWallet,
           baseCurrency: baseCurrency, // Ensure baseCurrency is included
           actualPrice,
+          basePrice: processedItem.basePrice, // Include original base price
           itemTotal,
           couponDiscount,
           isFreeOrder,
@@ -1203,6 +1350,10 @@ exports.handler = async (event, context) => {
           originalPrice,
           receiverWallet,
           currencyUnit: finalCurrencyUnit, // Use the final currency unit for the batch
+          // Price modifier information
+          currentOrders: processedItem.currentOrders,
+          priceModifierBefore: processedItem.priceModifierBefore,
+          priceModifierAfter: processedItem.priceModifierAfter,
           // Add strict token information using backend data
           isStrictTokenPayment: processedItem.isStrictTokenPayment,
           strictTokenAddress: processedItem.strictTokenAddress,
@@ -1265,9 +1416,13 @@ exports.handler = async (event, context) => {
             quantity: quantity,
             totalItemsInBatch: processedItems.length,
             price: actualPrice,
+            basePrice: processedItem.basePrice, // Include original base price
             itemTotal: itemTotal, // Use the converted itemTotal instead of actualPrice * quantity
             variantKey,
             baseCurrency: baseCurrency, // Include baseCurrency in response
+            currentOrders: processedItem.currentOrders,
+            priceModifierBefore: processedItem.priceModifierBefore,
+            priceModifierAfter: processedItem.priceModifierAfter,
             ...(processedItem.isStrictTokenPayment && {
               isStrictTokenPayment: true,
               strictTokenAddress: processedItem.strictTokenAddress,
