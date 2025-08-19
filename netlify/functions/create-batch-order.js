@@ -1157,8 +1157,15 @@ exports.handler = async (event, context) => {
     const couponCode = paymentMetadata?.couponCode;
     let couponDiscount = 0;
 
+    console.log(`=== COUPON PROCESSING START ===`);
+    console.log(`Coupon code from paymentMetadata:`, couponCode);
+    console.log(`PaymentMetadata:`, JSON.stringify(paymentMetadata, null, 2));
+    console.log(`Total payment before coupon: ${totalPaymentForBatch} ${finalCurrencyUnit}`);
+
     if (couponCode) {
+      console.log(`Processing coupon code: ${couponCode}`);
       try {
+        console.log(`Fetching coupon from database with code: ${couponCode.toUpperCase()}`);
         const { data: coupon, error } = await supabase
           .from('coupon')
           .select('*')
@@ -1166,27 +1173,50 @@ exports.handler = async (event, context) => {
           .eq('status', 'active')
           .single();
 
+        console.log(`Database query result:`, { coupon, error });
+        console.log(`Coupon data:`, JSON.stringify(coupon, null, 2));
+
         if (!error && coupon) {
+          console.log(`Coupon found in database, verifying eligibility...`);
+          console.log(`Wallet address: ${walletAddress}`);
+          console.log(`Collection IDs:`, processedItems.map(item => item.product.collectionId));
+          
           const { isValid } = await verifyEligibilityAccess(
             coupon,
             walletAddress,
             processedItems.map(item => item.product.collectionId)
           );
 
+          console.log(`Eligibility verification result:`, { isValid });
+          console.log(`Coupon details:`, {
+            id: coupon.id,
+            code: coupon.code,
+            discount_type: coupon.discount_type,
+            discount_value: coupon.discount_value,
+            status: coupon.status
+          });
+
           if (isValid) {
+            console.log(`Coupon is valid, calculating discount...`);
             let discountAmount;
             if (coupon.discount_type === 'fixed_sol') {
+              console.log(`Processing fixed SOL discount: ${coupon.discount_value} SOL`);
               // Convert fixed SOL discount to target currency
               if (finalCurrencyUnit === 'SOL') {
                 // Same currency - no conversion needed
                 discountAmount = Math.min(coupon.discount_value, totalPaymentForBatch);
+                console.log(`Same currency (SOL): discountAmount = Math.min(${coupon.discount_value}, ${totalPaymentForBatch}) = ${discountAmount}`);
               } else if (finalCurrencyUnit === 'USDC') {
                 // Convert SOL to USDC using solRate
                 if (!solRate) {
+                  console.log(`Fetching SOL rate for conversion...`);
                   solRate = await getSolanaRate();
+                  console.log(`SOL rate: ${solRate}`);
                 }
                 const discountInUSDC = convertCurrency(coupon.discount_value, 'SOL', 'USDC', solRate);
                 discountAmount = Math.min(discountInUSDC, totalPaymentForBatch);
+                console.log(`Converting SOL to USDC: ${coupon.discount_value} SOL * ${solRate} = ${discountInUSDC} USDC`);
+                console.log(`Final discountAmount = Math.min(${discountInUSDC}, ${totalPaymentForBatch}) = ${discountAmount}`);
               } else {
                 // For strict token payments, convert SOL to strict token
                 // Get the correct token symbol from the first strict token item
@@ -1194,22 +1224,36 @@ exports.handler = async (event, context) => {
                 const conversionRate = strictTokenItem?.conversionRate || 1;
                 const discountInStrictToken = coupon.discount_value / conversionRate;
                 discountAmount = Math.min(discountInStrictToken, totalPaymentForBatch);
+                console.log(`Strict token conversion: ${coupon.discount_value} SOL / ${conversionRate} = ${discountInStrictToken} ${finalCurrencyUnit}`);
+                console.log(`Final discountAmount = Math.min(${discountInStrictToken}, ${totalPaymentForBatch}) = ${discountAmount}`);
               }
             } else {
+              console.log(`Processing percentage discount: ${coupon.discount_value}%`);
               // Percentage discount - use precise arithmetic
               const discountInSmallestUnit = toSmallestUnit(totalPaymentForBatch, finalCurrencyUnit);
               const percentageInSmallestUnit = discountInSmallestUnit * coupon.discount_value / 100;
               discountAmount = fromSmallestUnit(percentageInSmallestUnit, finalCurrencyUnit);
+              console.log(`Percentage calculation: ${totalPaymentForBatch} ${finalCurrencyUnit} * ${coupon.discount_value}% = ${discountAmount} ${finalCurrencyUnit}`);
             }
             
             couponDiscount = discountAmount;
             console.log(`Coupon ${couponCode} applied: ${couponDiscount} ${finalCurrencyUnit} discount (original: ${coupon.discount_value} ${coupon.discount_type === 'fixed_sol' ? 'SOL' : '%'})`);
+          } else {
+            console.log(`Coupon eligibility verification failed - coupon not applied`);
           }
+        } else {
+          console.log(`Coupon not found or database error:`, error);
         }
       } catch (error) {
         console.error('Error processing coupon:', error);
+        console.error('Error stack:', error.stack);
       }
+    } else {
+      console.log(`No coupon code provided in paymentMetadata`);
     }
+
+    console.log(`Final coupon discount calculated: ${couponDiscount} ${finalCurrencyUnit}`);
+    console.log(`=== COUPON PROCESSING END ===`);
     
     const originalPrice = totalPaymentForBatch;
     const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
