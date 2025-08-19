@@ -50,7 +50,7 @@ const getProductPrice = async (productId, selectedOptions) => {
         variants, 
         base_currency,
         minimum_order_quantity,
-        stock,
+        quantity,
         price_modifier_before_min,
         price_modifier_after_min,
         collection:collection_id (
@@ -140,12 +140,12 @@ const getProductPrice = async (productId, selectedOptions) => {
       basePrice,
       currentOrders,
       minOrders: product.minimum_order_quantity || 1,
-      maxStock: product.stock,
+      maxStock: product.quantity, // Use quantity field (can be null for unlimited)
       modifierBefore: product.price_modifier_before_min,
       modifierAfter: product.price_modifier_after_min
     });
 
-    console.log(`Price calculation for ${productId}: Base: ${basePrice}, Current Orders: ${currentOrders}, Modified: ${modifiedPrice}`);
+    console.log(`Price calculation for ${productId}: Base: ${basePrice}, Current Orders: ${currentOrders}, Max Stock: ${product.quantity}, Modified: ${modifiedPrice}`);
 
     return {
       price: modifiedPrice,
