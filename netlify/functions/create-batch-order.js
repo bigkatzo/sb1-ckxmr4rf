@@ -1167,7 +1167,7 @@ exports.handler = async (event, context) => {
       try {
         console.log(`Fetching coupon from database with code: ${couponCode.toUpperCase()}`);
         const { data: coupon, error } = await supabase
-          .from('coupon')
+          .from('coupons')
           .select('*')
           .eq('code', couponCode.toUpperCase())
           .eq('status', 'active')
