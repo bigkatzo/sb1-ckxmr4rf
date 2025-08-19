@@ -205,8 +205,8 @@ export function usePayment() {
     inputMint: string,
     outputMint: string,
     amount: number,
-    slippageBps: number = 50,
-    isExactOutput: boolean = false
+    slippageBps: number = 500, // 5% default slippage
+    swapMode: 'ExactIn' | 'ExactOut' = 'ExactIn'
   ): Promise<JupiterQuoteResponse | null> => {
     try {
       // Get token decimals for accurate conversion
@@ -215,8 +215,8 @@ export function usePayment() {
       const inputDecimals = inputTokenInfo.decimals || 6;
       const outputDecimals = outputTokenInfo.decimals || 6;
       
-      // Convert amount to smallest unit
-      const amountInSmallestUnit = Math.floor(amount * Math.pow(10, isExactOutput ? outputDecimals : inputDecimals));
+      // Convert amount to smallest unit based on swap mode
+      const amountInSmallestUnit = Math.floor(amount * Math.pow(10, swapMode === 'ExactOut' ? outputDecimals : inputDecimals));
       
       const url = `https://quote-api.jup.ag/v6/quote?` +
         `inputMint=${inputMint}&` +
@@ -224,8 +224,8 @@ export function usePayment() {
         `amount=${amountInSmallestUnit}&` +
         `slippageBps=${slippageBps}&` +
         `onlyDirectRoutes=false&` +
-        `asLegacyTransaction=false` +
-        `${isExactOutput ? '&exactOut=true' : ''}`;
+        `asLegacyTransaction=false&` +
+        `swapMode=${swapMode}`;
 
       const response = await fetch(url);
       if (!response.ok) {
@@ -399,26 +399,52 @@ export function usePayment() {
       
       console.log(`Amount in USDC smallest unit: ${amountInOutputSmallestUnit}`);
 
-      // Check user's input token balance first (we'll need to estimate how much input token is needed)
-      // For now, we'll check a reasonable amount - this should be improved with a quote first
-      const estimatedInputAmount = amount * 1.1; // Estimate 10% more than needed for slippage
-      const balanceCheck = await checkTokenBalance(inputTokenAddress, estimatedInputAmount);
+      // Try ExactOut first (we want exact USDC output)
+      let quote = await getJupiterQuote(inputTokenAddress, outputTokenAddress, amount, 500, 'ExactOut');
+      
+      // If ExactOut fails, try ExactIn with a reasonable input amount estimate
+      if (!quote) {
+        console.log('⚠️ ExactOut quote failed, trying ExactIn mode...');
+        
+        // For ExactIn, we need to convert USDC amount to input token amount
+        // First get a quote from USDC to input token to estimate the conversion rate
+        const reverseQuote = await getJupiterQuote(outputTokenAddress, inputTokenAddress, amount, 500, 'ExactIn');
+        
+        if (!reverseQuote) {
+          throw new Error('Failed to get reverse quote for ExactIn fallback');
+        }
+        
+        // Calculate the input token amount needed based on the reverse quote
+        const inputAmountNeeded = parseInt(reverseQuote.outAmount) / Math.pow(10, inputDecimals);
+        const estimatedInputAmount = inputAmountNeeded * 1.1; // Add 10% buffer for slippage
+        
+        console.log(`Estimated input amount needed: ${estimatedInputAmount} ${inputTokenInfo.symbol}`);
+        
+        quote = await getJupiterQuote(inputTokenAddress, outputTokenAddress, estimatedInputAmount, 500, 'ExactIn');
+        
+        if (!quote) {
+          throw new Error('Failed to get Jupiter quote for token swap in both ExactOut and ExactIn modes');
+        }
+        
+        console.log('✅ ExactIn quote received as fallback');
+      } else {
+        console.log('✅ ExactOut quote received');
+      }
+
+      console.log('✅ Jupiter quote received:', quote);
+      const inputAmountNeeded = parseInt(quote.inAmount) / Math.pow(10, inputDecimals);
+      const outputAmount = parseInt(quote.outAmount) / Math.pow(10, outputDecimals);
+      console.log(`Input amount needed: ${inputAmountNeeded} ${inputTokenInfo.symbol}`);
+      console.log(`Output amount: ${outputAmount} USDC`);
+
+      // Check user's input token balance using the actual input amount from quote
+      const balanceCheck = await checkTokenBalance(inputTokenAddress, inputAmountNeeded);
       if (!balanceCheck.hasEnough) {
         toast.error(balanceCheck.error || 'Insufficient token balance');
         throw new Error(balanceCheck.error || 'Insufficient token balance');
       }
 
       console.log(`✅ Token balance verified: ${balanceCheck.balance} tokens available`);
-
-      // Get Jupiter quote with exactOut=true (we want exact USDC output)
-      const quote = await getJupiterQuote(inputTokenAddress, outputTokenAddress, amount, 50, true);
-      if (!quote) {
-        throw new Error('Failed to get Jupiter quote for token swap');
-      }
-
-      console.log('✅ Jupiter quote received:', quote);
-      console.log(`Input amount needed: ${parseInt(quote.inAmount) / Math.pow(10, inputDecimals)} ${inputTokenInfo.symbol}`);
-      console.log(`Output amount: ${parseInt(quote.outAmount) / Math.pow(10, outputDecimals)} USDC`);
 
       // Get swap transaction
       const swapTransactionBase64 = await getJupiterSwapTransaction(quote, walletAddress!);
@@ -443,7 +469,7 @@ export function usePayment() {
         if (status.success) {
           await updateTransactionStatus(signature, 'confirmed');
           console.log('✅ Jupiter swap completed successfully');
-          console.log(`User paid with ${inputTokenInfo.symbol}, receiver gets ${amount} USDC`);
+          console.log(`User paid with ${inputAmountNeeded} ${inputTokenInfo.symbol}, receiver gets ${outputAmount} USDC`);
         } else if (status.error) {
           await updateTransactionStatus(signature, 'failed');
           console.error('❌ Jupiter swap failed:', status.error);
