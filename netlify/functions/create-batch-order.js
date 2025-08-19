@@ -1212,11 +1212,28 @@ exports.handler = async (event, context) => {
     }
     
     const originalPrice = totalPaymentForBatch;
-    const isFreeOrder = originalPrice - couponDiscount <= 0;
     const paymentMethod = paymentMetadata?.paymentMethod || 'unknown';
     const chargeFeeMethods = ['default', 'spl-tokens'];
     // const fee = (chargeFeeMethods.includes(paymentMethod)) && Object.keys(walletAmounts).length > 1 && !isFreeOrder ? (0.002 * Object.keys(walletAmounts).length) : 0;
     const fee = 0;
+    
+    // Apply coupon discount to totalPaymentForBatch first
+    if (couponDiscount > 0) {
+      // Convert to smallest units for precise calculation
+      const totalInSmallestUnit = toSmallestUnit(totalPaymentForBatch, finalCurrencyUnit);
+      const discountInSmallestUnit = toSmallestUnit(couponDiscount, finalCurrencyUnit);
+      
+      // Subtract discount
+      const discountedTotalInSmallestUnit = totalInSmallestUnit - discountInSmallestUnit;
+      
+      // Convert back to display format
+      totalPaymentForBatch = fromSmallestUnit(discountedTotalInSmallestUnit, finalCurrencyUnit);
+      
+      console.log(`Applied coupon discount: ${originalPrice} - ${couponDiscount} = ${totalPaymentForBatch} ${finalCurrencyUnit}`);
+    }
+    
+    // Check if order is free after applying discount
+    const isFreeOrder = totalPaymentForBatch <= 0;
     
     // Log fee calculation details
     console.log(`Fee calculation: Payment method: ${paymentMethod}, Charge fee methods: ${chargeFeeMethods.join(', ')}, Multiple wallets: ${Object.keys(walletAmounts).length > 1}, Free order: ${isFreeOrder}, Fee: ${fee} ${finalCurrencyUnit}`);
@@ -1225,13 +1242,12 @@ exports.handler = async (event, context) => {
     if (isFreeOrder) {
       totalPaymentForBatch = 0;
     } else {
-      // Convert to smallest units for precise calculation
+      // Add fee to the already-discounted total
       const totalInSmallestUnit = toSmallestUnit(totalPaymentForBatch, finalCurrencyUnit);
       const feeInSmallestUnit = toSmallestUnit(fee, finalCurrencyUnit);
-      const discountInSmallestUnit = toSmallestUnit(couponDiscount, finalCurrencyUnit);
       
-      // Add fee and subtract discount
-      const finalTotalInSmallestUnit = totalInSmallestUnit + feeInSmallestUnit - discountInSmallestUnit;
+      // Add fee
+      const finalTotalInSmallestUnit = totalInSmallestUnit + feeInSmallestUnit;
       
       // Convert back to display format
       totalPaymentForBatch = fromSmallestUnit(finalTotalInSmallestUnit, finalCurrencyUnit);
