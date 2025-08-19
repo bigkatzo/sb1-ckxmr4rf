@@ -406,8 +406,20 @@ export function usePayment() {
       if (!quote) {
         console.log('⚠️ ExactOut quote failed, trying ExactIn mode...');
         
-        // Estimate input amount needed (this is a rough estimate, will be refined by the quote)
-        const estimatedInputAmount = amount * 1.2; // Estimate 20% more for slippage
+        // For ExactIn, we need to convert USDC amount to input token amount
+        // First get a quote from USDC to input token to estimate the conversion rate
+        const reverseQuote = await getJupiterQuote(outputTokenAddress, inputTokenAddress, amount, 500, 'ExactIn');
+        
+        if (!reverseQuote) {
+          throw new Error('Failed to get reverse quote for ExactIn fallback');
+        }
+        
+        // Calculate the input token amount needed based on the reverse quote
+        const inputAmountNeeded = parseInt(reverseQuote.outAmount) / Math.pow(10, inputDecimals);
+        const estimatedInputAmount = inputAmountNeeded * 1.1; // Add 10% buffer for slippage
+        
+        console.log(`Estimated input amount needed: ${estimatedInputAmount} ${inputTokenInfo.symbol}`);
+        
         quote = await getJupiterQuote(inputTokenAddress, outputTokenAddress, estimatedInputAmount, 500, 'ExactIn');
         
         if (!quote) {
