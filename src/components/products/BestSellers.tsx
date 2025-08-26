@@ -70,6 +70,16 @@ export function BestSellers() {
     scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
   };
 
+  // Handle product selection
+  const handleProductClick = (product: VariantsProduct) => {
+    setSelectedProduct(product);
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setSelectedProduct(null);
+  };
+
   // Render the modal using a portal at the root level
   const renderModal = () => {
     if (!selectedProduct) return null;
@@ -77,8 +87,8 @@ export function BestSellers() {
     return createPortal(
       <ProductModal 
         product={selectedProduct} 
-        onClose={() => setSelectedProduct(null)}
-        categoryIndex={categoryIndices[selectedProduct.categoryId]}
+        onClose={handleModalClose}
+        categoryIndex={categoryIndices[selectedProduct.categoryId] || 0}
       />,
       document.body // Render directly to the body
     );
@@ -102,7 +112,7 @@ export function BestSellers() {
             >
               <ProductCardCompact 
                 product={product}
-                onClick={() => setSelectedProduct(product)}
+                onClick={handleProductClick}
                 categoryIndex={categoryIndices[product.categoryId]}
                 showCategory={false}
                 isInInitialViewport={index < visibleItemCount}
