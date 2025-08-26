@@ -4,16 +4,13 @@ import { useWallet } from '../contexts/WalletContext';
 import type { Database } from '../lib/database.types';
 
 /**
- * Custom hook that returns a Supabase client with wallet authentication headers
+ * Custom hook that returns a Supabase client with wallet authentication
  * 
- * This client automatically includes the wallet address and authentication token
- * in the headers of all requests, which allows the Supabase RLS policies to verify
- * the wallet ownership and restrict data access accordingly.
+ * This client uses the Supabase session from the wallet context to provide
+ * proper JWT authentication for RLS policies, while also including wallet
+ * headers for additional wallet-specific authentication.
  * 
- * During checkout flows, even if token is missing, we'll create a client using just
- * the wallet address to prevent authentication interruptions.
- * 
- * Updated to work with Privy wallet integration
+ * Updated to work with Privy wallet integration and Supabase authentication
  */
 export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean }): {
   client: SupabaseClient<Database> | null;
@@ -24,10 +21,18 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
     hasToken: boolean;
     isConnected: boolean;
     hasEnvVars: boolean;
+    hasSupabaseSession: boolean;
     reason: string | null;
   };
 } {
-  const { walletAddress, walletAuthToken, isConnected, authenticated } = useWallet();
+  const { 
+    walletAddress, 
+    walletAuthToken, 
+    isConnected, 
+    authenticated, 
+    supabaseAuthenticated,
+    supabaseSession 
+  } = useWallet();
   const allowMissingToken = options?.allowMissingToken || false;
   
   // Check environment variables
@@ -36,41 +41,41 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
   const hasEnvVars = !!supabaseUrl && !!supabaseKey;
   
   // Get diagnostic information for debugging
-  const diagnostics = {
-    hasWallet: !!walletAddress,
-    hasToken: !!walletAuthToken,
-    isConnected: isConnected && authenticated, // Both Privy connection and authentication required
-    hasEnvVars,
-    reason: !walletAddress
-      ? "No wallet address available"
-      : !isConnected || !authenticated
-        ? "Wallet not connected or not authenticated via Privy"
-        : !walletAuthToken && !allowMissingToken
-          ? "No wallet authentication token"
-          : !hasEnvVars
-            ? "Missing Supabase environment variables"
-            : null
-  };
+  const diagnostics = useMemo(() => {
+    const hasWallet = !!walletAddress;
+    const hasToken = !!walletAuthToken;
+    const hasSupabaseSession = !!supabaseSession?.access_token;
+    
+    let reason = null;
+    if (!hasEnvVars) reason = 'Missing environment variables';
+    else if (!hasWallet) reason = 'No wallet address';
+    else if (!isConnected) reason = 'Wallet not connected';
+    else if (!authenticated) reason = 'Not authenticated with Privy';
+    else if (!supabaseAuthenticated) reason = 'Not authenticated with Supabase';
+    else if (!allowMissingToken && !hasToken) reason = 'No auth token';
+    else if (!hasSupabaseSession) reason = 'No Supabase session';
+    
+    return {
+      hasWallet,
+      hasToken,
+      isConnected,
+      hasEnvVars,
+      hasSupabaseSession,
+      reason
+    };
+  }, [walletAddress, walletAuthToken, isConnected, authenticated, hasEnvVars, allowMissingToken, supabaseAuthenticated, supabaseSession]);
   
-  // Development-only debug logging
+  // Log diagnostics in development
   useEffect(() => {
     if (import.meta.env.DEV) {
-      console.group('useSupabaseWithWallet Diagnostics');
-      console.log('Wallet Address:', walletAddress ? `${walletAddress.substring(0, 8)}...` : 'null');
-      console.log('Auth Token:', walletAuthToken ? 'Available' : 'Missing');
-      console.log('Allow Missing Token:', allowMissingToken);
-      console.log('Wallet Connected:', isConnected);
-      console.log('Privy Authenticated:', authenticated);
-      console.log('Environment Variables:', hasEnvVars ? 'Available' : 'Missing');
-      console.log('Client Initialized:', diagnostics.reason ? `No - ${diagnostics.reason}` : 'Yes');
-      console.groupEnd();
+      console.log('🔍 useSupabaseWithWallet diagnostics:', diagnostics);
     }
-  }, [walletAddress, walletAuthToken, isConnected, authenticated, hasEnvVars, diagnostics, allowMissingToken]);
+  }, [diagnostics, allowMissingToken]);
   
-  // Create Supabase client with wallet auth
+  // Create Supabase client with proper authentication
   const client = useMemo<SupabaseClient<Database> | null>(() => {
-    // Always create client if we have wallet address and we're connected and authenticated via Privy
-    if (!walletAddress || !isConnected || !authenticated) {
+    // Check if we have all required conditions
+    if (!walletAddress || !isConnected || !authenticated || !supabaseAuthenticated) {
       return null;
     }
     
@@ -85,13 +90,22 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
       return null;
     }
     
-    // Log successful client creation in development
-    if (import.meta.env.DEV) {
-      console.log('✓ Creating Supabase client with wallet auth headers', 
-                  walletAuthToken ? 'with token' : 'WITHOUT token (checkout flow)');
+    // Check if we have a valid Supabase session
+    if (!supabaseSession?.access_token) {
+      console.error('No valid Supabase session found');
+      return null;
     }
     
-    // Prepare headers based on whether we have a token or not
+    // Log successful client creation in development
+    if (import.meta.env.DEV) {
+      console.log('✓ Creating Supabase client with proper authentication', {
+        hasToken: !!walletAuthToken,
+        hasSupabaseSession: !!supabaseSession,
+        walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null
+      });
+    }
+    
+    // Prepare headers for wallet-specific authentication
     const headers: Record<string, string> = {
       // Always include wallet address
       'X-Wallet-Address': walletAddress
@@ -101,29 +115,42 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
     if (walletAuthToken) {
       headers['X-Wallet-Auth-Token'] = walletAuthToken;
       headers['X-Authorization'] = `Bearer ${walletAuthToken}`;
-      headers['Authorization'] = `Bearer ${walletAuthToken}`;
     }
     
-    // Create a client with wallet authentication headers
+    // Create a client with Supabase session authentication
     return createClient<Database>(supabaseUrl, supabaseKey, {
       db: {
         schema: 'public'
       },
       auth: {
-        // Skip persisting the session to avoid conflicts with other Supabase instances
+        // Use the session from wallet context
         persistSession: false, 
         autoRefreshToken: false,
-        detectSessionInUrl: false // Don't parse tokens from URL
+        detectSessionInUrl: false,
+        // Set the session manually
+        storage: {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {}
+        }
       },
       global: {
         headers
       }
     });
-  }, [walletAddress, walletAuthToken, isConnected, authenticated, supabaseUrl, supabaseKey, allowMissingToken]);
+  }, [walletAddress, walletAuthToken, isConnected, authenticated, supabaseAuthenticated, supabaseSession, supabaseUrl, supabaseKey, allowMissingToken]);
+  
+  // Set the session on the client if we have one
+  useEffect(() => {
+    if (client && supabaseSession?.access_token) {
+      // Set the session on the client
+      client.auth.setSession(supabaseSession);
+    }
+  }, [client, supabaseSession]);
   
   return {
     client,
-    isAuthenticated: !!walletAuthToken,
+    isAuthenticated: !!client && !!supabaseSession?.access_token,
     walletAddress,
     diagnostics
   };

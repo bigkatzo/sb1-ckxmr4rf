@@ -31,6 +31,7 @@ import { PRIVY_CONFIG } from './config/privy';
 import { initializeMobileWalletAdapter } from './utils/mobileWalletAdapter';
 import { MobileWalletTest } from './components/wallet/MobileWalletTest';
 import { EmbeddedWalletTest } from './components/wallet/EmbeddedWalletTest';
+import { AuthStatus } from './components/debug/AuthStatus';
 
 // Create a client with optimized settings
 const queryClient = new QueryClient({
@@ -225,9 +226,11 @@ export function App() {
                           <AppMessagesProvider>
                             <CartProvider>
                               <AppContent />
-                              {/* Mobile Wallet Test Component - Only show in development */}
+                              {/* Debug Components - Only show in development */}
                               {import.meta.env.DEV && (
                                 <div className="fixed bottom-4 right-4 z-50 space-y-4">
+                                  <AuthStatus />
+                                  
                                   <details className="bg-gray-900 text-white p-4 rounded-lg shadow-lg max-w-sm">
                                     <summary className="cursor-pointer font-semibold text-sm">
                                       🧪 Mobile Wallet Test

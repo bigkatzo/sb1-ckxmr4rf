@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useSupabaseWithWallet } from './useSupabaseWithWallet';
 import { handleError } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
 import { canPreviewHiddenContent } from '../utils/preview';
@@ -11,6 +11,9 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Use the authenticated Supabase client
+  const { client: supabase, isAuthenticated, diagnostics } = useSupabaseWithWallet({ allowMissingToken: true });
 
   useEffect(() => {
     let isMounted = true;
@@ -20,6 +23,12 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
 
     async function fetchProduct() {
       if (!collectionSlug || !productSlug) return;
+
+      // Check if we have an authenticated client
+      if (!supabase || !isAuthenticated) {
+        console.log('Waiting for authenticated Supabase client...', diagnostics);
+        return;
+      }
 
       try {
         // First try to get from cache
@@ -66,6 +75,12 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
     async function fetchFreshProduct(updateLoadingState = true) {
       if (!collectionSlug || !productSlug) return;
 
+      // Check if we have an authenticated client
+      if (!supabase || !isAuthenticated) {
+        console.log('Cannot fetch product: no authenticated Supabase client', diagnostics);
+        return;
+      }
+
       try {
         if (updateLoadingState && isMounted) {
           setLoading(true);
@@ -74,7 +89,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
         // Check if preview mode is enabled OR if we're on a design page
         const includeHidden = canPreviewHiddenContent() || includeHiddenForDesign;
         
-        console.log(`Fetching product with preview mode: ${includeHidden}, collection: ${collectionSlug}, product: ${productSlug}`);
+        console.log(`Fetching product with preview mode: ${includeHidden}, collection: ${collectionSlug}, product: ${productSlug}, authenticated: ${isAuthenticated}`);
         
         let productQuery;
         if (includeHidden) {
@@ -232,7 +247,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
     return () => {
       isMounted = false;
     };
-  }, [collectionSlug, productSlug, includeHiddenForDesign]);
+  }, [collectionSlug, productSlug, includeHiddenForDesign, supabase, isAuthenticated, diagnostics]);
 
   return { product, loading, error };
 }

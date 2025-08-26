@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { usePrivy, useSendTransaction } from '@privy-io/react-auth';
 import { useSolanaWallets } from '@privy-io/react-auth/solana';
 import { Transaction, PublicKey, Connection } from '@solana/web3.js';
-// import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { initializeMobileWalletAdapter, isMobile, isTWA, getBestWallet, detectWallets, getCurrentWallet, signTransactionWithWallet } from '../utils/mobileWalletAdapter';
 import { SOLANA_CONNECTION } from '../config/solana';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
@@ -58,6 +58,9 @@ interface WalletContextType {
   getEmbeddedWalletBalance: () => Promise<number | null>;
   isExportingWallet: boolean;
   transactionHistory: any[];
+  // Supabase authentication state
+  supabaseAuthenticated: boolean;
+  supabaseSession: any;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -89,6 +92,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
   const [isExportingWallet, setIsExportingWallet] = useState(false);
   const [walletBalance, setWalletBalance] = useState<string | null>(null);
   const [transactionHistory, setTransactionHistory] = useState<any[]>([]);
+  // Add Supabase authentication state
+  const [supabaseAuthenticated, setSupabaseAuthenticated] = useState(false);
+  const [supabaseSession, setSupabaseSession] = useState<any>(null);
 
   // Use refs to prevent unnecessary re-renders
   const connectionHandledRef = useRef(false);
@@ -407,7 +413,104 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     }
   }, [authenticated, user, isEmbeddedWallet, walletAddress, addNotification]);
 
-  // Create auth token helper
+  // Authenticate user to Supabase with wallet address
+  const authenticateToSupabase = useCallback(async (walletAddr: string): Promise<boolean> => {
+    if (!walletAddr) {
+      console.warn('Cannot authenticate to Supabase: no wallet address');
+      return false;
+    }
+
+    try {
+      console.log('🔐 Authenticating to Supabase with wallet:', walletAddr);
+      
+      // Create a unique email for the wallet user
+      const walletEmail = `${walletAddr}@wallet.local`;
+      
+      // Try to sign in with the wallet email (this will create a user if it doesn't exist)
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: walletEmail,
+        password: `wallet_${walletAddr.slice(0, 16)}` // Create a deterministic password
+      });
+
+      if (error) {
+        // If user doesn't exist, create one
+        if (error.message.includes('Invalid login credentials')) {
+          console.log('User does not exist, creating new wallet user...');
+          
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: walletEmail,
+            password: `wallet_${walletAddr.slice(0, 16)}`,
+            options: {
+              data: {
+                wallet_address: walletAddr,
+                auth_type: 'wallet',
+                provider: 'privy'
+              }
+            }
+          });
+
+          if (signUpError) {
+            console.error('Error creating wallet user:', signUpError);
+            return false;
+          }
+
+          if (signUpData.user) {
+            console.log('✅ Wallet user created successfully');
+            setSupabaseSession(signUpData.session);
+            setSupabaseAuthenticated(true);
+            return true;
+          }
+        } else {
+          console.error('Error signing in with wallet:', error);
+          return false;
+        }
+      } else if (data.user) {
+        console.log('✅ Wallet user signed in successfully');
+        setSupabaseSession(data.session);
+        setSupabaseAuthenticated(true);
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.error('Error authenticating to Supabase:', err);
+      return false;
+    }
+  }, []);
+
+  // Update wallet address in Supabase user metadata
+  const updateWalletInSupabase = useCallback(async (walletAddr: string): Promise<boolean> => {
+    if (!supabaseSession?.user) {
+      console.warn('Cannot update wallet: no Supabase session');
+      return false;
+    }
+
+    try {
+      console.log('🔄 Updating wallet address in Supabase user metadata...');
+      
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          wallet_address: walletAddr,
+          auth_type: 'wallet',
+          provider: 'privy',
+          last_wallet_update: new Date().toISOString()
+        }
+      });
+
+      if (error) {
+        console.error('Error updating wallet in Supabase:', error);
+        return false;
+      }
+
+      console.log('✅ Wallet address updated in Supabase user metadata');
+      return true;
+    } catch (err) {
+      console.error('Error updating wallet in Supabase:', err);
+      return false;
+    }
+  }, [supabaseSession]);
+
+  // Create auth token helper - updated to include Supabase authentication
   const createAuthToken = useCallback(async (silent: boolean = false, skipValidation: boolean = false): Promise<string | null> => {
     if (!walletAddress || !publicKey) {
       if (!silent) {
@@ -432,12 +535,29 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsAuthInProgress(true);
       
+      // First, ensure user is authenticated to Supabase
+      if (!supabaseAuthenticated) {
+        console.log('🔐 Authenticating to Supabase...');
+        const authSuccess = await authenticateToSupabase(walletAddress);
+        if (!authSuccess) {
+          console.warn('Failed to authenticate to Supabase');
+          if (!silent) {
+            addNotification('error', 'Failed to authenticate with database');
+          }
+          return null;
+        }
+      } else {
+        // Update wallet address in existing session
+        await updateWalletInSupabase(walletAddress);
+      }
+      
       // Create a simple token based on wallet address and timestamp
       const tokenData = {
         walletAddress,
         timestamp: Date.now(),
         chain: 'solana',
-        isEmbeddedWallet
+        isEmbeddedWallet,
+        supabaseUserId: supabaseSession?.user?.id
       };
       
       const token = btoa(JSON.stringify(tokenData));
@@ -468,7 +588,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsAuthInProgress(false);
     }
-  }, [walletAddress, publicKey, walletAuthToken, lastAuthTime, isEmbeddedWallet, addNotification]);
+  }, [walletAddress, publicKey, walletAuthToken, lastAuthTime, isEmbeddedWallet, addNotification, supabaseAuthenticated, supabaseSession, authenticateToSupabase, updateWalletInSupabase]);
 
   // Authenticate helper
   const authenticate = useCallback(async (silent: boolean = false): Promise<string | null> => {
@@ -501,7 +621,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     };
   }, [handleAuthExpiration]);
 
-  // Optimized connection handling - only run when connection state actually changes
+  // Optimized connection handling - updated to include Supabase authentication
   useEffect(() => {
     // Check if connection state has actually changed
     const walletChanged = lastWalletAddressRef.current !== walletAddress;
@@ -523,19 +643,20 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         hasWalletAddress: !!walletAddress,
         walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null,
         isEmbeddedWallet,
-        embeddedWalletAddress: getEmbeddedWalletAddress()
+        embeddedWalletAddress: getEmbeddedWalletAddress(),
+        supabaseAuthenticated
       });
       
       if (isConnected && publicKey) {
         console.log('✅ Wallet connected successfully, creating auth token...');
-        // When wallet first connects, authenticate
+        // When wallet first connects, authenticate to both Privy and Supabase
         const token = await createAuthToken(false, true);
         
         // Show a notification on successful authentication
         if (token) {
           console.log('✅ Auth token created, showing success notification');
           const walletType = isEmbeddedWallet ? 'Embedded wallet' : 'Wallet';
-          addNotification('success', `${walletType} connected`); // Only show 'connected'
+          addNotification('success', `${walletType} connected and authenticated`);
         } else {
           console.log('⚠️ No auth token created, showing basic success notification');
           const walletType = isEmbeddedWallet ? 'Embedded wallet' : 'Wallet';
@@ -567,6 +688,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         // Clear auth token when wallet disconnects
         setWalletAuthToken(null);
         setLastAuthTime(null);
+        setSupabaseAuthenticated(false);
+        setSupabaseSession(null);
         // Clear from session storage
         try {
           sessionStorage.removeItem('walletAuthToken');
@@ -578,7 +701,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     };
     
     handleConnection();
-  }, [isConnected, publicKey, authenticated, walletAddress, isEmbeddedWallet, addNotification, createAuthToken, getEmbeddedWalletAddress]);
+  }, [isConnected, publicKey, authenticated, walletAddress, isEmbeddedWallet, addNotification, createAuthToken, getEmbeddedWalletAddress, supabaseAuthenticated]);
 
   const connect = useCallback(async () => {
     try {
@@ -634,6 +757,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setWalletAuthToken(null);
       setLastAuthTime(null);
       setEmbeddedWalletAddress(null);
+      setSupabaseAuthenticated(false);
+      setSupabaseSession(null);
       
       // Clear from session storage
       try {
@@ -642,6 +767,9 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {
         console.error('Error clearing token from sessionStorage:', e);
       }
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut();
       
       // Then call the native disconnect
       logout();
@@ -781,6 +909,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setLastAuthTime(null);
       setError(null);
       setEmbeddedWalletAddress(null);
+      setSupabaseAuthenticated(false);
+      setSupabaseSession(null);
       
       // Clear from session storage
       try {
@@ -886,13 +1016,16 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       user,
       // Embedded wallet methods
       isEmbeddedWallet,
-      embeddedWalletAddress: getEmbeddedWalletAddress(),
+      embeddedWalletAddress,
       createEmbeddedWallet,
       createSolanaEmbeddedWallet,
       exportEmbeddedWallet,
       getEmbeddedWalletBalance,
       isExportingWallet,
-      transactionHistory
+      transactionHistory,
+      // Add Supabase authentication state
+      supabaseAuthenticated,
+      supabaseSession
     }}>
       {children}
     </WalletContext.Provider>
