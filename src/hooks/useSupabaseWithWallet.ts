@@ -74,13 +74,8 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
   
   // Create Supabase client with proper authentication
   const client = useMemo<SupabaseClient<Database> | null>(() => {
-    // Check if we have all required conditions
-    if (!walletAddress || !isConnected || !authenticated || !supabaseAuthenticated) {
-      return null;
-    }
-    
-    // If we don't allow missing token and don't have a token, return null
-    if (!allowMissingToken && !walletAuthToken) {
+    // Check if we have wallet address and are connected
+    if (!walletAddress || !isConnected || !authenticated) {
       return null;
     }
     
@@ -90,17 +85,12 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
       return null;
     }
     
-    // Check if we have a valid Supabase session
-    if (!supabaseSession?.access_token) {
-      console.error('No valid Supabase session found');
-      return null;
-    }
-    
     // Log successful client creation in development
     if (import.meta.env.DEV) {
-      console.log('✓ Creating Supabase client with proper authentication', {
+      console.log('✓ Creating Supabase client', {
         hasToken: !!walletAuthToken,
-        hasSupabaseSession: !!supabaseSession,
+        hasSupabaseSession: !!supabaseSession?.access_token,
+        supabaseAuthenticated,
         walletAddress: walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}` : null
       });
     }
@@ -117,13 +107,13 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
       headers['X-Authorization'] = `Bearer ${walletAuthToken}`;
     }
     
-    // Create a client with Supabase session authentication
+    // Create a client with wallet authentication headers
     return createClient<Database>(supabaseUrl, supabaseKey, {
       db: {
         schema: 'public'
       },
       auth: {
-        // Use the session from wallet context
+        // Use the session from wallet context if available
         persistSession: false, 
         autoRefreshToken: false,
         detectSessionInUrl: false,
@@ -138,7 +128,7 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
         headers
       }
     });
-  }, [walletAddress, walletAuthToken, isConnected, authenticated, supabaseAuthenticated, supabaseSession, supabaseUrl, supabaseKey, allowMissingToken]);
+  }, [walletAddress, walletAuthToken, isConnected, authenticated, supabaseAuthenticated, supabaseSession, supabaseUrl, supabaseKey]);
   
   // Set the session on the client if we have one
   useEffect(() => {
@@ -150,7 +140,7 @@ export function useSupabaseWithWallet(options?: { allowMissingToken?: boolean })
   
   return {
     client,
-    isAuthenticated: !!client && !!supabaseSession?.access_token,
+    isAuthenticated: !!client && (!!supabaseSession?.access_token || supabaseAuthenticated),
     walletAddress,
     diagnostics
   };

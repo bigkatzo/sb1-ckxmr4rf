@@ -24,9 +24,9 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
     async function fetchProduct() {
       if (!collectionSlug || !productSlug) return;
 
-      // Check if we have an authenticated client
-      if (!supabase || !isAuthenticated) {
-        console.log('Waiting for authenticated Supabase client...', diagnostics);
+      // Check if we have a client (even if not fully authenticated)
+      if (!supabase) {
+        console.log('Waiting for Supabase client...', diagnostics);
         return;
       }
 
@@ -75,9 +75,9 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
     async function fetchFreshProduct(updateLoadingState = true) {
       if (!collectionSlug || !productSlug) return;
 
-      // Check if we have an authenticated client
-      if (!supabase || !isAuthenticated) {
-        console.log('Cannot fetch product: no authenticated Supabase client', diagnostics);
+      // Check if we have a client
+      if (!supabase) {
+        console.log('Cannot fetch product: no Supabase client', diagnostics);
         return;
       }
 

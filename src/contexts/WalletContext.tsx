@@ -425,11 +425,12 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       
       // Create a unique email for the wallet user
       const walletEmail = `${walletAddr}@wallet.local`;
+      const walletPassword = `wallet_${walletAddr.slice(0, 16)}`;
       
-      // Try to sign in with the wallet email (this will create a user if it doesn't exist)
+      // First, try to sign in with the wallet email
       const { data, error } = await supabase.auth.signInWithPassword({
         email: walletEmail,
-        password: `wallet_${walletAddr.slice(0, 16)}` // Create a deterministic password
+        password: walletPassword
       });
 
       if (error) {
@@ -439,7 +440,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
           
           const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
             email: walletEmail,
-            password: `wallet_${walletAddr.slice(0, 16)}`,
+            password: walletPassword,
             options: {
               data: {
                 wallet_address: walletAddr,
@@ -456,7 +457,113 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
 
           if (signUpData.user) {
             console.log('✅ Wallet user created successfully');
-            setSupabaseSession(signUpData.session);
+            
+            // If we have a session from signup, use it
+            if (signUpData.session) {
+              console.log('✅ Got session from signup');
+              setSupabaseSession(signUpData.session);
+              setSupabaseAuthenticated(true);
+              return true;
+            } else {
+              // User created but no session (email confirmation required)
+              console.log('⚠️ User created but email confirmation required, trying to sign in...');
+              
+              // Try to sign in immediately after creating the user
+              const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                email: walletEmail,
+                password: walletPassword
+              });
+              
+              if (signInError) {
+                console.log('⚠️ Sign in failed after user creation:', signInError.message);
+                
+                // Try using the Netlify function as a fallback
+                console.log('🔄 Trying Netlify function fallback...');
+                try {
+                  const response = await fetch('/.netlify/functions/create-wallet-user', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      walletAddress: walletAddr
+                    })
+                  });
+                  
+                  if (response.ok) {
+                    const { session: newSession } = await response.json();
+                    
+                    if (newSession) {
+                      console.log('✅ Wallet user created successfully via Netlify function');
+                      setSupabaseSession(newSession);
+                      setSupabaseAuthenticated(true);
+                      return true;
+                    }
+                  } else {
+                    console.error('Netlify function failed:', response.statusText);
+                  }
+                } catch (functionError) {
+                  console.error('Error calling Netlify function:', functionError);
+                }
+                
+                // For now, we'll just return false and let the app work with wallet headers
+                return false;
+              }
+              
+              if (signInData.session) {
+                console.log('✅ Successfully signed in after user creation');
+                setSupabaseSession(signInData.session);
+                setSupabaseAuthenticated(true);
+                return true;
+              }
+            }
+          }
+        } else if (error.message.includes('Email not confirmed')) {
+          console.log('⚠️ Email not confirmed for existing wallet user');
+          
+          // Try using the Netlify function to create/confirm the user
+          console.log('🔄 Trying Netlify function to handle email confirmation...');
+          try {
+            const response = await fetch('/.netlify/functions/create-wallet-user', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                walletAddress: walletAddr
+              })
+            });
+            
+            if (response.ok) {
+              const { session: newSession } = await response.json();
+              
+              if (newSession) {
+                console.log('✅ Wallet user authenticated successfully via Netlify function');
+                setSupabaseSession(newSession);
+                setSupabaseAuthenticated(true);
+                return true;
+              }
+            } else {
+              console.error('Netlify function failed:', response.statusText);
+            }
+          } catch (functionError) {
+            console.error('Error calling Netlify function:', functionError);
+          }
+          
+          // Try to sign in again - sometimes this works even with unconfirmed email
+          const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+            email: walletEmail,
+            password: walletPassword
+          });
+          
+          if (retryError) {
+            console.log('⚠️ Retry sign in failed:', retryError.message);
+            return false;
+          }
+          
+          if (retryData.session) {
+            console.log('✅ Successfully signed in on retry');
+            setSupabaseSession(retryData.session);
             setSupabaseAuthenticated(true);
             return true;
           }
