@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useWallet } from '../../contexts/WalletContext';
 import { PublicKey } from '@solana/web3.js';
 import { debugChainInfo, validateSolanaConnection } from '../../utils/test-solana-chain';
+import { getCurrentWallet, signTransactionWithWallet, getDebugInfo } from '../../utils/mobileWalletAdapter';
 
 export function WalletDebugger() {
   const { 
@@ -49,16 +50,9 @@ export function WalletDebugger() {
     try {
       if (walletAddress) {
         addLog(`Wallet address: ${walletAddress}`);
-        addLog(`Address length: ${walletAddress.length}`);
-        addLog(`Base58 format check: ${/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress)}`);
-        
-        try {
-          const testKey = new PublicKey(walletAddress);
-          addLog(`✅ PublicKey creation successful: ${testKey.toBase58()}`);
-        } catch (error) {
-          addLog(`❌ PublicKey creation failed: ${error}`);
-          addLog('This indicates a base58 format error - likely an Ethereum address instead of Solana');
-        }
+        const pubkey = new PublicKey(walletAddress);
+        addLog(`PublicKey validation: ${pubkey.toString()}`);
+        addLog(`Is on curve: ${PublicKey.isOnCurve(pubkey.toBytes())}`);
       } else {
         addLog('No wallet address available');
       }
@@ -66,111 +60,154 @@ export function WalletDebugger() {
       addLog(`Error during address validation: ${error}`);
     }
 
-    // Test 3: Privy User Object
-    addLog('=== Privy User Object ===');
+    // Test 3: Current Wallet Detection
+    addLog('=== Current Wallet Detection ===');
     try {
-      if (user) {
-        addLog(`User authenticated: ${authenticated}`);
-        addLog(`User ready: ${ready}`);
-        addLog(`User wallet address: ${user.wallet?.address || 'No address'}`);
-        addLog(`User wallet chainId: ${user.wallet?.chainId || 'No chainId'}`);
-        addLog(`User wallet chainType: ${user.wallet?.chainType || 'No chainType'}`);
-        addLog(`User wallet clientType: ${user.wallet?.walletClientType || 'No clientType'}`);
-      } else {
-        addLog('No user object available');
+      const currentWallet = getCurrentWallet();
+      addLog(`Current wallet detected: ${currentWallet || 'None'}`);
+      
+      // Check specific wallet availability
+      addLog(`Phantom available: ${!!(window as any).phantom?.solana}`);
+      addLog(`Solflare available: ${!!(window as any).solflare}`);
+      addLog(`Backpack available: ${!!(window as any).backpack}`);
+      addLog(`Generic solana available: ${!!(window as any).solana}`);
+      
+      // If Solflare is detected, test its methods
+      if ((window as any).solflare) {
+        addLog('=== Solflare Specific Tests ===');
+        const solflare = (window as any).solflare;
+        addLog(`Solflare isSolflare: ${solflare.isSolflare || 'undefined'}`);
+        addLog(`Solflare connect method: ${typeof solflare.connect}`);
+        addLog(`Solflare signAndSendTransaction method: ${typeof solflare.signAndSendTransaction}`);
+        addLog(`Solflare signTransaction method: ${typeof solflare.signTransaction}`);
+        addLog(`Solflare disconnect method: ${typeof solflare.disconnect}`);
       }
     } catch (error) {
-      addLog(`Error during user object inspection: ${error}`);
+      addLog(`Error during wallet detection: ${error}`);
     }
 
-    // Test 4: Environment Detection
-    addLog('=== Environment Detection ===');
-    addLog(`User Agent: ${navigator.userAgent}`);
-    addLog(`Location: ${window.location.href}`);
-    addLog(`Referrer: ${document.referrer || 'None'}`);
-    addLog(`Platform: ${navigator.platform}`);
-    addLog(`Language: ${navigator.language}`);
-
-    // Test 5: Privy Status
-    addLog('=== Privy Status ===');
-    addLog(`Ready: ${ready}`);
-    addLog(`Authenticated: ${authenticated}`);
-    addLog(`Connected: ${isConnected}`);
-    addLog(`Wallet Address: ${walletAddress || 'None'}`);
-
-    // Test 6: User Object Analysis
-    addLog('=== User Object Analysis ===');
-    if (user) {
-      addLog(`User ID: ${user.id || 'None'}`);
-      addLog(`User Type: ${user.type || 'None'}`);
-      addLog(`Linked Accounts: ${user.linkedAccounts?.length || 0}`);
-      
-      if (user.linkedAccounts) {
-        user.linkedAccounts.forEach((account: any, index: number) => {
-          addLog(`  Account ${index + 1}: ${account.type} - ${account.address || 'No address'}`);
-        });
-      }
-      
-      if (user.wallet) {
-        addLog(`Wallet Type: ${user.wallet.type || 'None'}`);
-        addLog(`Wallet Address: ${user.wallet.address || 'None'}`);
-        addLog(`Wallet Chain: ${user.wallet.chainId || 'None'}`);
-      }
-    } else {
-      addLog('No user object available');
-    }
-
-    // Test 7: Window Object Analysis
-    addLog('=== Window Object Analysis ===');
-    const windowKeys = Object.keys(window).filter(key => 
-      key.toLowerCase().includes('phantom') || 
-      key.toLowerCase().includes('solana') || 
-      key.toLowerCase().includes('solflare') || 
-      key.toLowerCase().includes('backpack') ||
-      key.toLowerCase().includes('privy')
-    );
-    addLog(`Relevant window keys: ${windowKeys.join(', ')}`);
-
-    // Test 8: Deep Object Inspection
-    addLog('=== Deep Object Inspection ===');
+    // Test 4: Debug Info
+    addLog('=== Environment Debug Info ===');
     try {
-      if ((window as any).phantom) {
-        addLog('window.phantom exists');
-        addLog(`window.phantom.solana: ${!!(window as any).phantom?.solana}`);
-        addLog(`window.phantom.isPhantom: ${!!(window as any).phantom?.isPhantom}`);
-      } else {
-        addLog('window.phantom does not exist');
-      }
-
-      if ((window as any).solana) {
-        addLog('window.solana exists');
-        addLog(`window.solana.isPhantom: ${!!(window as any).solana?.isPhantom}`);
-        addLog(`window.solana.isSolflare: ${!!(window as any).solana?.isSolflare}`);
-        addLog(`window.solana.isBackpack: ${!!(window as any).solana?.isBackpack}`);
-      } else {
-        addLog('window.solana does not exist');
-      }
-
-      if ((window as any).privy) {
-        addLog('window.privy exists');
-        addLog(`window.privy: ${typeof (window as any).privy}`);
-      } else {
-        addLog('window.privy does not exist');
-      }
+      const debugInfo = getDebugInfo();
+      addLog(`Environment: ${JSON.stringify(debugInfo.environment, null, 2)}`);
+      addLog(`Best wallet: ${debugInfo.bestWallet}`);
+      addLog(`Window wallets: ${JSON.stringify(debugInfo.window, null, 2)}`);
     } catch (error) {
-      addLog(`Error during deep inspection: ${error}`);
+      addLog(`Error getting debug info: ${error}`);
     }
 
-    // Test 9: Connection Test
-    addLog('=== Connection Test ===');
-    if (isConnected) {
-      addLog('Wallet is connected');
-      addLog(`Connected Address: ${walletAddress}`);
-    } else {
-      addLog('Wallet is not connected');
+    // Test 5: Transaction Signing Test (if wallet is connected)
+    if (isConnected && walletAddress) {
+      addLog('=== Transaction Signing Test ===');
+      try {
+        // Create a simple test transaction
+        const { Transaction, SystemProgram, PublicKey } = await import('@solana/web3.js');
+        const testTransaction = new Transaction();
+        
+        // Add a simple transfer instruction (this won't actually execute)
+        testTransaction.add(
+          SystemProgram.transfer({
+            fromPubkey: new PublicKey(walletAddress),
+            toPubkey: new PublicKey(walletAddress), // Send to self for testing
+            lamports: 0, // Zero amount for testing
+          })
+        );
+        
+        addLog('Test transaction created successfully');
+        addLog(`Transaction instructions: ${testTransaction.instructions.length}`);
+        
+        // Try to sign the transaction
+        const currentWallet = getCurrentWallet();
+        if (currentWallet) {
+          addLog(`Attempting to sign with ${currentWallet}...`);
+          try {
+            const signature = await signTransactionWithWallet(testTransaction, currentWallet);
+            addLog(`✅ Transaction signed successfully: ${signature}`);
+          } catch (signError) {
+            addLog(`❌ Transaction signing failed: ${signError}`);
+            addLog(`Error details: ${JSON.stringify(signError, null, 2)}`);
+          }
+        } else {
+          addLog('No wallet detected for transaction signing test');
+        }
+      } catch (error) {
+        addLog(`Error during transaction test: ${error}`);
+      }
     }
 
     addLog('=== Test Complete ===');
+  };
+
+  const testSolflareTransaction = async () => {
+    setLogs([]);
+    addLog('=== Solflare Transaction Test ===');
+    
+    if (!(window as any).solflare) {
+      addLog('❌ Solflare wallet not detected');
+      return;
+    }
+    
+    if (!isConnected || !walletAddress) {
+      addLog('❌ Wallet not connected');
+      return;
+    }
+    
+    try {
+      const solflare = (window as any).solflare;
+      addLog(`✅ Solflare detected: ${solflare.isSolflare || 'isSolflare not set'}`);
+      addLog(`✅ Wallet connected: ${walletAddress}`);
+      
+      // Test Solflare methods
+      addLog('Testing Solflare methods...');
+      addLog(`connect: ${typeof solflare.connect}`);
+      addLog(`signAndSendTransaction: ${typeof solflare.signAndSendTransaction}`);
+      addLog(`signTransaction: ${typeof solflare.signTransaction}`);
+      addLog(`disconnect: ${typeof solflare.disconnect}`);
+      
+      // Create a test transaction
+      const { Transaction, SystemProgram, PublicKey } = await import('@solana/web3.js');
+      const testTransaction = new Transaction();
+      
+      // Add a simple transfer instruction (this won't actually execute)
+      testTransaction.add(
+        SystemProgram.transfer({
+          fromPubkey: new PublicKey(walletAddress),
+          toPubkey: new PublicKey(walletAddress), // Send to self for testing
+          lamports: 0, // Zero amount for testing
+        })
+      );
+      
+      addLog('✅ Test transaction created');
+      
+      // Try to sign with Solflare directly
+      addLog('Attempting to sign transaction with Solflare...');
+      try {
+        const result = await solflare.signAndSendTransaction(testTransaction);
+        const signature = result.signature || result;
+        addLog(`✅ Solflare transaction signed successfully: ${signature}`);
+      } catch (error) {
+        addLog(`❌ Solflare transaction signing failed: ${error}`);
+        addLog(`Error type: ${error instanceof Error ? error.constructor.name : 'Unknown'}`);
+        addLog(`Error message: ${error instanceof Error ? error.message : String(error)}`);
+        addLog(`Error stack: ${error instanceof Error ? error.stack : 'No stack trace'}`);
+        
+        // Try alternative approach
+        addLog('Trying alternative signing approach...');
+        try {
+          const signedTx = await solflare.signTransaction(testTransaction);
+          addLog('✅ Transaction signed (but not sent)');
+          addLog(`Signed transaction: ${signedTx.signatures.length} signatures`);
+        } catch (signError) {
+          addLog(`❌ Alternative signing also failed: ${signError instanceof Error ? signError.message : String(signError)}`);
+        }
+      }
+      
+    } catch (error) {
+      addLog(`❌ Test failed: ${error}`);
+    }
+    
+    addLog('=== Solflare Test Complete ===');
   };
 
   const testWalletConnection = async () => {
@@ -279,6 +316,12 @@ export function WalletDebugger() {
             className="bg-purple-600 text-white px-2 py-1 rounded text-xs hover:bg-purple-700"
           >
             Test Chain
+          </button>
+          <button
+            onClick={testSolflareTransaction}
+            className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
+          >
+            Solflare Transaction Test
           </button>
         </div>
       </div>

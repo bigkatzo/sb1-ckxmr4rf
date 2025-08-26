@@ -320,6 +320,112 @@ export function getDebugInfo() {
 }
 
 /**
+ * Detect which wallet is currently connected and available for transactions
+ */
+export function getCurrentWallet(): string | null {
+  if ((window as any).phantom?.solana) {
+    return 'phantom';
+  } else if ((window as any).solflare) {
+    return 'solflare';
+  } else if ((window as any).backpack) {
+    return 'backpack';
+  } else if ((window as any).solana) {
+    return 'generic-solana';
+  }
+  return null;
+}
+
+/**
+ * Get wallet-specific transaction signing method
+ */
+export async function signTransactionWithWallet(transaction: any, walletType?: string): Promise<string> {
+  const currentWallet = walletType || getCurrentWallet();
+  
+  console.log(`Attempting to sign transaction with wallet: ${currentWallet}`);
+  console.log('Transaction details:', {
+    instructions: transaction.instructions?.length || 0,
+    feePayer: transaction.feePayer?.toString(),
+    recentBlockhash: transaction.recentBlockhash,
+    signatures: transaction.signatures?.length || 0
+  });
+  
+  try {
+    let result: any;
+    
+    switch (currentWallet) {
+      case 'phantom':
+        if (!(window as any).phantom?.solana) {
+          throw new Error('Phantom wallet not found');
+        }
+        console.log('Using Phantom wallet for transaction signing');
+        result = await (window as any).phantom.solana.signAndSendTransaction(transaction);
+        break;
+        
+      case 'solflare':
+        if (!(window as any).solflare) {
+          throw new Error('Solflare wallet not found');
+        }
+        console.log('Using Solflare wallet for transaction signing');
+        
+        // Additional Solflare-specific debugging
+        const solflare = (window as any).solflare;
+        console.log('Solflare wallet details:', {
+          isSolflare: solflare.isSolflare,
+          hasConnect: typeof solflare.connect === 'function',
+          hasSignAndSendTransaction: typeof solflare.signAndSendTransaction === 'function',
+          hasSignTransaction: typeof solflare.signTransaction === 'function',
+          hasDisconnect: typeof solflare.disconnect === 'function'
+        });
+        
+        result = await solflare.signAndSendTransaction(transaction);
+        break;
+        
+      case 'backpack':
+        if (!(window as any).backpack) {
+          throw new Error('Backpack wallet not found');
+        }
+        console.log('Using Backpack wallet for transaction signing');
+        result = await (window as any).backpack.signAndSendTransaction(transaction);
+        break;
+        
+      case 'generic-solana':
+        if (!(window as any).solana) {
+          throw new Error('Generic Solana wallet not found');
+        }
+        console.log('Using generic Solana wallet for transaction signing');
+        result = await (window as any).solana.signAndSendTransaction(transaction);
+        break;
+        
+      default:
+        throw new Error(`Unsupported wallet type: ${currentWallet}`);
+    }
+    
+    const signature = result.signature || result;
+    console.log(`✅ Transaction signed successfully with ${currentWallet}:`, signature);
+    return signature;
+    
+  } catch (error) {
+    console.error(`❌ Failed to sign transaction with ${currentWallet}:`, error);
+    
+    // Provide more detailed error information for debugging
+    if (currentWallet === 'solflare') {
+      console.error('Solflare-specific error details:', {
+        errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : String(error),
+        solflareAvailable: !!(window as any).solflare,
+        solflareMethods: (window as any).solflare ? {
+          connect: typeof (window as any).solflare.connect,
+          signAndSendTransaction: typeof (window as any).solflare.signAndSendTransaction,
+          signTransaction: typeof (window as any).solflare.signTransaction
+        } : 'Solflare not available'
+      });
+    }
+    
+    throw error;
+  }
+}
+
+/**
  * Initialize mobile wallet adapter with enhanced TWA support
  */
 export function initializeMobileWalletAdapter(config: Partial<MobileWalletAdapterConfig> = {}): void {
