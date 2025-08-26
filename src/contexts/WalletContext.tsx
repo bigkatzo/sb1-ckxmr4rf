@@ -3,7 +3,7 @@ import { usePrivy, useSendTransaction } from '@privy-io/react-auth';
 import { useSolanaWallets } from '@privy-io/react-auth/solana';
 import { Transaction, PublicKey, Connection } from '@solana/web3.js';
 // import { supabase } from '../lib/supabase';
-import { initializeMobileWalletAdapter, isMobile, isTWA, getBestWallet, detectWallets } from '../utils/mobileWalletAdapter';
+import { initializeMobileWalletAdapter, isMobile, isTWA, getBestWallet, detectWallets, getCurrentWallet, signTransactionWithWallet } from '../utils/mobileWalletAdapter';
 import { SOLANA_CONNECTION } from '../config/solana';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
@@ -727,13 +727,25 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         }
         
       } else {
-        // External wallet handling
-        if (!(window as any).solana) {
-          throw new Error('No Solana wallet found. Please install Phantom or another Solana wallet.');
-        }
+        // External wallet handling - detect which wallet is being used
+        console.log('Detecting external wallet for transaction signing...');
         
-        const result = await (window as any).solana.signAndSendTransaction(transaction);
-        return result.signature || result;
+        try {
+          const signature = await signTransactionWithWallet(transaction);
+          return signature;
+        } catch (walletError) {
+          console.error('Wallet transaction signing failed:', walletError);
+          
+          // Provide more specific error messages based on the wallet type
+          const currentWallet = getCurrentWallet();
+          if (currentWallet === 'solflare') {
+            throw new Error(`Solflare transaction failed: ${walletError instanceof Error ? walletError.message : 'Unknown error'}. Please ensure Solflare is unlocked and try again.`);
+          } else if (currentWallet === 'phantom') {
+            throw new Error(`Phantom transaction failed: ${walletError instanceof Error ? walletError.message : 'Unknown error'}. Please ensure Phantom is unlocked and try again.`);
+          } else {
+            throw new Error(`Wallet transaction failed: ${walletError instanceof Error ? walletError.message : 'Unknown error'}`);
+          }
+        }
       }
       
     } catch (error) {
