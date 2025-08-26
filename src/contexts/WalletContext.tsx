@@ -731,13 +731,21 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         console.log('Detecting external wallet for transaction signing...');
         
         try {
-          const signature = await signTransactionWithWallet(transaction);
+          // Pass linked accounts to get the actual connected wallet type
+          const currentWallet = getCurrentWallet(user?.linkedAccounts);
+          console.log(`Detected wallet type: ${currentWallet}`);
+          
+          if (!currentWallet) {
+            throw new Error('No wallet detected. Please ensure your wallet is connected and unlocked.');
+          }
+          
+          const signature = await signTransactionWithWallet(transaction, currentWallet);
           return signature;
         } catch (walletError) {
           console.error('Wallet transaction signing failed:', walletError);
           
           // Provide more specific error messages based on the wallet type
-          const currentWallet = getCurrentWallet();
+          const currentWallet = getCurrentWallet(user?.linkedAccounts);
           if (currentWallet === 'solflare') {
             throw new Error(`Solflare transaction failed: ${walletError instanceof Error ? walletError.message : 'Unknown error'}. Please ensure Solflare is unlocked and try again.`);
           } else if (currentWallet === 'phantom') {
@@ -761,7 +769,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
     ensureAuthenticated, 
     isEmbeddedWallet, 
     sendTransaction,
-    solanaWallets
+    solanaWallets,
+    user?.linkedAccounts
   ]);
 
   // Force disconnect utility

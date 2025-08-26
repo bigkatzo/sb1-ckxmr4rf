@@ -121,6 +121,8 @@ try {
 - ✅ Added proper Solflare wallet detection
 - ✅ Implemented wallet-specific transaction signing
 - ✅ Added fallback mechanisms for different wallet types
+- ✅ **NEW**: Enhanced wallet detection to prioritize the actually connected wallet from Privy's `linkedAccounts`
+- ✅ **NEW**: Fixed issue where "Best wallet found: phantom" appeared even when using Solflare
 
 ### 2. Type Definitions
 - ✅ Updated global type definitions to include complete Solflare interface
@@ -135,6 +137,7 @@ try {
 - ✅ Added comprehensive wallet debugging component
 - ✅ Created Solflare-specific transaction test
 - ✅ Enhanced logging and error reporting
+- ✅ **NEW**: Debug component now shows actual connected wallet type from Privy
 
 ## Testing Checklist
 
@@ -160,13 +163,19 @@ If you're still experiencing issues:
 
 ### Wallet Detection Order
 The application now detects wallets in this order:
-1. Phantom (`window.phantom.solana`)
-2. Solflare (`window.solflare`)
-3. Backpack (`window.backpack`)
-4. Generic Solana (`window.solana`)
+1. **Connected wallet from Privy** (`user.linkedAccounts` with `walletClientType`)
+2. Phantom (`window.phantom.solana`)
+3. Solflare (`window.solflare`)
+4. Backpack (`window.backpack`)
+5. Generic Solana (`window.solana`)
+
+### How Wallet Detection Works
+1. **Primary**: Check `user.linkedAccounts` for the actual connected wallet type
+2. **Secondary**: If no linked accounts or embedded wallet, check browser extensions
+3. **Fallback**: Use generic Solana interface if available
 
 ### Transaction Signing Flow
-1. Detect current wallet type
+1. Detect current wallet type from Privy's linked accounts
 2. Validate wallet methods are available
 3. Prepare transaction with proper blockhash and fee payer
 4. Use wallet-specific signing method

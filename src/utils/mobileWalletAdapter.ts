@@ -267,12 +267,36 @@ export async function connectToWallet(walletName: string): Promise<boolean> {
 /**
  * Get the best available wallet for the current environment
  */
-export function getBestWallet(): string | null {
+export function getBestWallet(linkedAccounts?: any[]): string | null {
   const wallets = detectWallets();
   const isTWAEnv = isTWA();
   const isMobileEnv = isMobile();
   
   console.log('Environment check:', { isTWA: isTWAEnv, isMobile: isMobileEnv });
+  
+  // First, check if we have a connected wallet from Privy
+  if (linkedAccounts && linkedAccounts.length > 0) {
+    const connectedWallet = linkedAccounts.find((account: any) => 
+      account.type === 'wallet' && (account as any).walletClientType
+    );
+    
+    if (connectedWallet) {
+      const walletClientType = (connectedWallet as any).walletClientType;
+      console.log(`🔍 Found connected wallet: ${walletClientType}`);
+      
+      // If the connected wallet is available as an extension, prioritize it
+      const walletName = walletClientType.toLowerCase();
+      if (wallets[walletName] && wallets[walletName].isAvailable) {
+        console.log(`✅ Connected wallet ${walletName} is available as extension`);
+        return walletName;
+      } else {
+        console.log(`⚠️ Connected wallet ${walletName} is not available as extension, but user is connected`);
+        // Still return the connected wallet type even if extension isn't available
+        // This handles cases where Privy is managing the connection
+        return walletName;
+      }
+    }
+  }
   
   // Priority order: Phantom > Solflare > Backpack
   const priority = ['phantom', 'solflare', 'backpack'];
@@ -297,7 +321,7 @@ export function getBestWallet(): string | null {
 /**
  * Get debug information for troubleshooting
  */
-export function getDebugInfo() {
+export function getDebugInfo(linkedAccounts?: any[]) {
   return {
     environment: {
       isTWA: isTWA(),
@@ -308,7 +332,14 @@ export function getDebugInfo() {
       platform: navigator.platform,
     },
     wallets: detectWallets(),
-    bestWallet: getBestWallet(),
+    bestWallet: getBestWallet(linkedAccounts),
+    currentWallet: getCurrentWallet(linkedAccounts),
+    linkedAccounts: linkedAccounts?.map((account: any) => ({
+      type: account.type,
+      walletClientType: (account as any).walletClientType,
+      chainType: (account as any).chainType,
+      address: (account as any).address
+    })) || [],
     window: {
       hasPhantom: !!(window as any).phantom,
       hasSolflare: !!(window as any).solflare,
@@ -322,7 +353,37 @@ export function getDebugInfo() {
 /**
  * Detect which wallet is currently connected and available for transactions
  */
-export function getCurrentWallet(): string | null {
+export function getCurrentWallet(linkedAccounts?: any[]): string | null {
+  // First, check if we have linked accounts from Privy to determine the actual connected wallet
+  if (linkedAccounts && linkedAccounts.length > 0) {
+    // Find the first wallet account
+    const walletAccount = linkedAccounts.find((account: any) => 
+      account.type === 'wallet' && (account as any).walletClientType
+    );
+    
+    if (walletAccount) {
+      const walletClientType = (walletAccount as any).walletClientType;
+      console.log(`🔍 Found connected wallet from Privy: ${walletClientType}`);
+      
+      // Map wallet client types to our detection logic
+      switch (walletClientType.toLowerCase()) {
+        case 'phantom':
+          return 'phantom';
+        case 'solflare':
+          return 'solflare';
+        case 'backpack':
+          return 'backpack';
+        case 'privy':
+          // For embedded wallets, we need to check what's available
+          console.log('Embedded wallet detected, checking available extensions...');
+          break;
+        default:
+          console.log(`Unknown wallet client type: ${walletClientType}`);
+      }
+    }
+  }
+  
+  // Fallback to browser extension detection if no linked accounts or embedded wallet
   if ((window as any).phantom?.solana) {
     return 'phantom';
   } else if ((window as any).solflare) {
@@ -332,6 +393,7 @@ export function getCurrentWallet(): string | null {
   } else if ((window as any).solana) {
     return 'generic-solana';
   }
+  
   return null;
 }
 

@@ -63,8 +63,18 @@ export function WalletDebugger() {
     // Test 3: Current Wallet Detection
     addLog('=== Current Wallet Detection ===');
     try {
-      const currentWallet = getCurrentWallet();
+      const currentWallet = getCurrentWallet(user?.linkedAccounts);
       addLog(`Current wallet detected: ${currentWallet || 'None'}`);
+      
+      // Show linked accounts information
+      if (user?.linkedAccounts) {
+        addLog(`Linked accounts count: ${user.linkedAccounts.length}`);
+        user.linkedAccounts.forEach((account: any, index: number) => {
+          if (account.type === 'wallet') {
+            addLog(`  Wallet ${index + 1}: ${(account as any).walletClientType || 'unknown'} (${(account as any).chainType || 'unknown chain'})`);
+          }
+        });
+      }
       
       // Check specific wallet availability
       addLog(`Phantom available: ${!!(window as any).phantom?.solana}`);
@@ -89,9 +99,11 @@ export function WalletDebugger() {
     // Test 4: Debug Info
     addLog('=== Environment Debug Info ===');
     try {
-      const debugInfo = getDebugInfo();
+      const debugInfo = getDebugInfo(user?.linkedAccounts);
       addLog(`Environment: ${JSON.stringify(debugInfo.environment, null, 2)}`);
       addLog(`Best wallet: ${debugInfo.bestWallet}`);
+      addLog(`Current wallet: ${debugInfo.currentWallet}`);
+      addLog(`Linked accounts: ${JSON.stringify(debugInfo.linkedAccounts, null, 2)}`);
       addLog(`Window wallets: ${JSON.stringify(debugInfo.window, null, 2)}`);
     } catch (error) {
       addLog(`Error getting debug info: ${error}`);
@@ -118,7 +130,7 @@ export function WalletDebugger() {
         addLog(`Transaction instructions: ${testTransaction.instructions.length}`);
         
         // Try to sign the transaction
-        const currentWallet = getCurrentWallet();
+        const currentWallet = getCurrentWallet(user?.linkedAccounts);
         if (currentWallet) {
           addLog(`Attempting to sign with ${currentWallet}...`);
           try {
@@ -142,6 +154,14 @@ export function WalletDebugger() {
   const testSolflareTransaction = async () => {
     setLogs([]);
     addLog('=== Solflare Transaction Test ===');
+    
+    // Check if Solflare is the actual connected wallet
+    const currentWallet = getCurrentWallet(user?.linkedAccounts);
+    if (currentWallet !== 'solflare') {
+      addLog(`❌ Solflare is not the connected wallet. Current wallet: ${currentWallet}`);
+      addLog('This test is only for Solflare wallets. Please connect Solflare first.');
+      return;
+    }
     
     if (!(window as any).solflare) {
       addLog('❌ Solflare wallet not detected');
