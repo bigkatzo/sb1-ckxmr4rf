@@ -36,6 +36,12 @@ interface PublicProduct {
   sales_count?: number;
   notes?: Record<string, string>;
   free_notes?: string;
+  // Add customization fields
+  is_customizable?: string;
+  customization?: {
+    image?: boolean;
+    text?: boolean;
+  };
 }
 
 export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sales') {
@@ -131,7 +137,9 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
             notes: product.notes,
             free_notes: product.free_notes,
             hasValidNotes,
-            freeNotesValue
+            freeNotesValue,
+            is_customizable: product.is_customizable,
+            customization: product.customization
           });
 
           return {
@@ -170,7 +178,10 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
             priceModifierAfterMin: product.price_modifier_after_min ?? null,
             salesCount: product.sales_count || 0,
             notes: hasValidNotes ? product.notes : undefined,
-            freeNotes: freeNotesValue
+            freeNotes: freeNotesValue,
+            // Add customization fields from the get_trending_products response
+            isCustomizable: product.is_customizable ?? "no",
+            customization: product.customization || { image: false, text: false }
           };
         });
 
