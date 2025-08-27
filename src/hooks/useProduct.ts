@@ -92,8 +92,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
         console.log(`Fetching product with preview mode: ${includeHidden}, collection: ${collectionSlug}, product: ${productSlug}, authenticated: ${isAuthenticated}`);
         
         let productQuery;
-        if (includeHidden) {
-          // When in preview mode or design page, fetch from products table with joins
+        if (includeHidden && !includeHiddenForDesign) {
+          // When in preview mode (but not design page), fetch from products table with joins
           productQuery = supabase
             .from('products')
             .select(`
@@ -121,7 +121,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
             .eq('slug', productSlug)
             .eq('collections.slug', collectionSlug);
         } else {
-          // Use public_products_with_categories view which includes collection_owner_merchant_tier
+          // Use public_products_with_categories view for design pages and regular pages
           productQuery = supabase
           .from('public_products_with_categories')
           .select('*')
@@ -144,8 +144,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
 
         // Extract merchant tier from different query structures
         let collectionOwnerMerchantTier;
-        if (includeHidden) {
-          // In preview mode, we need to fetch merchant tier separately from user_profiles
+        if (includeHidden && !includeHiddenForDesign) {
+          // In preview mode (but not design page), we need to fetch merchant tier separately from user_profiles
           // For now, let's set it to null and fetch it later if needed
           collectionOwnerMerchantTier = null;
           
@@ -165,13 +165,13 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
             }
           }
         } else {
-          // In normal mode, it comes directly from the view
+          // In normal mode and design pages, it comes directly from the view
           collectionOwnerMerchantTier = data.collection_owner_merchant_tier;
         }
 
         const transformedProduct: Product = {
           id: data.id,
-          sku: data.sku,
+          sku: data.sku || '',
           name: data.name,
           description: data.description,
           price: data.price,
