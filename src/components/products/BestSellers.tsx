@@ -8,6 +8,14 @@ import { BestSellersSkeleton } from '../ui/Skeletons';
 import type { Product as VariantsProduct } from '../../types/variants';
 import { useCurrency } from '../../contexts/CurrencyContext';
 
+// Add interface for customization data
+interface CustomizationData {
+  image?: File | null;
+  text?: string;
+  imagePreview?: string;
+  imageBase64?: string;
+}
+
 export function BestSellers() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { products: rawProducts, categoryIndices, loading } = useBestSellers(10);
@@ -16,6 +24,10 @@ export function BestSellers() {
   const [contentLoaded, setContentLoaded] = useState(false);
   const initialLoadTimeoutRef = useRef<NodeJS.Timeout>();
   const { currency } = useCurrency();
+
+  // Add customization state management
+  const [customizationData, setCustomizationData] = useState<Record<string, CustomizationData>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, Record<string, string>>>({});
 
   // Ensure products have all required properties for VariantsProduct
   const products = rawProducts.map(product => ({
@@ -75,9 +87,52 @@ export function BestSellers() {
     setSelectedProduct(product);
   };
 
+  // Handle customization changes for a specific product
+  const handleCustomizationChange = (productId: string, data: CustomizationData) => {
+    setCustomizationData(prev => ({
+      ...prev,
+      [productId]: data
+    }));
+  };
+
+  // Handle option changes for a specific product
+  const handleOptionChange = (productId: string, variantId: string, value: string) => {
+    setSelectedOptions(prev => ({
+      ...prev,
+      [productId]: {
+        ...prev[productId],
+        [variantId]: value
+      }
+    }));
+  };
+
+  // Get customization data for a specific product
+  const getProductCustomizationData = (productId: string): CustomizationData => {
+    return customizationData[productId] || {};
+  };
+
+  // Get selected options for a specific product
+  const getProductSelectedOptions = (productId: string): Record<string, string> => {
+    return selectedOptions[productId] || {};
+  };
+
   // Handle modal close
   const handleModalClose = () => {
     setSelectedProduct(null);
+  };
+
+  // Handle customization changes from modal
+  const handleModalCustomizationChange = (data: CustomizationData) => {
+    if (selectedProduct) {
+      handleCustomizationChange(selectedProduct.id, data);
+    }
+  };
+
+  // Handle option changes from modal
+  const handleModalOptionChange = (variantId: string, value: string) => {
+    if (selectedProduct) {
+      handleOptionChange(selectedProduct.id, variantId, value);
+    }
   };
 
   // Render the modal using a portal at the root level
