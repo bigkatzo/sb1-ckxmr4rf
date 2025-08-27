@@ -4,6 +4,7 @@ import { handleError } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
 import { createCategoryIndicesFromProducts } from '../utils/category-mapping';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
+import { isValidStrictToken } from '../utils/strictTokenValidation';
 import type { Product } from '../types/index';
 
 interface PublicProduct {
@@ -14,6 +15,7 @@ interface PublicProduct {
   price: number;
   base_currency?: string;
   images: string[];
+  design_files?: string[];
   quantity: number;
   minimum_order_quantity: number;
   category_id: string;
@@ -28,6 +30,8 @@ interface PublicProduct {
   collection_sale_ended: boolean;
   collection_user_id?: string;
   collection_owner_merchant_tier?: string;
+  collection_ca?: string;
+  collection_strict_token?: string;
   slug: string;
   variants: any[];
   variant_prices: Record<string, number>;
@@ -36,6 +40,13 @@ interface PublicProduct {
   sales_count?: number;
   notes?: Record<string, string>;
   free_notes?: string;
+  pin_order?: number;
+  blank_code?: string;
+  technique?: string;
+  note_for_supplier?: string;
+  visible?: boolean;
+  sale_ended?: boolean;
+  created_at?: string;
   // Add customization fields
   is_customizable?: string;
   customization?: {
@@ -139,7 +150,9 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
             hasValidNotes,
             freeNotesValue,
             is_customizable: product.is_customizable,
-            customization: product.customization
+            customization: product.customization,
+            collection_ca: product.collection_ca,
+            collection_strict_token: product.collection_strict_token
           });
 
           return {
@@ -148,9 +161,9 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
             name: product.name,
             description: product.description,
             price: product.price,
-            baseCurrency: product.base_currency || 'sol',
             imageUrl: product.images?.[0] ? normalizeStorageUrl(product.images[0]) : '',
             images: (product.images || []).map((img: string) => normalizeStorageUrl(img)),
+            designFiles: (product.design_files || []).map((file: string) => normalizeStorageUrl(file)),
             categoryId: product.category_id,
             category: product.category_id ? {
               id: product.category_id,
@@ -169,6 +182,10 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
             collectionSaleEnded: product.collection_sale_ended,
             collectionUserId: product.collection_user_id,
             collectionOwnerMerchantTier: product.collection_owner_merchant_tier as any,
+            collectionCa: product.collection_ca,
+            collectionStrictToken: isValidStrictToken(product.collection_strict_token) 
+              ? product.collection_strict_token 
+              : '',
             slug: product.slug || '',
             stock: product.quantity,
             minimumOrderQuantity: product.minimum_order_quantity || 50,
@@ -179,9 +196,17 @@ export function useBestSellers(limit = 6, sortBy: 'sales' | 'popularity' = 'sale
             salesCount: product.sales_count || 0,
             notes: hasValidNotes ? product.notes : undefined,
             freeNotes: freeNotesValue,
+            pinOrder: product.pin_order ?? null,
+            blankCode: product.blank_code || '',
+            technique: product.technique || '',
+            noteForSupplier: product.note_for_supplier || '',
+            visible: product.visible ?? true,
+            saleEnded: product.sale_ended ?? false,
+            createdAt: product.created_at,
             // Add customization fields from the get_trending_products response
             isCustomizable: product.is_customizable ?? "no",
-            customization: product.customization || { image: false, text: false }
+            customization: product.customization || { image: false, text: false },
+            baseCurrency: product.base_currency || 'SOL'
           };
         });
 
