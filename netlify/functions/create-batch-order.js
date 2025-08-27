@@ -1154,7 +1154,7 @@ exports.handler = async (event, context) => {
     console.log(`Total payment amount: ${totalPaymentForBatch} ${finalCurrencyUnit}`);
 
     // Verify and apply discount
-    const couponCode = paymentMetadata?.couponCode;
+    let couponCode = paymentMetadata?.couponCode;
     let couponDiscount = 0;
 
     console.log(`=== COUPON PROCESSING START ===`);
@@ -1163,13 +1163,14 @@ exports.handler = async (event, context) => {
     console.log(`Total payment before coupon: ${totalPaymentForBatch} ${finalCurrencyUnit}`);
 
     if (couponCode) {
+      couponCode = couponCode.trim().toUpperCase();
       console.log(`Processing coupon code: ${couponCode}`);
       try {
-        console.log(`Fetching coupon from database with code: ${couponCode.toUpperCase()}`);
+        console.log(`Fetching coupon from database with code: ${couponCode}`);
         const { data: coupon, error } = await supabase
           .from('coupons')
           .select('*')
-          .eq('code', couponCode.toUpperCase())
+          .eq('code', couponCode)
           .eq('status', 'active')
           .single();
 

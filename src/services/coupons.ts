@@ -104,6 +104,8 @@ export class CouponService {
         };
       }
 
+      code = code.trim().toUpperCase();
+
       const validateCouponResponse = await fetch('/.netlify/functions/validate-coupons', {
         method: 'POST',
         headers: {
