@@ -11,6 +11,7 @@ import type { MerchantTier } from '../../types/collections';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { formatPrice, formatPriceWithRate } from '../../utils/formatters';
 import { useSolanaPrice } from '../../utils/price-conversion';
+
 interface ProductCardCompactProps {
   product: Product;
   onClick: (product: Product) => void;

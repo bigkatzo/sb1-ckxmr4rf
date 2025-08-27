@@ -1,12 +1,16 @@
 import { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import { ProductCardCompact } from './ProductCardCompact';
 import { ProductModal } from './ProductModal';
 import { useBestSellers } from '../../hooks/useBestSellers';
 import { BestSellersSkeleton } from '../ui/Skeletons';
 import type { Product as VariantsProduct } from '../../types/variants';
 import { useCurrency } from '../../contexts/CurrencyContext';
+import { preloadPageResources, prefetchGallery } from '../../lib/service-worker';
+import { clearPreviewCache, isPreviewMode } from '../../utils/preview';
+import SEO from '../SEO';
 
 export function BestSellers() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -16,12 +20,48 @@ export function BestSellers() {
   const [contentLoaded, setContentLoaded] = useState(false);
   const initialLoadTimeoutRef = useRef<NodeJS.Timeout>();
   const { currency } = useCurrency();
+  const location = useLocation();
+  
+  // Track preview mode state to detect changes
+  const [previewMode] = useState(() => isPreviewMode());
+  
+  // Detect if preview mode has changed during the session
+  useEffect(() => {
+    const currentPreviewMode = isPreviewMode();
+    if (currentPreviewMode !== previewMode) {
+      // Preview mode has changed, need to reload the page to ensure proper state
+      window.location.reload();
+    }
+  }, [previewMode]);
 
   // Ensure products have all required properties for VariantsProduct
   const products = rawProducts.map(product => ({
     ...product,
     visible: product.visible === undefined ? true : product.visible // Ensure visible is defined
   })) as unknown as VariantsProduct[];
+
+  // Preload resources for best sellers products
+  useEffect(() => {
+    if (products.length > 0) {
+      // Tell service worker to preload best sellers resources
+      preloadPageResources('collection', 'best-sellers');
+      
+      // Preload first few product images for better performance
+      products.slice(0, 6).forEach((product, index) => {
+        if (product.imageUrl) {
+          const img = new Image();
+          img.src = product.imageUrl;
+          img.fetchPriority = index < 3 ? 'high' : 'auto';
+          img.crossOrigin = 'anonymous';
+        }
+        
+        // Preload product gallery images if available
+        if (product.images && product.images.length > 0) {
+          prefetchGallery(product.id, [...product.images], 0);
+        }
+      });
+    }
+  }, [products]);
 
   // Mark content as loaded after a brief delay for smooth transition
   useEffect(() => {
@@ -70,6 +110,29 @@ export function BestSellers() {
     scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
   };
 
+  // Handle product selection
+  const handleProductClick = (product: VariantsProduct) => {
+    setSelectedProduct(product);
+  };
+
+  // Handle modal close with proper navigation state management
+  const handleModalClose = async () => {
+    // Check current preview mode state
+    const currentPreviewMode = isPreviewMode();
+    
+    // For preview mode changes, we need to be more careful about cache and state
+    if (currentPreviewMode !== previewMode) {
+      // Preview mode has changed since the best sellers was loaded
+      // Clear cache and force a full page reload to ensure clean state
+      await clearPreviewCache();
+      window.location.reload();
+      return;
+    }
+
+    // Normal close - just close the modal
+    setSelectedProduct(null);
+  };
+
   // Render the modal using a portal at the root level
   const renderModal = () => {
     if (!selectedProduct) return null;
@@ -77,8 +140,9 @@ export function BestSellers() {
     return createPortal(
       <ProductModal 
         product={selectedProduct} 
-        onClose={() => setSelectedProduct(null)}
-        categoryIndex={categoryIndices[selectedProduct.categoryId]}
+        onClose={handleModalClose}
+        categoryIndex={categoryIndices[selectedProduct.categoryId] || 0}
+        loading={loading}
       />,
       document.body // Render directly to the body
     );
@@ -88,8 +152,19 @@ export function BestSellers() {
     return <BestSellersSkeleton />;
   }
 
+  // Get SEO data for best sellers
+  const bestSellersTitle = "Best Sellers | store.fun";
+  const bestSellersDescription = "Discover our most popular products. Shop the best sellers from our curated collection.";
+  const bestSellersImage = products.length > 0 ? products[0].imageUrl : '';
+
   return (
     <>
+      <SEO 
+        title={bestSellersTitle}
+        description={bestSellersDescription}
+        image={bestSellersImage}
+        type="collection"
+      />
       <div className={`relative group ${contentLoaded ? 'content-fade-in' : 'opacity-0'}`}>
         <div
           ref={scrollRef}
@@ -102,7 +177,7 @@ export function BestSellers() {
             >
               <ProductCardCompact 
                 product={product}
-                onClick={() => setSelectedProduct(product)}
+                onClick={handleProductClick}
                 categoryIndex={categoryIndices[product.categoryId]}
                 showCategory={false}
                 isInInitialViewport={index < visibleItemCount}
