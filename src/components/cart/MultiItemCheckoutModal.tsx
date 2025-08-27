@@ -716,12 +716,12 @@ export function MultiItemCheckoutModal({ onClose, isSingle = false, singleItem }
         window.sessionStorage.setItem('lastBatchOrderId', batchOrderData.batchOrderId);
       }
 
+      setOrderProgress({ step: 'processing_payment' });
+
       if (batchOrderData.isFreeOrder) {
         await handleVerifyBatchTransactions(batchOrderData.transactionSignature, batchOrderData.batchOrderId);
         return;
       }
-
-      setOrderProgress({ step: 'processing_payment' });
       
       if( paymentMethod?.type === 'stripe') {
         setShowStripeModal(true);
