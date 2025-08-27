@@ -105,13 +105,25 @@ export function ProductDesignPage() {
     }
   };
 
-  // Only redirect if we're not loading and there's an error or no product
-  if (!loading && (error || !product)) {
+  // Only redirect if we're not loading and there's no product (but not on authentication errors)
+  if (!loading && !product) {
     return <Navigate to={`/${collectionSlug}`} replace />;
   }
 
   const hasDesignFiles = product?.designFiles && product.designFiles.length > 0;
   const hasProductImages = product?.images && product.images.length > 0;
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading design files...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white pb-20">

@@ -1,19 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSupabaseWithWallet } from './useSupabaseWithWallet';
+import { createClient } from '@supabase/supabase-js';
 import { handleError } from '../lib/error-handling';
 import { normalizeStorageUrl } from '../lib/storage';
 import { canPreviewHiddenContent } from '../utils/preview';
 import { cacheManager, CACHE_DURATIONS } from '../lib/cache';
 import type { Product } from '../types/index';
 import { isValidStrictToken } from '../utils/strictTokenValidation';
+import type { Database } from '../lib/database.types';
 
 export function useProduct(collectionSlug?: string, productSlug?: string, includeHiddenForDesign?: boolean) {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Use the authenticated Supabase client
-  const { client: supabase, isAuthenticated, diagnostics } = useSupabaseWithWallet({ allowMissingToken: true });
+  // For design pages, use a public client without authentication
+  // For regular product pages, use the authenticated Supabase client
+  const { client: authenticatedSupabase, isAuthenticated, diagnostics } = useSupabaseWithWallet({ 
+    allowMissingToken: true 
+  });
+  
+  // Create a public client for design pages
+  const publicSupabase = useMemo(() => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Supabase URL or key not found in environment variables');
+      return null;
+    }
+    
+    return createClient<Database>(supabaseUrl, supabaseKey);
+  }, []);
+  
+  // Use public client for design pages, authenticated client for regular pages
+  const supabase = includeHiddenForDesign ? publicSupabase : authenticatedSupabase;
 
   useEffect(() => {
     let isMounted = true;
@@ -247,7 +268,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
     return () => {
       isMounted = false;
     };
-  }, [collectionSlug, productSlug, includeHiddenForDesign, supabase, isAuthenticated, diagnostics]);
+  }, [collectionSlug, productSlug, includeHiddenForDesign, supabase, isAuthenticated, diagnostics, publicSupabase, authenticatedSupabase]);
 
   return { product, loading, error };
 }
