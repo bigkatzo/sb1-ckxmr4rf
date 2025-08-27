@@ -643,6 +643,8 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
       setIsAuthInProgress(true);
       
       // First, ensure user is authenticated to Supabase
+      // COMMENTED OUT: Supabase authentication after Privy connection
+      /*
       if (!supabaseAuthenticated) {
         console.log('🔐 Authenticating to Supabase...');
         const authSuccess = await authenticateToSupabase(walletAddress);
@@ -657,6 +659,7 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         // Update wallet address in existing session
         await updateWalletInSupabase(walletAddress);
       }
+      */
       
       // Create a simple token based on wallet address and timestamp
       const tokenData = {
