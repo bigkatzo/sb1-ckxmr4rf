@@ -1393,7 +1393,7 @@ exports.handler = async (event, context) => {
               quantity,
               base_currency: baseCurrency, // Ensure baseCurrency is stored
               order_number: orderNumber,
-              status: 'draft',
+              status: isFreeOrder ? 'pending' : 'draft',
               item_index: itemIndex + 1,
               total_items_in_batch: processedItems.length,
               ...(isFreeOrder && { 
@@ -1412,7 +1412,7 @@ exports.handler = async (event, context) => {
             orderNumber,
             productId: product.id,
             productName: product.name,
-            status: isFreeOrder ? 'confirmed' : 'draft',
+            status: isFreeOrder ? 'pending' : 'draft',
             quantity: quantity,
             totalItemsInBatch: processedItems.length,
             price: actualPrice,
