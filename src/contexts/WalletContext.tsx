@@ -762,11 +762,11 @@ function WalletContextProvider({ children }: { children: React.ReactNode }) {
         // When wallet first connects, authenticate to both Privy and Supabase
         const token = await createAuthToken(false, true);
         
-        // Show a notification on successful authentication
+        // Show a notification on successful connection
         if (token) {
           console.log('✅ Auth token created, showing success notification');
           const walletType = isEmbeddedWallet ? 'Embedded wallet' : 'Wallet';
-          addNotification('success', `${walletType} connected and authenticated`);
+          addNotification('success', `${walletType} connected`);
         } else {
           console.log('⚠️ No auth token created, showing basic success notification');
           const walletType = isEmbeddedWallet ? 'Embedded wallet' : 'Wallet';
