@@ -1,20 +1,16 @@
 import { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import { ProductCardCompact } from './ProductCardCompact';
 import { ProductModal } from './ProductModal';
 import { useBestSellers } from '../../hooks/useBestSellers';
 import { BestSellersSkeleton } from '../ui/Skeletons';
 import type { Product as VariantsProduct } from '../../types/variants';
 import { useCurrency } from '../../contexts/CurrencyContext';
-
-// Add interface for customization data
-interface CustomizationData {
-  image?: File | null;
-  text?: string;
-  imagePreview?: string;
-  imageBase64?: string;
-}
+import { preloadPageResources, prefetchGallery } from '../../lib/service-worker';
+import { clearPreviewCache, isPreviewMode } from '../../utils/preview';
+import SEO from '../SEO';
 
 export function BestSellers() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -24,16 +20,48 @@ export function BestSellers() {
   const [contentLoaded, setContentLoaded] = useState(false);
   const initialLoadTimeoutRef = useRef<NodeJS.Timeout>();
   const { currency } = useCurrency();
-
-  // Add customization state management
-  const [customizationData, setCustomizationData] = useState<Record<string, CustomizationData>>({});
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, Record<string, string>>>({});
+  const location = useLocation();
+  
+  // Track preview mode state to detect changes
+  const [previewMode] = useState(() => isPreviewMode());
+  
+  // Detect if preview mode has changed during the session
+  useEffect(() => {
+    const currentPreviewMode = isPreviewMode();
+    if (currentPreviewMode !== previewMode) {
+      // Preview mode has changed, need to reload the page to ensure proper state
+      window.location.reload();
+    }
+  }, [previewMode]);
 
   // Ensure products have all required properties for VariantsProduct
   const products = rawProducts.map(product => ({
     ...product,
     visible: product.visible === undefined ? true : product.visible // Ensure visible is defined
   })) as unknown as VariantsProduct[];
+
+  // Preload resources for best sellers products
+  useEffect(() => {
+    if (products.length > 0) {
+      // Tell service worker to preload best sellers resources
+      preloadPageResources('collection', 'best-sellers');
+      
+      // Preload first few product images for better performance
+      products.slice(0, 6).forEach((product, index) => {
+        if (product.imageUrl) {
+          const img = new Image();
+          img.src = product.imageUrl;
+          img.fetchPriority = index < 3 ? 'high' : 'auto';
+          img.crossOrigin = 'anonymous';
+        }
+        
+        // Preload product gallery images if available
+        if (product.images && product.images.length > 0) {
+          prefetchGallery(product.id, [...product.images], 0);
+        }
+      });
+    }
+  }, [products]);
 
   // Mark content as loaded after a brief delay for smooth transition
   useEffect(() => {
@@ -87,52 +115,22 @@ export function BestSellers() {
     setSelectedProduct(product);
   };
 
-  // Handle customization changes for a specific product
-  const handleCustomizationChange = (productId: string, data: CustomizationData) => {
-    setCustomizationData(prev => ({
-      ...prev,
-      [productId]: data
-    }));
-  };
+  // Handle modal close with proper navigation state management
+  const handleModalClose = async () => {
+    // Check current preview mode state
+    const currentPreviewMode = isPreviewMode();
+    
+    // For preview mode changes, we need to be more careful about cache and state
+    if (currentPreviewMode !== previewMode) {
+      // Preview mode has changed since the best sellers was loaded
+      // Clear cache and force a full page reload to ensure clean state
+      await clearPreviewCache();
+      window.location.reload();
+      return;
+    }
 
-  // Handle option changes for a specific product
-  const handleOptionChange = (productId: string, variantId: string, value: string) => {
-    setSelectedOptions(prev => ({
-      ...prev,
-      [productId]: {
-        ...prev[productId],
-        [variantId]: value
-      }
-    }));
-  };
-
-  // Get customization data for a specific product
-  const getProductCustomizationData = (productId: string): CustomizationData => {
-    return customizationData[productId] || {};
-  };
-
-  // Get selected options for a specific product
-  const getProductSelectedOptions = (productId: string): Record<string, string> => {
-    return selectedOptions[productId] || {};
-  };
-
-  // Handle modal close
-  const handleModalClose = () => {
+    // Normal close - just close the modal
     setSelectedProduct(null);
-  };
-
-  // Handle customization changes from modal
-  const handleModalCustomizationChange = (data: CustomizationData) => {
-    if (selectedProduct) {
-      handleCustomizationChange(selectedProduct.id, data);
-    }
-  };
-
-  // Handle option changes from modal
-  const handleModalOptionChange = (variantId: string, value: string) => {
-    if (selectedProduct) {
-      handleOptionChange(selectedProduct.id, variantId, value);
-    }
   };
 
   // Render the modal using a portal at the root level
@@ -144,6 +142,7 @@ export function BestSellers() {
         product={selectedProduct} 
         onClose={handleModalClose}
         categoryIndex={categoryIndices[selectedProduct.categoryId] || 0}
+        loading={loading}
       />,
       document.body // Render directly to the body
     );
@@ -153,8 +152,19 @@ export function BestSellers() {
     return <BestSellersSkeleton />;
   }
 
+  // Get SEO data for best sellers
+  const bestSellersTitle = "Best Sellers | store.fun";
+  const bestSellersDescription = "Discover our most popular products. Shop the best sellers from our curated collection.";
+  const bestSellersImage = products.length > 0 ? products[0].imageUrl : '';
+
   return (
     <>
+      <SEO 
+        title={bestSellersTitle}
+        description={bestSellersDescription}
+        image={bestSellersImage}
+        type="collection"
+      />
       <div className={`relative group ${contentLoaded ? 'content-fade-in' : 'opacity-0'}`}>
         <div
           ref={scrollRef}
