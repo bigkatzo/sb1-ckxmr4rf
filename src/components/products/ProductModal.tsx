@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { X, ChevronLeft, ChevronRight, Clock, Ban, ShoppingBag } from 'lucide-react';
-import { useWallet } from '../../contexts/WalletContext';
-import { useModal } from '../../contexts/ModalContext';
+import { X, ChevronLeft, ChevronRight, Clock, Ban } from 'lucide-react';
 import { CategoryDescription } from '../collections/CategoryDescription';
 import { CompactReviewSection } from '../reviews/CompactReviewSection';
 import { VariantDisplay } from './variants/VariantDisplay';
@@ -81,27 +79,6 @@ function ProductBuyButton({
   allOptionsSelected: boolean;
   isCustomizationValid: boolean;
 }) {
-  const { isConnected, login } = useWallet();
-  const { showVerificationModal } = useModal();
-
-  const handleBuyClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    try {
-      // If wallet not connected, use Privy's login method
-      if (!isConnected) {
-        login();
-        return;
-      }
-
-      // If wallet is connected, show verification modal
-      showVerificationModal(product, selectedOptions, customizationData);
-    } catch (error) {
-      console.error('Buy error:', error);
-    }
-  };
-
   if (isUpcoming) {
     return (
       <button 
@@ -131,16 +108,14 @@ function ProductBuyButton({
 
   return (
     <div className="flex gap-2 w-full">
-      <button
-        onClick={handleBuyClick}
+      <BuyButton
+        product={product}
+        selectedOptions={selectedOptions}
+        customizationData={customizationData}
         disabled={isDisabled}
-        className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-3 rounded-lg transition-colors text-sm sm:text-base"
-      >
-        <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
-        <span>
-          {!isConnected ? 'Connect Wallet to Buy' : 'Buy Now'}
-        </span>
-      </button>
+        className="flex-1 flex items-center justify-center gap-2 py-3 text-sm sm:text-base"
+        showModal={false}
+      />
       
       <AddToCartButton
         product={product}
