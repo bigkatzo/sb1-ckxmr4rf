@@ -33,8 +33,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
     return createClient<Database>(supabaseUrl, supabaseKey);
   }, []);
   
-  // Use public client for design pages, authenticated client for regular pages
-  const supabase = includeHiddenForDesign ? publicSupabase : authenticatedSupabase;
+  // Use public client for design pages or when not authenticated, authenticated client for regular pages when authenticated
+  const supabase = includeHiddenForDesign || !isAuthenticated ? publicSupabase : authenticatedSupabase;
 
   useEffect(() => {
     let isMounted = true;
@@ -113,8 +113,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
         console.log(`Fetching product with preview mode: ${includeHidden}, collection: ${collectionSlug}, product: ${productSlug}, authenticated: ${isAuthenticated}`);
         
         let productQuery;
-        if (includeHidden && !includeHiddenForDesign) {
-          // When in preview mode (but not design page), fetch from products table with joins
+        if (includeHidden && !includeHiddenForDesign && isAuthenticated) {
+          // When in preview mode (but not design page) AND authenticated, fetch from products table with joins
           productQuery = supabase
             .from('products')
             .select(`
@@ -142,7 +142,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
             .eq('slug', productSlug)
             .eq('collections.slug', collectionSlug);
         } else {
-          // Use public_products_with_categories view for design pages and regular pages
+          // Use public_products_with_categories view for design pages, regular pages, and unauthenticated users
           productQuery = supabase
           .from('public_products_with_categories')
           .select('*')
@@ -165,8 +165,8 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
 
         // Extract merchant tier from different query structures
         let collectionOwnerMerchantTier;
-        if (includeHidden && !includeHiddenForDesign) {
-          // In preview mode (but not design page), we need to fetch merchant tier separately from user_profiles
+        if (includeHidden && !includeHiddenForDesign && isAuthenticated) {
+          // In preview mode (but not design page) AND authenticated, we need to fetch merchant tier separately from user_profiles
           // For now, let's set it to null and fetch it later if needed
           collectionOwnerMerchantTier = null;
           
@@ -186,7 +186,7 @@ export function useProduct(collectionSlug?: string, productSlug?: string, includ
             }
           }
         } else {
-          // In normal mode and design pages, it comes directly from the view
+          // In normal mode, design pages, and for unauthenticated users, it comes directly from the view
           collectionOwnerMerchantTier = data.collection_owner_merchant_tier;
         }
 

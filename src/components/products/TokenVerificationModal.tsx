@@ -988,6 +988,18 @@ export function TokenVerificationModal({
   const handlePaymentClick = (method: 'stripe' | 'crypto') => (e: React.MouseEvent) => {
     e.preventDefault();
 
+    // Check if wallet is required but not connected
+    if (method === 'crypto' && !walletAddress) {
+      toast.error('Please connect your wallet to pay with crypto');
+      return;
+    }
+
+    // For products with eligibility rules, wallet is required even for credit card
+    if (product.category?.eligibilityRules?.groups?.length && !walletAddress) {
+      toast.error('Please connect your wallet to verify eligibility');
+      return;
+    }
+
     createTransaction(method);
   };
 
@@ -1388,7 +1400,7 @@ export function TokenVerificationModal({
                               onClick={async () => {
                                 try {
                                   if (!walletAddress) {
-                                    toast.error('Please connect your wallet first');
+                                    toast.error('Please connect your wallet first to apply coupon');
                                     return;
                                   }
                                   const result = await CouponService.calculateDiscount(

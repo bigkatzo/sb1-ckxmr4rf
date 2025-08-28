@@ -114,7 +114,7 @@ function ProductBuyButton({
         customizationData={customizationData}
         disabled={isDisabled}
         className="flex-1 flex items-center justify-center gap-2 py-3 text-sm sm:text-base"
-        showModal={true}
+        showModal={false}
       />
       
       <AddToCartButton
